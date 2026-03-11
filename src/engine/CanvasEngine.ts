@@ -1,0 +1,109 @@
+// ============================================================
+// APHANTASIA — CanvasEngine Abstraction Layer
+// ============================================================
+// NOTHING in the product imports tldraw directly.
+// All canvas interactions go through this interface.
+// To swap canvas engines: implement this interface, change
+// one import in provider.ts. Everything else is untouched.
+// ============================================================
+
+export type ShapeType =
+  | "rectangle"
+  | "oval"
+  | "text"
+  | "arrow"
+  | "sticky"
+  | "agent"
+  | "frame";
+
+export type SemanticTag =
+  | "hero"
+  | "nav"
+  | "section"
+  | "cards"
+  | "button"
+  | "image"
+  | "footer"
+  | "text-block"
+  | "split"
+  | "form"
+  | "scratchpad"
+  | "context-note"
+  | "page-candidate"
+  | "unknown";
+
+export interface CanvasShape {
+  id: string;
+  type: ShapeType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label?: string;
+  content?: string;
+  semanticTag?: SemanticTag;
+  isInsideFrame: boolean;
+  contextNote?: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface CanvasFrame {
+  id: string;
+  type: "desktop" | "mobile" | "tablet" | "slide";
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+}
+
+export interface CanvasDocument {
+  id: string;
+  version: number;
+  outputType: "site" | "slides" | "doodles";
+  frame: CanvasFrame;
+  shapes: CanvasShape[];
+  globalContext: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CanvasEventType =
+  | "shape:created"
+  | "shape:updated"
+  | "shape:deleted"
+  | "shape:selected"
+  | "shape:deselected"
+  | "canvas:changed"
+  | "canvas:saved";
+
+export interface CanvasEvent {
+  type: CanvasEventType;
+  shapeId?: string;
+  shape?: CanvasShape;
+}
+
+export type CanvasEventHandler = (event: CanvasEvent) => void;
+
+export interface CanvasEngine {
+  initialize(container: HTMLElement, document?: CanvasDocument): Promise<void>;
+  destroy(): void;
+  getDocument(): CanvasDocument;
+  loadDocument(doc: CanvasDocument): void;
+  clearCanvas(): void;
+  getShapes(): CanvasShape[];
+  getShape(id: string): CanvasShape | undefined;
+  createShape(shape: Omit<CanvasShape, "id">): CanvasShape;
+  updateShape(id: string, updates: Partial<CanvasShape>): void;
+  deleteShape(id: string): void;
+  getSelectedShapes(): CanvasShape[];
+  selectShape(id: string): void;
+  deselectAll(): void;
+  zoomToFit(): void;
+  zoomToShape(id: string): void;
+  setZoom(level: number): void;
+  createShapesFromSemanticMap(shapes: Omit<CanvasShape, "id">[]): CanvasShape[];
+  on(event: CanvasEventType, handler: CanvasEventHandler): void;
+  off(event: CanvasEventType, handler: CanvasEventHandler): void;
+  serialize(): string;
+  deserialize(data: string): void;
+}
