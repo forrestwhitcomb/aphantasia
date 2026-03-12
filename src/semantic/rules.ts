@@ -16,9 +16,14 @@ export function resolveSemanticTag(
   const { width, height, type, label, y } = shape;
 
   // Non-rectangle shape types map directly
-  if (type === "text" || type === "sticky") return "text-block";
+  if (type === "text") return "text-block";
+  if (type === "note" || type === "sticky") return "context-note";
   if (type === "arrow") return "unknown";
   if (type === "oval") return "image";
+  if (type === "image") return "image";
+
+  // roundedRect with small size → button/CTA
+  // Otherwise, treat same as rectangle for geometric rules
 
   // Label hints take precedence over geometric rules
   const hint = label?.toLowerCase() ?? "";
@@ -44,6 +49,7 @@ export function resolveSemanticTag(
   const isAtTop   = yRatio      < 0.25;
   const isAtBottom = yRatio     > 0.72;
 
+  if (type === "roundedRect" && isSmall) return "button";
   if (isSmall) return "button";
   if (isAtTop && isWide && isShort) return "nav";
   if (isAtTop && isWide && isTall) return "hero";

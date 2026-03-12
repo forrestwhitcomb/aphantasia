@@ -8,6 +8,7 @@ export type {
   CanvasEventType,
   ShapeType,
   SemanticTag,
+  CanvasTool,
 } from "./CanvasEngine";
 
 export { canvasEngine, CanvasView } from "./engines/provider";

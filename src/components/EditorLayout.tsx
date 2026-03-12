@@ -5,7 +5,7 @@ import { PreviewPane } from "./PreviewPane";
 
 export function EditorLayout() {
   return (
-    <main className="w-screen h-screen flex bg-[#090909]">
+    <main className="w-full h-full flex bg-[#090909] overflow-hidden">
       {/* Canvas — left two-thirds */}
       <div className="w-2/3 h-full relative">
         <CanvasView />

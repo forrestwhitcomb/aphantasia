@@ -9,12 +9,17 @@
 
 export type ShapeType =
   | "rectangle"
-  | "oval"
+  | "roundedRect"
   | "text"
+  | "note"
+  | "image"
+  | "oval"
   | "arrow"
   | "sticky"
   | "agent"
   | "frame";
+
+export type CanvasTool = "select" | "rectangle" | "roundedRect" | "text" | "note" | "frame";
 
 export type SemanticTag =
   | "hero"
@@ -44,6 +49,9 @@ export interface CanvasShape {
   semanticTag?: SemanticTag;
   isInsideFrame: boolean;
   contextNote?: string;
+  linkedNoteIds?: string[];
+  linkedShapeId?: string;
+  isSuggestion?: boolean;
   meta?: Record<string, unknown>;
 }
 
@@ -61,6 +69,8 @@ export interface CanvasDocument {
   version: number;
   outputType: "site" | "slides" | "doodles";
   frame: CanvasFrame;
+  frames: CanvasFrame[];
+  activeFrameId: string;
   shapes: CanvasShape[];
   globalContext: string;
   createdAt: string;
@@ -106,4 +116,6 @@ export interface CanvasEngine {
   off(event: CanvasEventType, handler: CanvasEventHandler): void;
   serialize(): string;
   deserialize(data: string): void;
+  setTool(tool: CanvasTool): void;
+  getTool(): CanvasTool;
 }

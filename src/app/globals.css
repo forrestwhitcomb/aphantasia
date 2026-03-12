@@ -8,10 +8,20 @@
   padding: 0;
 }
 
-html,
+html {
+  width: 100%;
+  min-height: 100%;
+  background: #F0EEE6;
+}
+
 body {
   width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #090909;
+  min-height: 100%;
+  background: #F0EEE6;
+  overflow-x: hidden;
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(240, 97, 139, 0.25);
 }

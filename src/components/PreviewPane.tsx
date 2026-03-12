@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { canvasEngine } from "@/engine";
 import { resolveSemantics } from "@/semantic/SemanticResolver";
 import { WebRenderer } from "@/render/renderers/WebRenderer";
-import { FRAME_WIDTH } from "@/engine/engines/TldrawCanvasEngine";
+import { FRAME_WIDTH } from "@/engine/engines/CustomCanvasEngine";
 
 const renderer = new WebRenderer();
 

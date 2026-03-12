@@ -1,7 +1,7 @@
 # Aphantasia — Claude Code Context
 
 > This file is read automatically by Claude Code at the start of every session.
-> Last updated: Phase 1 complete.
+> Last updated: Phase 1.5 — Custom canvas engine + splash/landing page complete.
 
 ---
 
@@ -137,29 +137,25 @@ BozoBox (`https://bozobox.vercel.app`) is the existing prototype Aphantasia buil
 
 ## Phase 1 — All Decisions Locked
 
-### 1.1 — Canvas Engine: tldraw SDK
-tldraw is the chosen canvas engine.
-- Purpose-built infinite canvas SDK
-- Custom shape system — Aphantasia shapes are first-class typed objects with semantic metadata
-- Full whiteboard primitives: selection, resize, rotate, snap, undo/redo
-- Programmatic API — critical for AI render pipeline
-- First-party AI primitives
-- Multiplayer via @tldraw/sync when needed
-- DOM canvas rendering — shapes can render arbitrary React components
-
-**License status:** 100-day free trial + hobby license applied for. Startup pricing to be negotiated before day 100.
-
-**Fallback ladder:**
-1. tldraw hobby license (free, non-commercial)
-2. tldraw startup pricing
-3. Excalidraw core — MIT licensed, free forever
-4. Konva.js — full control, zero licensing cost
+### 1.1 — Canvas Engine: Custom DOM-Based Canvas
+**tldraw was replaced with a lightweight custom canvas engine (zero external dependencies).**
+- tldraw was too heavy (~162 packages, ProseMirror, yjs, etc.) for what Aphantasia needs
+- Previous tldraw implementation saved at commit `6c19758` for reference
+- Custom engine at `src/engine/engines/CustomCanvasEngine.tsx` (~850 lines)
+- DOM-based: positioned `<div>` elements inside a CSS-transformed "world" div
+- Full feature set: pan (trackpad/Space+drag), zoom (pinch/Ctrl+scroll), draw rectangles, select, move, resize (8 handles), inline label editing via `contentEditable`, delete
+- Frame selection + resize with edge-only clickable borders (interior is click-through for shape interaction)
+- Singleton pattern via `getCustomEngine()` — shared between CanvasView and PreviewPane
+- Event bridge: engine `onStateChange` callback triggers React re-render
+- Coordinate normalization in `getDocument()`: inside-frame shapes get frame-relative coords for semantic rules
+- Frame containment: geometric overlap (>50% of shape area inside frame)
 
 ### 1.2 — Canvas Abstraction Layer
-**tldraw is never called directly in product code.**
+**The canvas engine is never called directly in product code (except provider.ts).**
 
-All canvas interactions go through the `CanvasEngine` interface at `src/engine/CanvasEngine.ts`.
-To swap engines: implement `CanvasEngine`, change one line in `src/engine/engines/provider.ts`. Nothing else changes.
+All canvas interactions go through the `CanvasEngine` interface at `src/engine/CanvasEngine.ts` (24 methods).
+To swap engines: implement `CanvasEngine`, change one import in `src/engine/engines/provider.ts`. Nothing else changes.
+Currently wired to `CustomCanvasEngine`. The `CanvasView` React component is also exported from the provider.
 
 ### 1.3 — AI Inference Pipeline
 **Debounced on change. Streaming output. Claude Sonnet.**
@@ -173,9 +169,10 @@ To swap engines: implement `CanvasEngine`, change one line in `src/engine/engine
 
 | Concern | Decision |
 |---|---|
-| Framework | Next.js (TypeScript) |
-| Styling | Tailwind CSS |
-| Canvas Engine | tldraw SDK (behind CanvasEngine abstraction) |
+| Framework | Next.js 16.1.6 (TypeScript, React 19) |
+| Styling | Tailwind CSS v4 (via `@tailwindcss/postcss`) |
+| Canvas Engine | Custom DOM-based (behind CanvasEngine abstraction) |
+| Font | Poppins (via `next/font/google`) for UI, Geist for code |
 | AI Provider | Anthropic Claude Sonnet via `@anthropic-ai/sdk` |
 | AI Trigger | Debounced on canvas change (1.5–2s) |
 | AI Output | Streaming into preview pane |
@@ -184,17 +181,20 @@ To swap engines: implement `CanvasEngine`, change one line in `src/engine/engine
 | Deployment | Vercel |
 | Export targets | GitHub (OAuth), Vercel (API), HTML zip, PDF, PPTX |
 
+**Tailwind v4 caveat:** Color utilities like `text-white`, `bg-white/10`, and positioning utilities like `bottom-4` do not reliably generate CSS in this project's Tailwind v4 setup. Use **inline styles** for colors and positioning. Tailwind layout utilities (`flex`, `h-screen`, `relative`, etc.) work fine.
+
 ---
 
 ## Architecture Rules — Claude Code Must Always Follow These
 
-1. **Never import tldraw directly** outside of `src/engine/engines/TldrawCanvasEngine.ts`
+1. **Never import the canvas engine directly** outside of `src/engine/engines/provider.ts` — use `canvasEngine` and `CanvasView` from `@/engine`
 2. **Never import a specific renderer directly** — always use `RenderEngine` interface
 3. **Never import a specific export adapter directly** — always use `ExportAdapter` interface
 4. **All AI calls go through `src/lib/anthropic.ts`** — never instantiate Anthropic client inline
 5. **Canvas data model (`CanvasDocument`, `CanvasShape`) is the single source of truth**
-6. **All canvas interactions go through `src/engine/CanvasEngine.ts`** — never call tldraw directly
+6. **All canvas interactions go through `src/engine/CanvasEngine.ts` interface** — never call engine internals directly
 7. **All canvas elements are stored** — nothing discarded based on frame position
+8. **Use inline styles for colors and positioning** — Tailwind v4 color/positioning utilities are unreliable in this project
 
 ---
 
@@ -203,48 +203,86 @@ To swap engines: implement `CanvasEngine`, change one line in `src/engine/engine
 ```
 aphantasia/
 ├── .claude/context.md              # This file
-├── CONTEXT.md                      # Same file — human-readable
 ├── src/
+│   ├── app/                        # Next.js app directory
+│   │   ├── page.tsx                # Scrollable page: SplashHero + floating editor panels
+│   │   ├── layout.tsx              # Root layout with Poppins + Geist fonts
+│   │   ├── globals.css             # Tailwind + gradient keyframes + .splash-gradient
+│   │   └── api/                    # render/, agent/, export/
 │   ├── engine/                     # Canvas abstraction layer
-│   │   ├── CanvasEngine.ts         # THE interface
-│   │   ├── index.ts
+│   │   ├── CanvasEngine.ts         # THE interface (24 methods, types, events)
+│   │   ├── index.ts                # Re-exports canvasEngine + CanvasView from provider
 │   │   └── engines/
-│   │       ├── TldrawCanvasEngine.ts
-│   │       ├── KonvaCanvasEngine.ts
-│   │       ├── ExcalidrawCanvasEngine.ts
+│   │       ├── CustomCanvasEngine.tsx  # Active engine (~850 lines) + CanvasView component
 │   │       └── provider.ts         # One-line engine swap
 │   ├── semantic/                   # Shape → component semantic layer
 │   │   ├── SemanticResolver.ts
-│   │   ├── rules.ts
-│   │   └── vocabulary.ts
+│   │   └── rules.ts               # Rules-based semantic tag resolver (position/size/label)
 │   ├── render/                     # Two-phase render pipeline
 │   │   ├── RenderEngine.ts
-│   │   ├── pipeline.ts
-│   │   ├── serializer.ts           # Canvas state → AI prompt
 │   │   └── renderers/
-│   │       ├── WebRenderer.ts      # v1
-│   │       ├── SlideRenderer.ts    # v1.5
-│   │       └── DoodleRenderer.ts   # v2
-│   ├── components/                 # Prebuilt component library
-│   │   └── web/                    # Hero, Nav, Cards, Section, Footer, CTA, Split, Form
-│   ├── agent/                      # Canvas Agent
-│   │   ├── Agent.tsx
-│   │   ├── AgentEngine.ts
-│   │   └── prompts.ts
-│   ├── context/                    # Global + per-element context system
-│   │   ├── ContextStore.ts
-│   │   └── ContextPanel.tsx
-│   ├── export/                     # Pluggable export adapters
-│   │   ├── ExportAdapter.ts
-│   │   └── adapters/               # GitHub, Vercel, HTML, PDF, PPTX
-│   ├── app/                        # Next.js app directory
-│   │   ├── page.tsx
-│   │   └── api/                    # render/, agent/, export/
+│   │       └── WebRenderer.ts      # Phase 1: semantic tags → HTML components
+│   ├── components/                 # UI components
+│   │   ├── SplashHero.tsx          # Landing splash: branding, tagline, headline
+│   │   ├── OutputToggle.tsx        # Site/Slides/Doodles pill toggle (floats in canvas)
+│   │   ├── Toolbar.tsx             # Bottom toolbar: tool buttons + Deploy (floats in canvas)
+│   │   ├── PreviewPane.tsx         # Live HTML preview in scaled iframe
+│   │   └── EditorLayout.tsx        # Two-pane layout (canvas + preview) — not currently used by page.tsx
+│   ├── agent/                      # Canvas Agent (future)
+│   ├── export/                     # Pluggable export adapters (future)
 │   └── lib/
 │       ├── anthropic.ts            # Anthropic singleton — use this everywhere
 │       └── utils.ts
 └── .env.example
 ```
+
+---
+
+## Current UI Architecture (Phase 1.5)
+
+### Page Structure
+The app is a **single scrollable page** with two zones:
+
+1. **Splash zone** (first 100vh): Animated gradient background (warm peach/coral/orange/rose, CSS keyframes on `background-position`). Contains "APHANTASIA" branding, tagline "From small shapes come big ideas", headline "Build something with Aphantasia", and a scroll-hint arrow.
+
+2. **Editor zone** (second 100vh, pulled up 25vh with negative margin so it peeks below the fold): Two **floating panels** with rounded corners and shadows on top of the gradient:
+   - **Canvas panel** (flex: 2): Dark `#090909` rounded card containing `CanvasView`, the `OutputToggle` at top-center, and the `Toolbar` at bottom-center
+   - **Preview panel** (flex: 1): Dark `#0d0d0d` rounded card containing `PreviewPane` (live HTML preview in scaled iframe)
+
+The gradient background continues behind both panels — visible at edges and corners.
+
+### Key UI Components
+- **OutputToggle** (`src/components/OutputToggle.tsx`): Pill-style toggle for Site/Slides/Doodles. Floats absolute top-center of canvas panel. Calls `getCustomEngine().setOutputType()`.
+- **Toolbar** (`src/components/Toolbar.tsx`): Dark glass-effect pill floating absolute bottom-center of canvas panel. Contains 5 tool buttons (cursor, rectangle, rounded-rect, text, AI sparkle) + separator + Deploy button. Tool switching UI works (active highlight) but tool-switching logic not yet wired to canvas — canvas always draws rectangles.
+- **SplashHero** (`src/components/SplashHero.tsx`): Just text content, no background (parent provides gradient).
+- **PreviewPane** (`src/components/PreviewPane.tsx`): Listens to `canvas:changed` events, runs `resolveSemantics()` + `WebRenderer.renderPhase1()`, sets iframe `srcDoc`. 200ms debounce.
+
+### Render Pipeline (working end-to-end)
+```
+Canvas shapes → getDocument() (normalize coords) → resolveSemantics() (rules.ts) → WebRenderer.renderPhase1() → HTML string → PreviewPane iframe
+```
+- Shapes inside frame get semantic tags based on position/size/label (nav, hero, section, cards, footer, etc.)
+- Phase 1 is instant, rules-based, no AI
+- Phase 2 (AI refinement) is architectured but not yet implemented
+
+### Canvas Engine Interaction
+- **Pan**: Two-finger trackpad scroll or Space+drag
+- **Zoom**: Pinch (Ctrl/Cmd+scroll)
+- **Draw**: Click+drag on empty space creates rectangle
+- **Select**: Click shape, click empty to deselect
+- **Move**: Drag selected shape
+- **Resize**: Drag handles (8: corners + edges), also works on frame
+- **Label**: Double-click shape → contentEditable overlay
+- **Delete**: Delete/Backspace key
+- **Frame**: Edge-only clickable (interior is click-through), resizable
+
+### What's Not Yet Implemented
+- Tool switching (toolbar buttons are visual-only, canvas always draws rectangles)
+- Phase 2 AI render (streaming refinement)
+- Canvas Agent (AI floating on canvas)
+- Export/Deploy pipeline
+- Persistence (save/load)
+- Slides and Doodles renderers
 
 ---
 
