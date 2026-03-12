@@ -10,4 +10,4 @@ export type {
   SemanticTag,
 } from "./CanvasEngine";
 
-export { canvasEngine } from "./engines/provider";
+export { canvasEngine, CanvasView } from "./engines/provider";
