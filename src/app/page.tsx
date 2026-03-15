@@ -1,13 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { SplashHero } from "@/components/SplashHero";
 import { GradientBackground } from "@/components/GradientBackground";
 import { CanvasView } from "@/engine";
 import { PreviewPane } from "@/components/PreviewPane";
 import { Toolbar } from "@/components/Toolbar";
 import { OutputToggle } from "@/components/OutputToggle";
+import { ContextPanel, contextStore } from "@/context";
 
 export default function Home() {
+  const [contextOpen, setContextOpen] = useState(false);
+  const hasContext = contextStore.getContext() !== null;
+
   return (
     <div style={{ minHeight: "calc(175vh - 100px)", position: "relative" }}>
       {/* Gradient background — fixed, behind everything */}
@@ -72,6 +77,19 @@ export default function Home() {
                 boxShadow: "0 4px 22.4px rgba(155,155,155,0.25)",
               }}
             >
+              {/* Context panel trigger — top-left of canvas */}
+              <ContextTrigger
+                isOpen={contextOpen}
+                hasContext={hasContext}
+                onClick={() => setContextOpen((v) => !v)}
+              />
+
+              {/* Context slide-in panel */}
+              <ContextPanel
+                isOpen={contextOpen}
+                onClose={() => setContextOpen(false)}
+              />
+
               {/* Output type toggle — top center of canvas */}
               <div
                 style={{
@@ -105,5 +123,66 @@ export default function Home() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ---- Context trigger button ----
+
+function ContextTrigger({
+  isOpen,
+  hasContext,
+  onClick,
+}: {
+  isOpen: boolean;
+  hasContext: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title="Open context panel"
+      style={{
+        position: "absolute",
+        top: 12,
+        left: 12,
+        zIndex: 50,
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "6px 12px",
+        background: isOpen
+          ? "rgba(26,26,26,0.9)"
+          : "rgba(26,26,26,0.75)",
+        backdropFilter: "blur(8px)",
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.1)",
+        color: "#fff",
+        fontSize: 12,
+        fontWeight: 500,
+        fontFamily: "var(--font-poppins), sans-serif",
+        cursor: "pointer",
+        transition: "background 0.15s",
+      }}
+    >
+      {/* Broadcast / context icon */}
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M6.3 6.3a8 8 0 0 0 0 11.4" />
+        <path d="M17.7 6.3a8 8 0 0 1 0 11.4" />
+      </svg>
+      Context
+      {/* Green dot when context is loaded and panel is closed */}
+      {hasContext && !isOpen && (
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: "#22c55e",
+            flexShrink: 0,
+          }}
+        />
+      )}
+    </button>
   );
 }

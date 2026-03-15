@@ -566,6 +566,12 @@ export function CustomCanvasView() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // Skip all canvas shortcuts when focus is in an input/textarea/contenteditable
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isTyping = tag === "INPUT" || tag === "TEXTAREA" ||
+        (e.target as HTMLElement)?.isContentEditable;
+      if (isTyping) return;
+
       if (e.code === "Space" && !e.repeat) {
         e.preventDefault();
         spaceRef.current = true;
@@ -1207,6 +1213,73 @@ export function CustomCanvasView() {
           );
         })}
 
+        {/* Context node connection lines — bezier curves from notes to linked shapes */}
+        <svg
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: 0,
+            height: 0,
+            overflow: "visible",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        >
+          {shapes
+            .filter((s) => s.type === "note" && !!s.linkedShapeId)
+            .map((note) => {
+              const target = shapes.find((s) => s.id === note.linkedShapeId);
+              if (!target) return null;
+              const x1 = note.x + note.width / 2;
+              const y1 = note.y + note.height / 2;
+              const x2 = target.x + target.width / 2;
+              const y2 = target.y + target.height / 2;
+              // Control point: midpoint pulled up for a gentle arc
+              const cpx = (x1 + x2) / 2;
+              const cpy = (y1 + y2) / 2 - Math.abs(x2 - x1) * 0.2 - 30;
+              // Midpoint on the curve (t=0.5)
+              const mx = 0.25 * x1 + 0.5 * cpx + 0.25 * x2;
+              const my = 0.25 * y1 + 0.5 * cpy + 0.25 * y2;
+              const connType = inferConnectionType(note.label || note.content || "");
+              const labelW = connType.length * 7 + 12;
+              return (
+                <g key={`conn:${note.id}`}>
+                  <path
+                    d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
+                    fill="none"
+                    stroke="#3b82f6"
+                    strokeWidth={1.5}
+                    strokeDasharray="5 4"
+                    opacity={0.55}
+                  />
+                  {/* Midpoint type label */}
+                  <rect
+                    x={mx - labelW / 2}
+                    y={my - 9}
+                    width={labelW}
+                    height={18}
+                    rx={9}
+                    fill="#3b82f6"
+                    opacity={0.85}
+                  />
+                  <text
+                    x={mx}
+                    y={my + 4}
+                    textAnchor="middle"
+                    fill="#fff"
+                    fontSize={9}
+                    fontFamily="var(--font-poppins), system-ui, sans-serif"
+                    fontWeight={600}
+                    letterSpacing="0.03em"
+                  >
+                    {connType}
+                  </text>
+                </g>
+              );
+            })}
+        </svg>
+
         {/* Draw preview */}
         {drawRect && (
           <div style={{
@@ -1414,5 +1487,23 @@ function EditOverlay({
       }}
     />
   );
+}
+
+// ---------------------------------------------------------------------------
+// Connection type inference — determines what a context note contributes
+// ---------------------------------------------------------------------------
+
+function inferConnectionType(text: string): string {
+  const t = text.toLowerCase();
+  if (/headline:|heading:|body:|cta:|subheading:|copy:|title:|caption:|tagline:/.test(t)) {
+    return "copy";
+  }
+  if (/should feel|should be|intent:|goal:|purpose:|this is|vibe:|tone:|aesthetic|mood/.test(t)) {
+    return "structural";
+  }
+  if (/style:|color:|font:|look:|background:|theme:|palette:|design/.test(t)) {
+    return "style";
+  }
+  return "copy";
 }
 
