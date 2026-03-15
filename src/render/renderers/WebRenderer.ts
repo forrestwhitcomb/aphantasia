@@ -1,24 +1,42 @@
 import type { CanvasDocument, CanvasShape } from "@/engine/CanvasEngine";
 import type { RenderEngine, RenderOutput } from "../RenderEngine";
+import type { ThemeTokens } from "@/lib/theme";
+import { PRESETS, DEFAULT_PRESET, tokensToCSS, applyBrandColors, applyReferenceTokens } from "@/lib/theme";
+import { contextStore } from "@/context/ContextStore";
+import { referenceStore } from "@/reference/ReferenceStore";
+import { renderSection, shapeToSection } from "@/render/renderSection";
 
 // ---------------------------------------------------------------------------
 // WebRenderer — Phase 1
 // Converts a semantically resolved CanvasDocument into a full HTML page.
+// Uses typed section components with CSS custom property theming.
 // Synchronous, deterministic, zero AI dependency.
 // ---------------------------------------------------------------------------
 
 export class WebRenderer implements RenderEngine {
   renderPhase1(doc: CanvasDocument): RenderOutput {
     const inside = doc.shapes
-      .filter((s) => s.isInsideFrame && s.semanticTag !== "unknown" && s.semanticTag !== "scratchpad" && s.semanticTag !== "context-note")
+      .filter(
+        (s) =>
+          s.isInsideFrame &&
+          s.semanticTag !== "unknown" &&
+          s.semanticTag !== "scratchpad" &&
+          s.semanticTag !== "context-note" &&
+          s.semanticTag !== "image" &&
+          !s.meta?._consumed
+      )
       .sort((a, b) => a.y - b.y);
 
     if (inside.length === 0) {
-      return { html: emptyState(), css: "" };
+      return { html: emptyState(getTheme()), css: "" };
     }
 
-    const blocks = inside.map((s) => renderBlock(s)).filter(Boolean).join("\n");
-    return { html: wrapDocument(blocks), css: "" };
+    const theme = getTheme();
+    const blocks = inside
+      .map((s) => renderBlock(s, theme))
+      .filter(Boolean)
+      .join("\n");
+    return { html: wrapDocument(blocks, theme), css: "" };
   }
 
   async render(doc: CanvasDocument, context: string): Promise<RenderOutput> {
@@ -26,168 +44,48 @@ export class WebRenderer implements RenderEngine {
   }
 
   async renderPhase2(doc: CanvasDocument, _context: string): Promise<RenderOutput> {
-    // Phase 2: AI refinement — implemented in Phase 3
     return this.renderPhase1(doc);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Block renderers
+// Block dispatch — delegates to shared shapeToSection + renderSection
 // ---------------------------------------------------------------------------
 
-function renderBlock(shape: CanvasShape): string {
-  const text = shape.label || shape.content || "";
+function renderBlock(shape: CanvasShape, _theme: ThemeTokens): string {
+  const section = shapeToSection(shape);
+  return renderSection(section);
+}
 
-  switch (shape.semanticTag) {
-    case "nav":        return renderNav(text);
-    case "hero":       return renderHero(text);
-    case "section":    return renderSection(text);
-    case "cards":      return renderCards(text);
-    case "footer":     return renderFooter(text);
-    case "button":     return renderButton(text);
-    case "image":      return renderImage(text);
-    case "form":       return renderForm(text);
-    case "split":      return renderSplit(text);
-    case "text-block": return renderTextBlock(text);
-    default:           return "";
+// ---------------------------------------------------------------------------
+// Theme resolution — reads from ContextStore
+// ---------------------------------------------------------------------------
+
+function getTheme(): ThemeTokens {
+  const ctx = contextStore.getContext();
+  let theme = PRESETS[DEFAULT_PRESET];
+
+  // Layer 1: Apply reference-extracted tokens (background, radius, fonts, spacing, etc.)
+  const readyRefs = referenceStore.getReadyReferences();
+  const styleRefs = readyRefs.filter((r) => r.tag === "style" && r.extractedTokens);
+  for (const ref of styleRefs) {
+    theme = applyReferenceTokens(theme, ref.extractedTokens!);
   }
-}
 
-function renderNav(text: string): string {
-  const logo = text || "Logo";
-  return `<nav class="aph-nav">
-  <div class="aph-nav-inner">
-    <span class="aph-logo">${esc(logo)}</span>
-    <ul class="aph-nav-links">
-      <li><a href="#">Home</a></li>
-      <li><a href="#">About</a></li>
-      <li><a href="#">Contact</a></li>
-    </ul>
-  </div>
-</nav>`;
-}
+  // Layer 2: Explicit context brand colors take highest priority
+  if (ctx?.colors?.length) {
+    theme = applyBrandColors(theme, ctx.colors);
+  }
 
-function renderHero(text: string): string {
-  const headline = text || "Your Big Idea, Built.";
-  return `<section class="aph-hero">
-  <div class="aph-hero-inner">
-    <h1>${esc(headline)}</h1>
-    <p class="aph-hero-sub">A compelling description of what you do and why it matters to the people who need it most.</p>
-    <div class="aph-hero-cta">
-      <a href="#" class="aph-btn-primary">Get Started</a>
-      <a href="#" class="aph-btn-ghost">Learn More</a>
-    </div>
-  </div>
-</section>`;
-}
-
-function renderSection(text: string): string {
-  const title = text || "Section Title";
-  return `<section class="aph-section">
-  <div class="aph-inner">
-    <h2>${esc(title)}</h2>
-    <p class="aph-section-body">Add your content here. This section will be refined based on your context and the rest of your canvas.</p>
-  </div>
-</section>`;
-}
-
-function renderCards(text: string): string {
-  const title = text || "Features";
-  const cards = [
-    { icon: "◆", heading: "First Thing", body: "Brief description of this feature and why it matters." },
-    { icon: "◈", heading: "Second Thing", body: "Brief description of this feature and why it matters." },
-    { icon: "◉", heading: "Third Thing", body: "Brief description of this feature and why it matters." },
-  ];
-  const cardHtml = cards
-    .map(
-      (c) => `<div class="aph-card">
-      <div class="aph-card-icon">${c.icon}</div>
-      <h3>${c.heading}</h3>
-      <p>${c.body}</p>
-    </div>`
-    )
-    .join("\n    ");
-  return `<section class="aph-cards">
-  <div class="aph-inner">
-    <h2 class="aph-cards-title">${esc(title)}</h2>
-    <div class="aph-cards-grid">
-    ${cardHtml}
-    </div>
-  </div>
-</section>`;
-}
-
-function renderSplit(text: string): string {
-  const heading = text || "Why it works";
-  return `<section class="aph-split">
-  <div class="aph-inner aph-split-inner">
-    <div class="aph-split-text">
-      <h2>${esc(heading)}</h2>
-      <p>Describe this feature or concept in a sentence or two. Keep it focused and outcome-oriented.</p>
-      <a href="#" class="aph-btn-primary">Learn More</a>
-    </div>
-    <div class="aph-split-visual">
-      <div class="aph-split-placeholder"></div>
-    </div>
-  </div>
-</section>`;
-}
-
-function renderForm(text: string): string {
-  const heading = text || "Get in touch";
-  return `<section class="aph-form-section">
-  <div class="aph-inner">
-    <h2>${esc(heading)}</h2>
-    <form class="aph-form">
-      <input type="text"  placeholder="Your name"         class="aph-input" />
-      <input type="email" placeholder="Email address"     class="aph-input" />
-      <textarea           placeholder="Your message"      class="aph-textarea"></textarea>
-      <button type="submit" class="aph-btn-primary">Send Message</button>
-    </form>
-  </div>
-</section>`;
-}
-
-function renderFooter(text: string): string {
-  const brand = text || "Company";
-  return `<footer class="aph-footer">
-  <div class="aph-inner aph-footer-inner">
-    <span class="aph-footer-logo">${esc(brand)}</span>
-    <span class="aph-footer-copy">© ${new Date().getFullYear()} ${esc(brand)}. All rights reserved.</span>
-    <ul class="aph-footer-links">
-      <li><a href="#">Privacy</a></li>
-      <li><a href="#">Terms</a></li>
-    </ul>
-  </div>
-</footer>`;
-}
-
-function renderButton(text: string): string {
-  return `<div class="aph-inner aph-btn-row">
-  <a href="#" class="aph-btn-primary">${esc(text || "Get Started")}</a>
-</div>`;
-}
-
-function renderImage(text: string): string {
-  return `<div class="aph-inner">
-  <div class="aph-img-placeholder" role="img" aria-label="${esc(text || "Image")}">
-    <span>${esc(text || "Image")}</span>
-  </div>
-</div>`;
-}
-
-function renderTextBlock(text: string): string {
-  if (!text) return "";
-  return `<div class="aph-inner">
-  <p class="aph-text-block">${esc(text)}</p>
-</div>`;
+  return theme;
 }
 
 // ---------------------------------------------------------------------------
-// Document shell + CSS
+// Document shell
 // ---------------------------------------------------------------------------
 
-function wrapDocument(body: string): string {
+function wrapDocument(body: string, theme: ThemeTokens): string {
+  const rootCSS = tokensToCSS(theme);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -195,8 +93,12 @@ function wrapDocument(body: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>${BASE_CSS}</style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&display=swap" rel="stylesheet" />
+  <style>
+${rootCSS}
+
+${BASE_CSS}
+  </style>
 </head>
 <body>
 ${body}
@@ -204,102 +106,488 @@ ${body}
 </html>`;
 }
 
-function emptyState(): string {
-  return wrapDocument(`<div class="aph-empty">
-  <p>Draw shapes inside the Page frame to see a live preview.</p>
-</div>`);
-}
-
-function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function emptyState(theme: ThemeTokens): string {
+  return wrapDocument(
+    `<div class="aph-empty"><p>Draw shapes inside the Page frame to see a live preview.</p></div>`,
+    theme
+  );
 }
 
 // ---------------------------------------------------------------------------
-// Base CSS — clean, modern, minimal design system
+// Base CSS — all values via CSS custom properties
 // ---------------------------------------------------------------------------
 
 const BASE_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
-body { font-family: 'Inter', system-ui, sans-serif; background: #fff; color: #111; line-height: 1.6; }
+body {
+  font-family: var(--font-body);
+  background: var(--background);
+  color: var(--foreground);
+  line-height: 1.6;
+}
 a { color: inherit; text-decoration: none; }
 
-.aph-inner { max-width: 1100px; margin: 0 auto; padding: 0 40px; }
-
-/* Nav */
-.aph-nav { border-bottom: 1px solid #eee; padding: 0; }
-.aph-nav-inner { max-width: 1100px; margin: 0 auto; padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; }
-.aph-logo { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
-.aph-nav-links { list-style: none; display: flex; gap: 32px; }
-.aph-nav-links a { font-size: 14px; color: #555; font-weight: 500; transition: color .15s; }
-.aph-nav-links a:hover { color: #111; }
-
-/* Hero */
-.aph-hero { padding: 100px 0 80px; background: #fff; }
-.aph-hero-inner { max-width: 1100px; margin: 0 auto; padding: 0 40px; }
-.aph-hero h1 { font-size: clamp(36px, 5vw, 64px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; max-width: 720px; }
-.aph-hero-sub { margin-top: 20px; font-size: 18px; color: #555; line-height: 1.65; max-width: 560px; }
-.aph-hero-cta { margin-top: 36px; display: flex; gap: 12px; flex-wrap: wrap; }
+/* Layout */
+.aph-inner {
+  max-width: var(--inner-max);
+  margin: 0 auto;
+  padding: 0 40px;
+}
 
 /* Buttons */
-.aph-btn-primary { display: inline-flex; align-items: center; padding: 12px 24px; background: #111; color: #fff; font-weight: 600; font-size: 14px; border-radius: 8px; transition: background .15s; cursor: pointer; }
-.aph-btn-primary:hover { background: #333; }
-.aph-btn-ghost { display: inline-flex; align-items: center; padding: 12px 24px; border: 1px solid #ddd; color: #333; font-weight: 500; font-size: 14px; border-radius: 8px; transition: border-color .15s; cursor: pointer; }
-.aph-btn-ghost:hover { border-color: #999; }
-.aph-btn-row { padding: 20px 0; display: flex; gap: 12px; }
+.aph-btn-accent {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 11px 22px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-family: var(--font-body);
+  font-size: 14px; font-weight: 600;
+  border-radius: var(--radius);
+  border: none; cursor: pointer;
+  transition: opacity 0.15s;
+}
+.aph-btn-accent:hover { opacity: 0.85; }
+.aph-btn-accent.aph-btn-sm { padding: 7px 14px; font-size: 13px; }
+.aph-btn-accent.aph-btn-lg { padding: 14px 28px; font-size: 15px; }
+.aph-btn-accent.aph-btn-full { width: 100%; justify-content: center; }
 
-/* Section */
-.aph-section { padding: 80px 0; }
-.aph-section h2 { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
-.aph-section-body { margin-top: 16px; font-size: 16px; color: #555; max-width: 640px; }
+.aph-btn-ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 11px 22px;
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  font-size: 14px; font-weight: 500;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.aph-btn-ghost:hover { border-color: var(--muted-foreground); }
+.aph-btn-ghost.aph-btn-lg { padding: 14px 28px; font-size: 15px; }
 
-/* Cards */
-.aph-cards { padding: 80px 0; background: #fafafa; }
-.aph-cards-title { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; text-align: center; margin-bottom: 48px; }
-.aph-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
-.aph-card { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 28px; }
-.aph-card-icon { font-size: 24px; margin-bottom: 16px; }
-.aph-card h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
-.aph-card p { font-size: 14px; color: #666; line-height: 1.6; }
+/* Badge */
+.aph-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 12px; font-weight: 500;
+  color: var(--muted-foreground);
+}
+.aph-badge-outline {
+  background: transparent;
+  border-color: var(--border);
+}
+
+/* Section header */
+.aph-section-header { text-align: center; margin-bottom: 56px; }
+.aph-section-title {
+  font-family: var(--font-heading);
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+.aph-section-subtitle {
+  margin-top: 12px;
+  font-size: 17px;
+  color: var(--muted-foreground);
+  max-width: 560px;
+  margin-left: auto; margin-right: auto;
+}
+
+/* Nav */
+.aph-nav {
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+  position: sticky; top: 0; z-index: 10;
+}
+.aph-nav-inner {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding-top: 18px; padding-bottom: 18px;
+}
+.aph-logo {
+  font-family: var(--font-heading);
+  font-size: 17px; font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+.aph-nav-links {
+  list-style: none;
+  display: flex; gap: 28px;
+}
+.aph-nav-link {
+  font-size: 14px; font-weight: 500;
+  color: var(--muted-foreground);
+  transition: color 0.15s;
+}
+.aph-nav-link:hover { color: var(--foreground); }
+
+/* Hero */
+.aph-hero { padding: var(--section-py) 0; }
+.aph-hero-inner { max-width: var(--inner-max); margin: 0 auto; padding: 0 40px; }
+.aph-hero-badge { margin-bottom: 24px; }
+.aph-hero-h1 {
+  font-family: var(--font-heading);
+  font-size: clamp(40px, 6vw, 72px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  max-width: 760px;
+  color: var(--foreground);
+}
+.aph-hero-sub {
+  margin-top: 24px;
+  font-size: 18px;
+  color: var(--muted-foreground);
+  line-height: 1.7;
+  max-width: 560px;
+}
+.aph-hero-cta {
+  margin-top: 40px;
+  display: flex; gap: 12px; flex-wrap: wrap;
+}
+
+/* Feature grid */
+.aph-feature-grid {
+  padding: var(--section-py) 0;
+  background: var(--surface-alt);
+}
+.aph-feature-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+.aph-feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  transition: transform 0.2s;
+}
+.aph-feature-card:hover { transform: translateY(-2px); }
+.aph-feature-icon {
+  font-size: 22px; margin-bottom: 16px;
+  color: var(--accent);
+}
+.aph-feature-heading {
+  font-family: var(--font-heading);
+  font-size: 17px; font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--foreground);
+}
+.aph-feature-body {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  line-height: 1.65;
+}
+.aph-feature-image {
+  margin: -28px -28px 16px -28px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  overflow: hidden;
+}
+.aph-feature-image img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+.aph-feature-card--has-image { padding-top: 0; }
 
 /* Split */
-.aph-split { padding: 80px 0; }
-.aph-split-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
-.aph-split-text h2 { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 16px; }
-.aph-split-text p { font-size: 16px; color: #555; margin-bottom: 28px; }
-.aph-split-visual { }
-.aph-split-placeholder { aspect-ratio: 4/3; background: #f0f0f0; border-radius: 12px; }
+.aph-split { padding: var(--section-py) 0; }
+.aph-split-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+.aph-split-flip { direction: rtl; }
+.aph-split-flip > * { direction: ltr; }
+.aph-split-heading {
+  font-family: var(--font-heading);
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+  color: var(--foreground);
+}
+.aph-split-body {
+  font-size: 16px;
+  color: var(--muted-foreground);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+.aph-split-cta { margin-top: 4px; }
+.aph-split-image {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  display: block;
+}
+.aph-split-placeholder {
+  aspect-ratio: 4/3;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex; align-items: center; justify-content: center;
+}
+.aph-split-placeholder-label {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
 
-/* Form */
-.aph-form-section { padding: 80px 0; }
-.aph-form-section h2 { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 36px; }
-.aph-form { display: flex; flex-direction: column; gap: 12px; max-width: 480px; }
-.aph-input, .aph-textarea { font-family: inherit; font-size: 15px; padding: 12px 16px; border: 1px solid #ddd; border-radius: 8px; outline: none; transition: border-color .15s; }
-.aph-input:focus, .aph-textarea:focus { border-color: #888; }
-.aph-textarea { min-height: 120px; resize: vertical; }
-.aph-form .aph-btn-primary { align-self: flex-start; border: none; }
+/* CTA */
+.aph-cta {
+  padding: var(--section-py) 0;
+  background: var(--foreground);
+}
+.aph-cta-inner { text-align: center; }
+.aph-cta-heading {
+  font-family: var(--font-heading);
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--background);
+  margin-bottom: 16px;
+}
+.aph-cta-sub {
+  font-size: 17px;
+  color: color-mix(in srgb, var(--background) 70%, transparent);
+  margin-bottom: 36px;
+}
+.aph-cta-actions {
+  display: flex; gap: 12px;
+  justify-content: center; flex-wrap: wrap;
+}
+.aph-cta .aph-btn-accent {
+  background: var(--background);
+  color: var(--foreground);
+}
+.aph-cta .aph-btn-ghost {
+  border-color: rgba(255,255,255,0.25);
+  color: var(--background);
+}
 
-/* Image placeholder */
-.aph-img-placeholder { aspect-ratio: 16/9; background: #f0f0f0; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 20px 0; }
-.aph-img-placeholder span { font-size: 13px; color: #999; text-transform: uppercase; letter-spacing: 0.08em; }
+/* Portfolio */
+.aph-portfolio { padding: var(--section-py) 0; }
+.aph-portfolio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+.aph-portfolio-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+  transition: transform 0.2s;
+}
+.aph-portfolio-card:hover { transform: translateY(-3px); }
+.aph-portfolio-thumb {
+  aspect-ratio: 16/9;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+}
+.aph-portfolio-info { padding: 20px; }
+.aph-portfolio-title {
+  font-size: 16px; font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+.aph-portfolio-desc {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.aph-portfolio-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 
-/* Text block */
-.aph-text-block { font-size: 16px; color: #444; line-height: 1.75; padding: 20px 0; max-width: 720px; }
+/* E-commerce */
+.aph-ecommerce { padding: var(--section-py) 0; }
+.aph-product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+.aph-product-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+}
+.aph-product-thumb {
+  aspect-ratio: 1;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.aph-product-badge {
+  position: absolute; top: 12px; left: 12px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border: none;
+}
+.aph-product-info { padding: 16px; }
+.aph-product-name {
+  font-size: 15px; font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--foreground);
+}
+.aph-product-desc {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin-bottom: 12px;
+}
+.aph-product-footer {
+  display: flex; align-items: center;
+  justify-content: space-between;
+}
+.aph-product-price {
+  font-size: 16px; font-weight: 700;
+  color: var(--foreground);
+}
+
+/* Event signup */
+.aph-event { padding: var(--section-py) 0; }
+.aph-event-inner {
+  max-width: var(--inner-max); margin: 0 auto; padding: 0 40px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start;
+}
+.aph-event-meta { display: flex; gap: 8px; margin-bottom: 20px; }
+.aph-event-title {
+  font-family: var(--font-heading);
+  font-size: clamp(24px, 3vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+  color: var(--foreground);
+}
+.aph-event-desc {
+  font-size: 16px;
+  color: var(--muted-foreground);
+  line-height: 1.7;
+}
+.aph-event-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.aph-event-form-heading {
+  font-size: 16px; font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--foreground);
+}
+
+/* Generic */
+.aph-generic { padding: var(--section-py) 0; }
+.aph-generic-inner { max-width: 720px; }
+.aph-generic-body {
+  font-size: 17px;
+  color: var(--muted-foreground);
+  line-height: 1.75;
+  margin-top: 16px; margin-bottom: 28px;
+}
 
 /* Footer */
-.aph-footer { border-top: 1px solid #eee; padding: 32px 0; margin-top: auto; }
-.aph-footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.aph-footer-logo { font-weight: 700; font-size: 15px; }
-.aph-footer-copy { font-size: 13px; color: #888; }
-.aph-footer-links { list-style: none; display: flex; gap: 20px; }
-.aph-footer-links a { font-size: 13px; color: #888; }
-.aph-footer-links a:hover { color: #111; }
+.aph-footer {
+  border-top: 1px solid var(--border);
+  padding: 48px 0 32px;
+  background: var(--surface-alt);
+}
+.aph-footer-top {
+  display: flex; gap: 64px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+}
+.aph-footer-brand { flex: 0 0 200px; }
+.aph-footer-logo {
+  font-family: var(--font-heading);
+  font-size: 17px; font-weight: 700;
+  color: var(--foreground);
+  display: block; margin-bottom: 8px;
+}
+.aph-footer-tagline {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+.aph-footer-cols {
+  flex: 1;
+  display: flex; gap: 40px; flex-wrap: wrap;
+}
+.aph-footer-col-heading {
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--foreground);
+  margin-bottom: 12px;
+}
+.aph-footer-col-links {
+  list-style: none;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.aph-footer-col-links a {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  transition: color 0.15s;
+}
+.aph-footer-col-links a:hover { color: var(--foreground); }
+.aph-footer-bottom {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+.aph-footer-copy {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+/* Form inputs */
+.aph-input {
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 10px 14px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.aph-input:focus { border-color: var(--muted-foreground); }
+
+/* Image placeholder */
+.aph-img-placeholder {
+  aspect-ratio: 16/9;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex; align-items: center; justify-content: center;
+  margin: 20px 0;
+}
+.aph-img-placeholder span {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
 
 /* Empty state */
-.aph-empty { height: 100vh; display: flex; align-items: center; justify-content: center; }
-.aph-empty p { font-size: 14px; color: #aaa; }
+.aph-empty {
+  height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+}
+.aph-empty p {
+  font-size: 14px;
+  color: var(--muted-foreground);
+}
 `;

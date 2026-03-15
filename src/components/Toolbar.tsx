@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { canvasEngine } from "@/engine";
 import type { CanvasTool } from "@/engine";
+import { SparkleIcon } from "@/components/SparkleIcon";
 
 type ToolDef = {
   id: CanvasTool;
@@ -129,6 +130,34 @@ export function Toolbar() {
         </button>
       ))}
 
+      {/* Add Component button */}
+      <button
+        onClick={() =>
+          window.dispatchEvent(
+            new CustomEvent("aphantasia:open-component-browser")
+          )
+        }
+        title="Add Component (/)"
+        style={{
+          width: 40,
+          height: 40,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 12,
+          border: "none",
+          cursor: "pointer",
+          transition: "background 0.15s, color 0.15s",
+          background: "transparent",
+          color: "rgba(255,255,255,0.5)",
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
+
       {/* AI button — grayed out, coming soon */}
       <button
         title="AI Assistant (Coming soon)"
@@ -157,6 +186,7 @@ export function Toolbar() {
 
       {/* Render button */}
       <button
+        onClick={() => canvasEngine.requestRender()}
         style={{
           padding: "8px 20px",
           background: "#fff",
@@ -167,9 +197,44 @@ export function Toolbar() {
           fontWeight: 500,
           cursor: "pointer",
           fontFamily: "var(--font-poppins)",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
         }}
       >
+        <SparkleIcon size={16} />
         Render
+      </button>
+
+      {/* Deploy button */}
+      <button
+        onClick={() =>
+          window.dispatchEvent(
+            new CustomEvent("aphantasia:open-deploy-modal")
+          )
+        }
+        title="Deploy to GitHub"
+        style={{
+          padding: "8px 20px",
+          background: "transparent",
+          color: "rgba(255,255,255,0.7)",
+          borderRadius: "0.75rem",
+          border: "1px solid rgba(255,255,255,0.15)",
+          fontSize: 14,
+          fontWeight: 500,
+          cursor: "pointer",
+          fontFamily: "var(--font-poppins)",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          transition: "border-color 0.15s, color 0.15s",
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 14l8-8 8 8" />
+          <path d="M12 6v14" />
+        </svg>
+        Deploy
       </button>
     </div>
   );

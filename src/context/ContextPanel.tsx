@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { contextStore } from "./ContextStore";
 import type { StructuredContext } from "@/types/context";
+import { aiCallTracker } from "@/lib/aiCallTracker";
 
 // ContextPanel — global context input + extraction UI
 // Opens as a slide-in overlay on the canvas panel.
@@ -14,15 +15,15 @@ interface Props {
 }
 
 export default function ContextPanel({ isOpen, onClose }: Props) {
-  const [rawText, setRawText] = useState(() => contextStore.getRawText());
-  const [context, setContext] = useState<StructuredContext | null>(
-    () => contextStore.getContext()
-  );
+  const [rawText, setRawText] = useState("");
+  const [context, setContext] = useState<StructuredContext | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Sync with store changes (e.g. loaded from persistence)
+  // Hydrate from store after mount (avoids SSR/client mismatch)
   useEffect(() => {
+    setRawText(contextStore.getRawText());
+    setContext(contextStore.getContext());
     return contextStore.subscribe((ctx) => {
       setContext(ctx);
     });
@@ -36,6 +37,7 @@ export default function ContextPanel({ isOpen, onClose }: Props) {
     setLoading(true);
     setError(null);
     try {
+      aiCallTracker.trackExtract();
       const res = await fetch("/api/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

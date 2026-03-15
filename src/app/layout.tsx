@@ -21,6 +21,10 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "Aphantasia",
   description: "Simple shapes and text become big ideas",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({

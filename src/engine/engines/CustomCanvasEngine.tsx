@@ -19,6 +19,8 @@ import type {
   ShapeType,
   CanvasTool,
 } from "../CanvasEngine";
+import { CanvasContextWidget } from "@/components/CanvasContextWidget";
+import { CanvasReferenceWidget } from "@/components/CanvasReferenceWidget";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -102,6 +104,10 @@ export class CustomCanvasEngine implements CanvasEngine {
     return this._tool;
   }
 
+  requestRender(): void {
+    this.emit({ type: "render:requested" });
+  }
+
   // -- Copy / Paste --------------------------------------------------------
 
   copySelected() {
@@ -140,15 +146,75 @@ export class CustomCanvasEngine implements CanvasEngine {
     // Update shape with linked note
     const existingNotes = shape.linkedNoteIds ?? [];
     if (!existingNotes.includes(noteId)) {
-      const noteText = note.label || note.content || "";
-      const existingContext = shape.contextNote ? shape.contextNote + "\n" : "";
       this.shapes.set(shapeId, {
         ...shape,
         linkedNoteIds: [...existingNotes, noteId],
-        contextNote: existingContext + noteText,
+      });
+    }
+    this.refreshContextNotes();
+    this.changed();
+  }
+
+  unlinkNoteFromShape(noteId: string) {
+    const note = this.shapes.get(noteId);
+    if (!note || !note.linkedShapeId) return;
+    const oldTarget = this.shapes.get(note.linkedShapeId);
+    if (oldTarget && oldTarget.linkedNoteIds) {
+      this.shapes.set(note.linkedShapeId, {
+        ...oldTarget,
+        linkedNoteIds: oldTarget.linkedNoteIds.filter((id) => id !== noteId),
+      });
+    }
+    this.shapes.set(noteId, { ...note, linkedShapeId: undefined });
+    this.refreshContextNotes();
+    this.changed();
+  }
+
+  linkImageToShape(imageId: string, shapeId: string) {
+    const image = this.shapes.get(imageId);
+    const shape = this.shapes.get(shapeId);
+    if (!image || !shape || image.type !== "image") return;
+    this.shapes.set(imageId, { ...image, linkedShapeId: shapeId });
+    const existing = shape.linkedImageIds ?? [];
+    if (!existing.includes(imageId)) {
+      this.shapes.set(shapeId, {
+        ...shape,
+        linkedImageIds: [...existing, imageId],
       });
     }
     this.changed();
+  }
+
+  unlinkImageFromShape(imageId: string) {
+    const image = this.shapes.get(imageId);
+    if (!image || !image.linkedShapeId) return;
+    const oldTarget = this.shapes.get(image.linkedShapeId);
+    if (oldTarget && oldTarget.linkedImageIds) {
+      this.shapes.set(image.linkedShapeId, {
+        ...oldTarget,
+        linkedImageIds: oldTarget.linkedImageIds.filter((id) => id !== imageId),
+      });
+    }
+    this.shapes.set(imageId, { ...image, linkedShapeId: undefined });
+    this.changed();
+  }
+
+  /** Rebuild contextNote for every shape that has linked notes */
+  private refreshContextNotes() {
+    for (const [id, shape] of this.shapes) {
+      if (!shape.linkedNoteIds?.length) continue;
+      const lines: string[] = [];
+      for (const noteId of shape.linkedNoteIds) {
+        const note = this.shapes.get(noteId);
+        if (!note) continue;
+        const text = note.label || note.content || "";
+        if (text) lines.push(text);
+      }
+      const newContext = lines.join("\n");
+      if (shape.contextNote !== newContext) {
+        this.shapes.set(id, { ...shape, contextNote: newContext });
+      }
+    }
   }
 
   // -- Document operations --------------------------------------------------
@@ -240,6 +306,10 @@ export class CustomCanvasEngine implements CanvasEngine {
     if (!existing) return;
     const updated = { ...existing, ...updates, id };
     this.shapes.set(id, updated);
+    // If a linked note's text changed, refresh the target shape's contextNote
+    if (updated.linkedShapeId && (updates.label !== undefined || updates.content !== undefined)) {
+      this.refreshContextNotes();
+    }
     this.emit({ type: "shape:updated", shapeId: id, shape: updated });
     this.changed();
   }
@@ -274,8 +344,8 @@ export class CustomCanvasEngine implements CanvasEngine {
   }
 
   zoomToFit() {
-    // Compute bounding box including frame
-    let minX = this.frame.x;
+    // Compute bounding box including frame + context widget area
+    let minX = Math.min(this.frame.x, -380); // context widget default x
     let minY = this.frame.y;
     let maxX = this.frame.x + this.frame.width;
     let maxY = this.frame.y + this.frame.height;
@@ -512,7 +582,7 @@ export function getCustomEngine(): CustomCanvasEngine {
 // React component
 // ---------------------------------------------------------------------------
 
-type Mode = "idle" | "panning" | "drawing" | "moving" | "resizing" | "editing" | "dragging-note";
+type Mode = "idle" | "panning" | "drawing" | "moving" | "resizing" | "editing" | "dragging-note" | "connecting";
 type HandleDir = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
 const HANDLE_CURSORS: Record<HandleDir, string> = {
@@ -608,6 +678,12 @@ export function CustomCanvasView() {
         if (e.key === "n" || e.key === "5") engine.setTool("note");
         if (e.key === "f" || e.key === "6") engine.setTool("frame");
       }
+
+      // "/" opens the component browser (when not editing text)
+      if (e.key === "/" && modeRef.current !== "editing") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("aphantasia:open-component-browser"));
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code === "Space") spaceRef.current = false;
@@ -661,10 +737,29 @@ export function CustomCanvasView() {
   // Track note dragging for linking
   const draggingNoteRef = useRef<{ id: string; overShapeId: string | null } | null>(null);
 
+  // Track connection handle drag (notes or images)
+  const connectingRef = useRef<{
+    sourceId: string;
+    sourceType: "note" | "image";
+    cursorWorld: { x: number; y: number };
+    overShapeId: string | null;
+  } | null>(null);
+
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (modeRef.current === "editing") return;
     const target = e.target as HTMLElement;
     const tool = engine.getTool();
+
+    // Connection handle on note or image? Start connecting mode
+    const connectEl = target.closest("[data-connect-handle]") as HTMLElement | null;
+    if (connectEl) {
+      const sourceId = connectEl.dataset.sourceId!;
+      const sourceType = (connectEl.dataset.sourceType as "note" | "image") || "note";
+      const wp = screenToWorld(e.clientX, e.clientY);
+      connectingRef.current = { sourceId, sourceType, cursorWorld: wp, overShapeId: null };
+      setMode("connecting");
+      return;
+    }
 
     // Resize handle? (works for both shapes and frame) — always available
     const handleEl = target.closest("[data-handle]") as HTMLElement | null;
@@ -814,29 +909,29 @@ export function CustomCanvasView() {
       return;
     }
 
-    if (m === "dragging-note" && movingIdRef.current && draggingNoteRef.current) {
+    if (m === "dragging-note" && movingIdRef.current) {
       const wp = screenToWorld(e.clientX, e.clientY);
       engine.updateShape(movingIdRef.current, {
         x: wp.x + moveOffsetRef.current.dx,
         y: wp.y + moveOffsetRef.current.dy,
       });
-      // Hit-test: is the note hovering over a non-note shape?
-      const noteId = movingIdRef.current;
-      const note = engine.getInternalShapes().find((s) => s.id === noteId);
-      if (note) {
-        const ncx = note.x + note.width / 2;
-        const ncy = note.y + note.height / 2;
-        let foundTarget: string | null = null;
-        for (const s of engine.getInternalShapes()) {
-          if (s.id === noteId || s.type === "note") continue;
-          if (ncx >= s.x && ncx <= s.x + s.width && ncy >= s.y && ncy <= s.y + s.height) {
-            foundTarget = s.id;
-            break;
-          }
+      return;
+    }
+
+    if (m === "connecting" && connectingRef.current) {
+      const wp = screenToWorld(e.clientX, e.clientY);
+      connectingRef.current.cursorWorld = wp;
+      // Hit-test: is the cursor over a content shape (not note/image)?
+      let foundTarget: string | null = null;
+      for (const s of engine.getInternalShapes()) {
+        if (s.id === connectingRef.current.sourceId || s.type === "note" || s.type === "image") continue;
+        if (wp.x >= s.x && wp.x <= s.x + s.width && wp.y >= s.y && wp.y <= s.y + s.height) {
+          foundTarget = s.id;
+          break;
         }
-        draggingNoteRef.current.overShapeId = foundTarget;
-        rerender();
       }
+      connectingRef.current.overShapeId = foundTarget;
+      rerender();
       return;
     }
 
@@ -891,13 +986,30 @@ export function CustomCanvasView() {
       }
     }
 
-    // Note linking on drop
+    // Note drag — no auto-connect, just clean up
     if (m === "dragging-note" && draggingNoteRef.current) {
-      const { id: noteId, overShapeId } = draggingNoteRef.current;
-      if (overShapeId) {
-        engine.linkNoteToShape(noteId, overShapeId);
-      }
       draggingNoteRef.current = null;
+    }
+
+    // Connection handle drop
+    if (m === "connecting" && connectingRef.current) {
+      const { sourceId, sourceType, overShapeId } = connectingRef.current;
+      if (overShapeId) {
+        if (sourceType === "note") {
+          const note = engine.getInternalShapes().find((s) => s.id === sourceId);
+          if (note?.linkedShapeId && note.linkedShapeId !== overShapeId) {
+            engine.unlinkNoteFromShape(sourceId);
+          }
+          engine.linkNoteToShape(sourceId, overShapeId);
+        } else {
+          const img = engine.getInternalShapes().find((s) => s.id === sourceId);
+          if (img?.linkedShapeId && img.linkedShapeId !== overShapeId) {
+            engine.unlinkImageFromShape(sourceId);
+          }
+          engine.linkImageToShape(sourceId, overShapeId);
+        }
+      }
+      connectingRef.current = null;
     }
 
     drawStartRef.current = null;
@@ -979,6 +1091,7 @@ export function CustomCanvasView() {
 
   const tool = engine.getTool();
   const cursorStyle =
+    mode === "connecting" ? "crosshair" :
     mode === "panning" ? "grabbing" :
     spaceRef.current ? "grab" :
     mode === "drawing" ? "crosshair" :
@@ -1008,6 +1121,12 @@ export function CustomCanvasView() {
           willChange: "transform",
         }}
       >
+        {/* Context widget — draggable, lives in world space */}
+        <CanvasContextWidget zoom={cam.zoom} />
+
+        {/* Reference widget — draggable, lives in world space */}
+        <CanvasReferenceWidget zoom={cam.zoom} />
+
         {/* Frames — only border edges are clickable, interior is click-through */}
         {allFrames.map((f) => {
           const isActive = f.id === activeFrameId;
@@ -1067,8 +1186,9 @@ export function CustomCanvasView() {
         {shapes.map((s) => {
           const selected = engine.isSelected(s.id);
           const isEditing = editingId === s.id;
-          const isNoteDropTarget = draggingNoteRef.current?.overShapeId === s.id;
-          const isLinked = (s.linkedNoteIds?.length ?? 0) > 0;
+          const isNoteDropTarget = draggingNoteRef.current?.overShapeId === s.id || connectingRef.current?.overShapeId === s.id;
+          const linkCount = (s.linkedNoteIds?.length ?? 0) + (s.linkedImageIds?.length ?? 0);
+          const isLinked = linkCount > 0;
 
           // Shape-specific styles
           const shapeStyles = getShapeStyle(s, selected, engine.isInFrame(s), isNoteDropTarget);
@@ -1108,30 +1228,34 @@ export function CustomCanvasView() {
                   pointerEvents: "none",
                   zIndex: 5,
                 }}>
-                  {s.linkedNoteIds!.length}
+                  {linkCount}
                 </div>
               )}
 
-              {/* Linked shape indicator on notes */}
-              {s.type === "note" && !!s.linkedShapeId && (
-                <div style={{
-                  position: "absolute",
-                  top: -8,
-                  right: -8,
-                  width: 16,
-                  height: 16,
-                  borderRadius: "50%",
-                  background: "#3b82f6",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 9,
-                  color: "#fff",
-                  pointerEvents: "none",
-                  zIndex: 5,
-                }}>
-                  ↗
-                </div>
+              {/* Connection handle on notes and images */}
+              {(s.type === "note" || s.type === "image") && (
+                <div
+                  data-connect-handle="true"
+                  data-source-id={s.id}
+                  data-source-type={s.type}
+                  style={{
+                    position: "absolute",
+                    right: -7,
+                    top: "33%",
+                    width: 14,
+                    height: 14,
+                    borderRadius: "50%",
+                    background: "#3b82f6",
+                    border: "2px solid #fff",
+                    cursor: "crosshair",
+                    pointerEvents: "auto",
+                    zIndex: 10,
+                    opacity: s.linkedShapeId ? 1 : 0.4,
+                    transition: "opacity 0.15s, transform 0.15s",
+                  }}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.opacity = "1"; (e.target as HTMLElement).style.transform = "scale(1.3)"; }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.opacity = s.linkedShapeId ? "1" : "0.4"; (e.target as HTMLElement).style.transform = "scale(1)"; }}
+                />
               )}
 
               {/* Image preview */}
@@ -1166,6 +1290,7 @@ export function CustomCanvasView() {
                   padding: s.type === "note" ? 10 : 8,
                   textAlign: s.type === "text" ? "left" : "center",
                   wordBreak: "break-word",
+                  whiteSpace: "pre-wrap",
                   pointerEvents: "none",
                   lineHeight: 1.4,
                 }}>
@@ -1213,73 +1338,6 @@ export function CustomCanvasView() {
           );
         })}
 
-        {/* Context node connection lines — bezier curves from notes to linked shapes */}
-        <svg
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            width: 0,
-            height: 0,
-            overflow: "visible",
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        >
-          {shapes
-            .filter((s) => s.type === "note" && !!s.linkedShapeId)
-            .map((note) => {
-              const target = shapes.find((s) => s.id === note.linkedShapeId);
-              if (!target) return null;
-              const x1 = note.x + note.width / 2;
-              const y1 = note.y + note.height / 2;
-              const x2 = target.x + target.width / 2;
-              const y2 = target.y + target.height / 2;
-              // Control point: midpoint pulled up for a gentle arc
-              const cpx = (x1 + x2) / 2;
-              const cpy = (y1 + y2) / 2 - Math.abs(x2 - x1) * 0.2 - 30;
-              // Midpoint on the curve (t=0.5)
-              const mx = 0.25 * x1 + 0.5 * cpx + 0.25 * x2;
-              const my = 0.25 * y1 + 0.5 * cpy + 0.25 * y2;
-              const connType = inferConnectionType(note.label || note.content || "");
-              const labelW = connType.length * 7 + 12;
-              return (
-                <g key={`conn:${note.id}`}>
-                  <path
-                    d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth={1.5}
-                    strokeDasharray="5 4"
-                    opacity={0.55}
-                  />
-                  {/* Midpoint type label */}
-                  <rect
-                    x={mx - labelW / 2}
-                    y={my - 9}
-                    width={labelW}
-                    height={18}
-                    rx={9}
-                    fill="#3b82f6"
-                    opacity={0.85}
-                  />
-                  <text
-                    x={mx}
-                    y={my + 4}
-                    textAnchor="middle"
-                    fill="#fff"
-                    fontSize={9}
-                    fontFamily="var(--font-poppins), system-ui, sans-serif"
-                    fontWeight={600}
-                    letterSpacing="0.03em"
-                  >
-                    {connType}
-                  </text>
-                </g>
-              );
-            })}
-        </svg>
-
         {/* Draw preview */}
         {drawRect && (
           <div style={{
@@ -1294,6 +1352,115 @@ export function CustomCanvasView() {
             pointerEvents: "none",
           }} />
         )}
+
+        {/* Connection lines — each rendered as its own positioned SVG */}
+        {shapes
+          .filter((s) => (s.type === "note" || s.type === "image") && !!s.linkedShapeId)
+          .map((note) => {
+            const target = shapes.find((s) => s.id === note.linkedShapeId);
+            if (!target) return null;
+            const x1 = note.x + note.width;
+            const y1 = note.y + note.height * 0.33;
+            const x2 = target.x;
+            const y2 = target.y + target.height / 2;
+            // Bounding box with padding for stroke + arrowhead
+            const pad = 20;
+            const minX = Math.min(x1, x2) - pad;
+            const minY = Math.min(y1, y2) - pad;
+            const w = Math.abs(x2 - x1) + pad * 2;
+            const h = Math.abs(y2 - y1) + pad * 2;
+            const midX = x1 + (x2 - x1) * 0.5;
+            const d = `M ${x1 - minX} ${y1 - minY} C ${midX - minX} ${y1 - minY}, ${midX - minX} ${y2 - minY}, ${x2 - minX} ${y2 - minY}`;
+            return (
+              <svg
+                key={`conn:${note.id}`}
+                style={{
+                  position: "absolute",
+                  left: minX,
+                  top: minY,
+                  width: w,
+                  height: h,
+                  pointerEvents: "none",
+                }}
+              >
+                <defs>
+                  <marker
+                    id={`arrow-${note.id}`}
+                    viewBox="0 0 12 10"
+                    refX="11"
+                    refY="5"
+                    markerWidth="10"
+                    markerHeight="8"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 0 L 12 5 L 0 10 Z" fill="#4b4b4b" />
+                  </marker>
+                </defs>
+                <path
+                  d={d}
+                  fill="none"
+                  stroke="#4b4b4b"
+                  strokeWidth={3.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  markerEnd={`url(#arrow-${note.id})`}
+                />
+              </svg>
+            );
+          })}
+
+        {/* Temporary connection arrow while dragging */}
+        {connectingRef.current && (() => {
+          const note = shapes.find((s) => s.id === connectingRef.current!.sourceId);
+          if (!note) return null;
+          const x1 = note.x + note.width;
+          const y1 = note.y + note.height * 0.33;
+          const x2 = connectingRef.current!.cursorWorld.x;
+          const y2 = connectingRef.current!.cursorWorld.y;
+          const pad = 20;
+          const minX = Math.min(x1, x2) - pad;
+          const minY = Math.min(y1, y2) - pad;
+          const w = Math.abs(x2 - x1) + pad * 2;
+          const h = Math.abs(y2 - y1) + pad * 2;
+          const midX = x1 + (x2 - x1) * 0.5;
+          const d = `M ${x1 - minX} ${y1 - minY} C ${midX - minX} ${y1 - minY}, ${midX - minX} ${y2 - minY}, ${x2 - minX} ${y2 - minY}`;
+          return (
+            <svg
+              style={{
+                position: "absolute",
+                left: minX,
+                top: minY,
+                width: w,
+                height: h,
+                pointerEvents: "none",
+              }}
+            >
+              <defs>
+                <marker
+                  id="arrow-drag"
+                  viewBox="0 0 12 10"
+                  refX="11"
+                  refY="5"
+                  markerWidth="10"
+                  markerHeight="8"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 12 5 L 0 10 Z" fill="#4b4b4b" opacity={0.5} />
+                </marker>
+              </defs>
+              <path
+                d={d}
+                fill="none"
+                stroke="#4b4b4b"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={0.5}
+                markerEnd="url(#arrow-drag)"
+              />
+            </svg>
+          );
+        })()}
       </div>
 
       {/* Zoom indicator */}
@@ -1442,18 +1609,21 @@ function EditOverlay({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.textContent = value;
+    // Use innerHTML with <br> to preserve newlines in contentEditable
+    el.innerHTML = value.replace(/\n/g, "<br>");
     el.focus();
-    // Select all text
+    // Place cursor at end
     const range = document.createRange();
     range.selectNodeContents(el);
+    range.collapse(false);
     const sel = window.getSelection();
     sel?.removeAllRanges();
     sel?.addRange(range);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const commit = useCallback(() => {
-    const text = ref.current?.textContent?.trim() ?? "";
+    // Use innerText to preserve newlines from contentEditable
+    const text = ref.current?.innerText?.trim() ?? "";
     onCommit(text);
   }, [onCommit]);
 
@@ -1465,7 +1635,8 @@ function EditOverlay({
       onBlur={commit}
       onKeyDown={(e) => {
         e.stopPropagation();
-        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); }
+        // Enter = new line. Cmd/Ctrl+Enter = commit. Escape = cancel.
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commit(); }
         if (e.key === "Escape") { e.preventDefault(); onCancel(); }
       }}
       onMouseDown={(e) => e.stopPropagation()}
@@ -1473,8 +1644,9 @@ function EditOverlay({
         position: "absolute",
         inset: 0,
         display: "flex",
+        flexDirection: "column",
         alignItems: isNote ? "flex-start" : "center",
-        justifyContent: "center",
+        justifyContent: isNote ? "flex-start" : "center",
         fontSize: isNote ? 12 : 13,
         color: isNote ? "#1a1a1a" : "#333",
         background: isNote ? "transparent" : "rgba(255,255,255,0.8)",
@@ -1482,6 +1654,7 @@ function EditOverlay({
         padding: isNote ? 10 : 8,
         textAlign: isNote ? "left" : "center",
         wordBreak: "break-word",
+        whiteSpace: "pre-wrap",
         cursor: "text",
         lineHeight: 1.4,
       }}

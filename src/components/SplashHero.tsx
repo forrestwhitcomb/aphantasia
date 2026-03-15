@@ -21,6 +21,34 @@ export function SplashHero() {
         paddingBottom: "calc(25vh + 100px)",
       }}
     >
+      {/* Beta badge */}
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 14px",
+          borderRadius: 999,
+          background: "rgba(0,0,0,0.06)",
+          fontSize: 13,
+          fontWeight: 600,
+          color: "#000000",
+          letterSpacing: "0.02em",
+          marginBottom: 18,
+        }}
+      >
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: "#F97316",
+            flexShrink: 0,
+          }}
+        />
+        Beta
+      </span>
+
       {/* Subheader — above headline */}
       <p
         style={{

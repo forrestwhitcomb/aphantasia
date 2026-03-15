@@ -34,6 +34,20 @@ class ContextStore {
     }
   }
 
+  /** Re-sync in-memory state from localStorage. Clears if storage is empty. */
+  rehydrate(): void {
+    if (typeof window === "undefined") return;
+    const saved = persistence.load<PersistedContextState>(STORAGE_KEY);
+    if (saved) {
+      this.context = saved.context;
+      this.rawText = saved.rawText;
+    } else {
+      this.context = null;
+      this.rawText = "";
+    }
+    this.notify();
+  }
+
   getContext(): StructuredContext | null {
     return this.context;
   }
@@ -73,4 +87,15 @@ class ContextStore {
 }
 
 // Singleton — import this wherever context is needed
-export const contextStore = new ContextStore();
+// Use globalThis to survive HMR module re-evaluation
+const GLOBAL_KEY = "__aphantasia_contextStore";
+
+function getOrCreateStore(): ContextStore {
+  const g = globalThis as Record<string, unknown>;
+  if (!g[GLOBAL_KEY]) {
+    g[GLOBAL_KEY] = new ContextStore();
+  }
+  return g[GLOBAL_KEY] as ContextStore;
+}
+
+export const contextStore = getOrCreateStore();

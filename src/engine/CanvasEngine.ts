@@ -32,6 +32,8 @@ export type SemanticTag =
   | "text-block"
   | "split"
   | "form"
+  | "portfolio"
+  | "ecommerce"
   | "scratchpad"
   | "context-note"
   | "page-candidate"
@@ -50,6 +52,7 @@ export interface CanvasShape {
   isInsideFrame: boolean;
   contextNote?: string;
   linkedNoteIds?: string[];
+  linkedImageIds?: string[];
   linkedShapeId?: string;
   isSuggestion?: boolean;
   meta?: Record<string, unknown>;
@@ -84,7 +87,8 @@ export type CanvasEventType =
   | "shape:selected"
   | "shape:deselected"
   | "canvas:changed"
-  | "canvas:saved";
+  | "canvas:saved"
+  | "render:requested";
 
 export interface CanvasEvent {
   type: CanvasEventType;
@@ -118,4 +122,5 @@ export interface CanvasEngine {
   deserialize(data: string): void;
   setTool(tool: CanvasTool): void;
   getTool(): CanvasTool;
+  requestRender(): void;
 }
