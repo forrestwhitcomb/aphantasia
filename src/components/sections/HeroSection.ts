@@ -11,15 +11,26 @@ export function renderHero(props: HeroProps, sectionId?: string): string {
   const badge = props.badge;
   const idAttr = sectionId ? ` id="${esc(sectionId)}"` : "";
 
-  return `<section class="aph-hero"${idAttr}>
+  const h1Class =
+    props.variant === "animated-headline" ? "aph-hero-h1 aph-hero-h1-animated" : "aph-hero-h1";
+
+  const sectionClasses = ["aph-hero"];
+  if (props.variant === "bundui-entrance") sectionClasses.push("aph-hero-bundui-entrance");
+
+  const imagery = props.imageryDirection
+    ? `<div class="aph-hero-imagery"><span class="aph-img-label">${esc(props.imageryDirection)}</span></div>`
+    : "";
+
+  return `<section class="${sectionClasses.join(" ")}"${idAttr}>
   <div class="aph-inner aph-hero-inner">
-    ${badge ? `<div class="aph-badge aph-hero-badge">${esc(badge)}</div>` : ""}
-    <h1 class="aph-hero-h1">${esc(headline)}</h1>
-    <p class="aph-hero-sub">${esc(sub)}</p>
-    <div class="aph-hero-cta">
-      <a href="${esc(props.ctaHref || "#")}" class="aph-btn-accent">${esc(cta)}</a>
-      ${ctaSec ? `<a href="${esc(props.ctaSecondaryHref || "#")}" class="aph-btn-ghost">${esc(ctaSec)}</a>` : ""}
+    ${badge ? `<div class="aph-badge aph-hero-badge aph-reveal">${esc(badge)}</div>` : ""}
+    <h1 class="${h1Class} aph-reveal">${esc(headline)}</h1>
+    <p class="aph-hero-sub aph-reveal aph-reveal-delay-1">${esc(sub)}</p>
+    <div class="aph-hero-cta aph-reveal aph-reveal-delay-2">
+      <a href="${esc(props.ctaHref || "#")}" class="aph-btn-accent aph-btn-lg">${esc(cta)}</a>
+      ${ctaSec ? `<a href="${esc(props.ctaSecondaryHref || "#")}" class="aph-btn-ghost aph-btn-lg">${esc(ctaSec)}</a>` : ""}
     </div>
+    ${imagery}
   </div>
 </section>`;
 }

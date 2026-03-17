@@ -8,15 +8,52 @@ import { WebRenderer } from "@/render/renderers/WebRenderer";
 import { FRAME_WIDTH } from "@/engine/engines/CustomCanvasEngine";
 import { contextStore } from "@/context/ContextStore";
 import { referenceStore } from "@/reference/ReferenceStore";
-import type { SectionContent } from "@/types/render";
-import { PRESETS, DEFAULT_PRESET, tokensToCSS, applyBrandColors, applyReferenceTokens } from "@/lib/theme";
+import { tokensToCSS } from "@/lib/theme";
 import { aiCallTracker } from "@/lib/aiCallTracker";
-import { renderSection, shapeToSection } from "@/render/renderSection";
+import { renderBlock, shapeToBlock } from "@/render/renderSection";
 import { exportStore } from "@/lib/exportStore";
+import { resolveDesignDirection } from "@/render/themeResolver";
+import { getLibrariesForLevel, buildScriptTags } from "@/render/cdnCatalog";
+import { BASE_CSS, RESPONSIVE_CSS } from "@/render/sharedCSS";
 
 const renderer = new WebRenderer();
 
-type RenderPhase = "IDLE" | "LAYER1" | "LAYER2_STREAMING" | "ENRICHED";
+type RenderPhase = "IDLE" | "LAYER1" | "LAYER2_STREAMING" | "BESPOKE";
+
+interface BespokeFragment {
+  type: string;
+  html: string;
+}
+
+// Parse bespoke HTML body into per-section fragments keyed by data-aph-id
+function parseBespokeFragments(html: string): Map<string, BespokeFragment> {
+  const map = new Map<string, BespokeFragment>();
+  const regex = /<section\s[^>]*data-aph-id="([^"]+)"[^>]*data-aph-type="([^"]+)"[^>]*>[\s\S]*?<\/section>/gi;
+  let match;
+  while ((match = regex.exec(html)) !== null) {
+    map.set(match[1], { type: match[2], html: match[0] });
+  }
+
+  // Also handle reverse attribute order: data-aph-type before data-aph-id
+  const regex2 = /<section\s[^>]*data-aph-type="([^"]+)"[^>]*data-aph-id="([^"]+)"[^>]*>[\s\S]*?<\/section>/gi;
+  while ((match = regex2.exec(html)) !== null) {
+    if (!map.has(match[2])) {
+      map.set(match[2], { type: match[1], html: match[0] });
+    }
+  }
+
+  return map;
+}
+
+// Extract <style> and <script> blocks from bespoke HTML (they live outside sections)
+function extractGlobalBlocks(html: string): { styles: string; scripts: string } {
+  const styleMatches = html.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || [];
+  const scriptMatches = html.match(/<script[^>]*>[\s\S]*?<\/script>/gi) || [];
+  return {
+    styles: styleMatches.join("\n"),
+    scripts: scriptMatches.join("\n"),
+  };
+}
 
 export function PreviewPane() {
   const [srcDoc, setSrcDoc] = useState<string>("");
@@ -25,8 +62,11 @@ export function PreviewPane() {
   const [scale, setScale] = useState(1);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  // Cache enriched sections keyed by shape ID so unchanged shapes keep their content
-  const enrichedRef = useRef<Map<string, SectionContent>>(new Map());
+
+  // Bespoke HTML fragments from Layer 2 (keyed by shape ID)
+  const bespokeRef = useRef<Map<string, BespokeFragment>>(new Map());
+  // Global style/script blocks from the bespoke render
+  const bespokeGlobalsRef = useRef<{ styles: string; scripts: string } | null>(null);
 
   // Scale the 1280px iframe to fit whatever width the pane has
   useEffect(() => {
@@ -45,7 +85,6 @@ export function PreviewPane() {
     canvasEngine.on("canvas:changed", handleChange);
     canvasEngine.on("render:requested", handleRenderRequest);
     const unsubRef = referenceStore.subscribe(() => {
-      // Re-render when references change (e.g. new colors extracted)
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(doLayer1, 300);
     });
@@ -68,7 +107,7 @@ export function PreviewPane() {
   }
 
   // -----------------------------------------------------------------------
-  // Layer 1 — instant, rules-based
+  // Layer 1 — instant, rules-based (with projection when bespoke exists)
   // -----------------------------------------------------------------------
 
   async function doLayer1() {
@@ -76,12 +115,11 @@ export function PreviewPane() {
     const resolved = await resolveSemantics(doc);
     setPhase("LAYER1");
 
-    // If we have enriched content, render with it
-    if (enrichedRef.current.size > 0) {
-      const html = renderWithEnrichedContent(resolved, enrichedRef.current);
+    if (bespokeRef.current.size > 0) {
+      const html = projectCanvasChanges(resolved, bespokeRef.current, bespokeGlobalsRef.current);
       setSrcDoc(html);
       exportStore.setHTML(html);
-      setPhase("ENRICHED");
+      setPhase("BESPOKE");
     } else {
       const output = renderer.renderPhase1(resolved);
       setSrcDoc(output.html);
@@ -91,11 +129,10 @@ export function PreviewPane() {
   }
 
   // -----------------------------------------------------------------------
-  // Layer 2 — AI streaming via /api/render
+  // Layer 2 — AI bespoke HTML via /api/render
   // -----------------------------------------------------------------------
 
   async function doLayer2() {
-    // Cancel any in-flight request
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -139,24 +176,21 @@ export function PreviewPane() {
           const json = line.slice(6);
           try {
             const event = JSON.parse(json);
-            if (event.done && event.sections) {
-              // Apply enriched sections
-              const sections = event.sections as Array<{
-                id: string;
-                type: SectionContent["type"];
-                props: Record<string, unknown>;
-              }>;
-              for (const s of sections) {
-                enrichedRef.current.set(s.id, {
-                  type: s.type,
-                  props: s.props,
-                } as SectionContent);
-              }
-              // Re-render with enriched content
-              const html = renderWithEnrichedContent(resolved, enrichedRef.current);
-              setSrcDoc(html);
-              exportStore.setHTML(html);
-              setPhase("ENRICHED");
+            if (event.done && event.html) {
+              const bodyHtml = event.html as string;
+
+              // Parse into per-section fragments for projection
+              const fragments = parseBespokeFragments(bodyHtml);
+              bespokeRef.current = fragments;
+
+              // Extract global style/script blocks
+              bespokeGlobalsRef.current = extractGlobalBlocks(bodyHtml);
+
+              // Build the full document and display
+              const fullDoc = buildBespokeDocument(bodyHtml, resolved);
+              setSrcDoc(fullDoc);
+              exportStore.setHTML(fullDoc);
+              setPhase("BESPOKE");
             }
           } catch {
             // Partial JSON or streaming text delta — ignore
@@ -173,56 +207,98 @@ export function PreviewPane() {
 
   return (
     <div ref={containerRef} className="w-full h-full overflow-hidden relative">
-      {/* Phase indicator */}
-      {phase === "LAYER2_STREAMING" && (
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            zIndex: 10,
-            background: "rgba(0,0,0,0.8)",
-            color: "#fff",
-            padding: "6px 14px",
-            borderRadius: 8,
-            fontSize: 12,
-            fontWeight: 500,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "#4ade80",
-              animation: "pulse 1s infinite",
+      {/* Overlay controls */}
+      <div
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        {/* Preview in new tab — <a> tag avoids popup blockers */}
+        {srcDoc && phase !== "LAYER2_STREAMING" && (
+          <a
+            href="/preview"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => {
+              try { sessionStorage.setItem("aphantasia-preview", srcDoc); } catch { /* storage full */ }
             }}
-          />
-          AI Rendering...
-          <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
-        </div>
-      )}
-      {phase === "ENRICHED" && (
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            zIndex: 10,
-            background: "rgba(0,0,0,0.7)",
-            color: "#4ade80",
-            padding: "6px 14px",
-            borderRadius: 8,
-            fontSize: 12,
-            fontWeight: 500,
-          }}
-        >
-          AI Enhanced
-        </div>
-      )}
+            title="Open in new tab — interact with the full site"
+            style={{
+              background: "rgba(0,0,0,0.7)",
+              color: "#fff",
+              textDecoration: "none",
+              padding: "6px 12px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.85)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.7)"; }}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 8.5V14H2V2h5.5" />
+              <path d="M10 1h5v5" />
+              <path d="M7 9L15 1" />
+            </svg>
+            Preview
+          </a>
+        )}
+
+        {/* Phase indicators */}
+        {phase === "LAYER2_STREAMING" && (
+          <div
+            style={{
+              background: "rgba(0,0,0,0.8)",
+              color: "#fff",
+              padding: "6px 14px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#4ade80",
+                animation: "pulse 1s infinite",
+              }}
+            />
+            Generating bespoke design...
+            <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+          </div>
+        )}
+        {phase === "BESPOKE" && (
+          <div
+            style={{
+              background: "rgba(0,0,0,0.7)",
+              color: "#4ade80",
+              padding: "6px 14px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 500,
+            }}
+          >
+            Bespoke Design
+          </div>
+        )}
+      </div>
+
       {srcDoc && (
         <iframe
           key="preview"
@@ -244,12 +320,13 @@ export function PreviewPane() {
 }
 
 // ---------------------------------------------------------------------------
-// Render with enriched (AI-generated) section props
+// Projection engine: merge bespoke fragments with current canvas state
 // ---------------------------------------------------------------------------
 
-function renderWithEnrichedContent(
+function projectCanvasChanges(
   doc: CanvasDocument,
-  enriched: Map<string, SectionContent>
+  bespoke: Map<string, BespokeFragment>,
+  globals: { styles: string; scripts: string } | null
 ): string {
   const inside = doc.shapes
     .filter(
@@ -267,89 +344,60 @@ function renderWithEnrichedContent(
 
   const blocks = inside
     .map((s) => {
-      const section = enriched.get(s.id);
-      if (section) {
-        // For compound sections, merge AI props with canvas-extracted data
-        // (imageSrc, cta from spatial analysis must survive AI enrichment)
-        if (s.meta?._spatialGroup && section.type === "feature-grid") {
-          return renderEnrichedSection(
-            mergeWithSpatialGroup(section, s.meta._spatialGroup as Record<string, unknown>)
-          );
-        }
-        return renderEnrichedSection(section);
-      }
-      // Fall back to Layer 1 placeholder for unenriched shapes
-      return renderFallbackBlock(s);
+      const fragment = bespoke.get(s.id);
+      if (fragment) return fragment.html;
+
+      // New shape without bespoke fragment — render as Layer 1 placeholder
+      const block = shapeToBlock(s);
+      const placeholder = renderBlock(block);
+      return `<!-- new-section -->\n<div style="position:relative;">\n<div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);color:#fbbf24;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:500;z-index:5;">New — hit Render to generate</div>\n${placeholder}\n</div>`;
     })
     .filter(Boolean)
     .join("\n");
 
-  // Re-use WebRenderer's wrapDocument by rendering via the renderer
-  // We build the full HTML ourselves to avoid double-rendering
-  return buildEnrichedDocument(blocks);
+  const stylesBlock = globals?.styles || "";
+  const scriptsBlock = globals?.scripts || "";
+
+  const body = `${stylesBlock}\n${blocks}\n${scriptsBlock}`;
+  return buildBespokeDocument(body, doc);
 }
 
-// Merge AI-enriched feature-grid props with canvas-extracted spatial data.
-// AI provides: enhanced headings, body copy, icons, title, subtitle.
-// Canvas provides: imageSrc, cta — these must survive AI enrichment.
-function mergeWithSpatialGroup(
-  section: SectionContent,
-  spatialGroup: Record<string, unknown>
-): SectionContent {
-  if (section.type !== "feature-grid") return section;
+// ---------------------------------------------------------------------------
+// Build the full HTML document wrapping AI-generated body content
+// ---------------------------------------------------------------------------
 
-  const aiProps = section.props as import("@/types/render").FeatureGridProps;
-  const canvasFeatures = (spatialGroup.features ?? []) as Array<Record<string, unknown>>;
-  const aiFeatures = aiProps.features ?? [];
-
-  // Merge per-feature: AI copy wins, but canvas imageSrc and cta are preserved
-  const mergedFeatures = aiFeatures.map((aiF, i) => {
-    const canvasF = canvasFeatures[i];
-    if (!canvasF) return aiF;
-    return {
-      ...aiF,
-      // Preserve canvas-sourced data the AI can't generate
-      imageSrc: (canvasF.imageSrc as string) || aiF.imageSrc,
-      cta: aiF.cta || (canvasF.cta as string) || undefined,
-    };
-  });
-
-  return {
-    type: "feature-grid",
-    props: {
-      ...aiProps,
-      features: mergedFeatures,
-    },
-  };
-}
-
-// Both renderEnrichedSection and renderFallbackBlock now delegate to shared modules
-function renderEnrichedSection(section: SectionContent): string {
-  return renderSection(section);
-}
-
-function renderFallbackBlock(shape: CanvasDocument["shapes"][number]): string {
-  const section = shapeToSection(shape);
-  return renderSection(section);
-}
-
-function buildEnrichedDocument(body: string): string {
+function buildBespokeDocument(body: string, doc: CanvasDocument): string {
   const ctx = contextStore.getContext();
-  let theme = PRESETS[DEFAULT_PRESET];
+  const refs = referenceStore.getReadyReferences();
+  const direction = resolveDesignDirection(doc, ctx, refs);
 
-  // Apply reference tokens first (style refs influence base theme)
-  const readyRefs = referenceStore.getReadyReferences();
-  const styleRefs = readyRefs.filter((r) => r.tag === "style" && r.extractedTokens);
-  for (const ref of styleRefs) {
-    theme = applyReferenceTokens(theme, ref.extractedTokens!);
-  }
+  const rootCSS = tokensToCSS(direction.tokenPalette);
+  const libs = getLibrariesForLevel(direction.animationLevel);
+  const cdnScripts = buildScriptTags(libs);
 
-  // Explicit context colors override reference colors
-  if (ctx?.colors?.length) {
-    theme = applyBrandColors(theme, ctx.colors);
-  }
+  // Detect Google Fonts used in the AI's CSS (look for font-family declarations)
+  const fontFamilies = extractGoogleFonts(body, direction);
+  const fontLink = fontFamilies.length > 0
+    ? `<link href="https://fonts.googleapis.com/css2?${fontFamilies.map((f) => `family=${encodeURIComponent(f)}:wght@300;400;500;600;700;800;900`).join("&")}&display=swap" rel="stylesheet" />`
+    : `<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&display=swap" rel="stylesheet" />`;
 
-  const rootCSS = tokensToCSS(theme);
+  // Minimal base reset — the AI handles section-level styles
+  const baseReset = `
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: var(--background);
+  color: var(--foreground);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; height: auto; display: block; }
+`;
+
+  // Layer 1 placeholder styles (for projected new sections)
+  const placeholderCSS = body.includes("<!-- new-section -->") ? `\n${BASE_CSS}\n${RESPONSIVE_CSS}` : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -358,11 +406,13 @@ function buildEnrichedDocument(body: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&display=swap" rel="stylesheet" />
+  ${fontLink}
+  ${cdnScripts}
   <style>
+:root {
 ${rootCSS}
-
-${BASE_CSS_ENRICHED}
+}
+${baseReset}${placeholderCSS}
   </style>
 </head>
 <body>
@@ -371,437 +421,32 @@ ${body}
 </html>`;
 }
 
-// Duplicate of WebRenderer's BASE_CSS — kept in sync. In a future refactor
-// this should be extracted to a shared module.
-const BASE_CSS_ENRICHED = `
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; }
-body {
-  font-family: var(--font-body);
-  background: var(--background);
-  color: var(--foreground);
-  line-height: 1.6;
+// Attempt to detect Google Font families referenced in the body CSS or token palette
+function extractGoogleFonts(
+  body: string,
+  direction: ReturnType<typeof resolveDesignDirection>
+): string[] {
+  const fonts = new Set<string>();
+
+  // From token palette
+  const heading = direction.tokenPalette["--font-heading"] || "";
+  const bodyFont = direction.tokenPalette["--font-body"] || "";
+  for (const raw of [heading, bodyFont]) {
+    const match = raw.match(/^'([^']+)'/);
+    if (match && !["Georgia", "serif", "system-ui", "sans-serif", "monospace"].includes(match[1])) {
+      fonts.add(match[1]);
+    }
+  }
+
+  // Scan body for font-family declarations referencing Google Fonts
+  const fontFamilyRegex = /font-family:\s*['"]([^'"]+)['"]/gi;
+  let m;
+  while ((m = fontFamilyRegex.exec(body)) !== null) {
+    const name = m[1];
+    if (name && !["inherit", "var", "system-ui", "sans-serif", "serif", "monospace"].some((k) => name.toLowerCase().includes(k))) {
+      fonts.add(name);
+    }
+  }
+
+  return Array.from(fonts);
 }
-a { color: inherit; text-decoration: none; }
-.aph-inner {
-  max-width: var(--inner-max);
-  margin: 0 auto;
-  padding: 0 40px;
-}
-.aph-btn-accent {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 11px 22px;
-  background: var(--accent);
-  color: var(--accent-foreground);
-  font-family: var(--font-body);
-  font-size: 14px; font-weight: 600;
-  border-radius: var(--radius);
-  border: none; cursor: pointer;
-  transition: opacity 0.15s;
-}
-.aph-btn-accent:hover { opacity: 0.85; }
-.aph-btn-accent.aph-btn-sm { padding: 7px 14px; font-size: 13px; }
-.aph-btn-accent.aph-btn-lg { padding: 14px 28px; font-size: 15px; }
-.aph-btn-accent.aph-btn-full { width: 100%; justify-content: center; }
-.aph-btn-ghost {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 11px 22px;
-  border: 1px solid var(--border);
-  color: var(--foreground);
-  font-family: var(--font-body);
-  font-size: 14px; font-weight: 500;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-.aph-btn-ghost:hover { border-color: var(--muted-foreground); }
-.aph-btn-ghost.aph-btn-lg { padding: 14px 28px; font-size: 15px; }
-.aph-badge {
-  display: inline-block;
-  padding: 3px 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 100px;
-  font-size: 12px; font-weight: 500;
-  color: var(--muted-foreground);
-}
-.aph-badge-outline {
-  background: transparent;
-  border-color: var(--border);
-}
-.aph-section-header { text-align: center; margin-bottom: 56px; }
-.aph-section-title {
-  font-family: var(--font-heading);
-  font-size: clamp(24px, 3vw, 36px);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--foreground);
-}
-.aph-section-subtitle {
-  margin-top: 12px;
-  font-size: 17px;
-  color: var(--muted-foreground);
-  max-width: 560px;
-  margin-left: auto; margin-right: auto;
-}
-.aph-nav {
-  border-bottom: 1px solid var(--border);
-  background: var(--background);
-  position: sticky; top: 0; z-index: 10;
-}
-.aph-nav-inner {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  padding-top: 18px; padding-bottom: 18px;
-}
-.aph-logo {
-  font-family: var(--font-heading);
-  font-size: 17px; font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--foreground);
-}
-.aph-nav-links {
-  list-style: none;
-  display: flex; gap: 28px;
-}
-.aph-nav-link {
-  font-size: 14px; font-weight: 500;
-  color: var(--muted-foreground);
-  transition: color 0.15s;
-}
-.aph-nav-link:hover { color: var(--foreground); }
-.aph-hero { padding: var(--section-py) 0; }
-.aph-hero-inner { max-width: var(--inner-max); margin: 0 auto; padding: 0 40px; }
-.aph-hero-badge { margin-bottom: 24px; }
-.aph-hero-h1 {
-  font-family: var(--font-heading);
-  font-size: clamp(40px, 6vw, 72px);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-  max-width: 760px;
-  color: var(--foreground);
-}
-.aph-hero-sub {
-  margin-top: 24px;
-  font-size: 18px;
-  color: var(--muted-foreground);
-  line-height: 1.7;
-  max-width: 560px;
-}
-.aph-hero-cta {
-  margin-top: 40px;
-  display: flex; gap: 12px; flex-wrap: wrap;
-}
-.aph-feature-grid {
-  padding: var(--section-py) 0;
-  background: var(--surface-alt);
-}
-.aph-feature-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-}
-.aph-feature-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 28px;
-  transition: transform 0.2s;
-}
-.aph-feature-card:hover { transform: translateY(-2px); }
-.aph-feature-icon {
-  font-size: 22px; margin-bottom: 16px;
-  color: var(--accent);
-}
-.aph-feature-heading {
-  font-family: var(--font-heading);
-  font-size: 17px; font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--foreground);
-}
-.aph-feature-body {
-  font-size: 14px;
-  color: var(--muted-foreground);
-  line-height: 1.65;
-}
-.aph-feature-image {
-  margin: -28px -28px 16px -28px;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  overflow: hidden;
-}
-.aph-feature-image img {
-  width: 100%;
-  height: 180px;
-  object-fit: cover;
-  display: block;
-}
-.aph-feature-card--has-image { padding-top: 0; }
-.aph-split { padding: var(--section-py) 0; }
-.aph-split-inner {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 64px;
-  align-items: center;
-}
-.aph-split-flip { direction: rtl; }
-.aph-split-flip > * { direction: ltr; }
-.aph-split-heading {
-  font-family: var(--font-heading);
-  font-size: clamp(24px, 3vw, 36px);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-bottom: 16px;
-  color: var(--foreground);
-}
-.aph-split-body {
-  font-size: 16px;
-  color: var(--muted-foreground);
-  line-height: 1.7;
-  margin-bottom: 28px;
-}
-.aph-split-cta { margin-top: 4px; }
-.aph-split-placeholder {
-  aspect-ratio: 4/3;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  display: flex; align-items: center; justify-content: center;
-}
-.aph-split-placeholder-label {
-  font-size: 12px;
-  color: var(--muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.aph-cta {
-  padding: var(--section-py) 0;
-  background: var(--foreground);
-}
-.aph-cta-inner { text-align: center; }
-.aph-cta-heading {
-  font-family: var(--font-heading);
-  font-size: clamp(28px, 4vw, 48px);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--background);
-  margin-bottom: 16px;
-}
-.aph-cta-sub {
-  font-size: 17px;
-  color: color-mix(in srgb, var(--background) 70%, transparent);
-  margin-bottom: 36px;
-}
-.aph-cta-actions {
-  display: flex; gap: 12px;
-  justify-content: center; flex-wrap: wrap;
-}
-.aph-cta .aph-btn-accent {
-  background: var(--background);
-  color: var(--foreground);
-}
-.aph-cta .aph-btn-ghost {
-  border-color: rgba(255,255,255,0.25);
-  color: var(--background);
-}
-.aph-portfolio { padding: var(--section-py) 0; }
-.aph-portfolio-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
-}
-.aph-portfolio-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--surface);
-  transition: transform 0.2s;
-}
-.aph-portfolio-card:hover { transform: translateY(-3px); }
-.aph-portfolio-thumb {
-  aspect-ratio: 16/9;
-  background: var(--surface-alt);
-  border-bottom: 1px solid var(--border);
-}
-.aph-portfolio-info { padding: 20px; }
-.aph-portfolio-title {
-  font-size: 16px; font-weight: 600;
-  margin-bottom: 6px;
-  color: var(--foreground);
-}
-.aph-portfolio-desc {
-  font-size: 13px;
-  color: var(--muted-foreground);
-  margin-bottom: 12px;
-  line-height: 1.5;
-}
-.aph-portfolio-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.aph-ecommerce { padding: var(--section-py) 0; }
-.aph-product-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 20px;
-}
-.aph-product-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--surface);
-}
-.aph-product-thumb {
-  aspect-ratio: 1;
-  background: var(--surface-alt);
-  border-bottom: 1px solid var(--border);
-  position: relative;
-}
-.aph-product-badge {
-  position: absolute; top: 12px; left: 12px;
-  background: var(--accent);
-  color: var(--accent-foreground);
-  border: none;
-}
-.aph-product-info { padding: 16px; }
-.aph-product-name {
-  font-size: 15px; font-weight: 600;
-  margin-bottom: 4px;
-  color: var(--foreground);
-}
-.aph-product-desc {
-  font-size: 13px;
-  color: var(--muted-foreground);
-  margin-bottom: 12px;
-}
-.aph-product-footer {
-  display: flex; align-items: center;
-  justify-content: space-between;
-}
-.aph-product-price {
-  font-size: 16px; font-weight: 700;
-  color: var(--foreground);
-}
-.aph-event { padding: var(--section-py) 0; }
-.aph-event-inner {
-  max-width: var(--inner-max); margin: 0 auto; padding: 0 40px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start;
-}
-.aph-event-meta { display: flex; gap: 8px; margin-bottom: 20px; }
-.aph-event-title {
-  font-family: var(--font-heading);
-  font-size: clamp(24px, 3vw, 40px);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-bottom: 16px;
-  color: var(--foreground);
-}
-.aph-event-desc {
-  font-size: 16px;
-  color: var(--muted-foreground);
-  line-height: 1.7;
-}
-.aph-event-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 28px;
-  display: flex; flex-direction: column; gap: 12px;
-}
-.aph-event-form-heading {
-  font-size: 16px; font-weight: 600;
-  margin-bottom: 4px;
-  color: var(--foreground);
-}
-.aph-generic { padding: var(--section-py) 0; }
-.aph-generic-inner { max-width: 720px; }
-.aph-generic-body {
-  font-size: 17px;
-  color: var(--muted-foreground);
-  line-height: 1.75;
-  margin-top: 16px; margin-bottom: 28px;
-}
-.aph-footer {
-  border-top: 1px solid var(--border);
-  padding: 48px 0 32px;
-  background: var(--surface-alt);
-}
-.aph-footer-top {
-  display: flex; gap: 64px;
-  margin-bottom: 40px;
-  flex-wrap: wrap;
-}
-.aph-footer-brand { flex: 0 0 200px; }
-.aph-footer-logo {
-  font-family: var(--font-heading);
-  font-size: 17px; font-weight: 700;
-  color: var(--foreground);
-  display: block; margin-bottom: 8px;
-}
-.aph-footer-tagline {
-  font-size: 13px;
-  color: var(--muted-foreground);
-  line-height: 1.5;
-}
-.aph-footer-cols {
-  flex: 1;
-  display: flex; gap: 40px; flex-wrap: wrap;
-}
-.aph-footer-col-heading {
-  font-size: 12px; font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--foreground);
-  margin-bottom: 12px;
-}
-.aph-footer-col-links {
-  list-style: none;
-  display: flex; flex-direction: column; gap: 8px;
-}
-.aph-footer-col-links a {
-  font-size: 13px;
-  color: var(--muted-foreground);
-  transition: color 0.15s;
-}
-.aph-footer-col-links a:hover { color: var(--foreground); }
-.aph-footer-bottom {
-  border-top: 1px solid var(--border);
-  padding-top: 24px;
-}
-.aph-footer-copy {
-  font-size: 12px;
-  color: var(--muted-foreground);
-}
-.aph-input {
-  font-family: var(--font-body);
-  font-size: 14px;
-  padding: 10px 14px;
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--foreground);
-  outline: none;
-  transition: border-color 0.15s;
-  width: 100%;
-}
-.aph-input:focus { border-color: var(--muted-foreground); }
-.aph-img-placeholder {
-  aspect-ratio: 16/9;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  display: flex; align-items: center; justify-content: center;
-  margin: 20px 0;
-}
-.aph-img-placeholder span {
-  font-size: 13px;
-  color: var(--muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.aph-empty {
-  height: 100vh;
-  display: flex; align-items: center; justify-content: center;
-}
-.aph-empty p {
-  font-size: 14px;
-  color: var(--muted-foreground);
-}
-`;

@@ -27,7 +27,7 @@ export function renderPortfolio(props: PortfolioProps, sectionId?: string): stri
 
   const cards = items
     .map(
-      (item) => `<div class="aph-portfolio-card">
+      (item) => `<div class="aph-portfolio-card aph-hover-lift">
       <div class="aph-portfolio-thumb"></div>
       <div class="aph-portfolio-info">
         <h3 class="aph-portfolio-title">${esc(item.title || "Project")}</h3>
@@ -44,13 +44,13 @@ export function renderPortfolio(props: PortfolioProps, sectionId?: string): stri
     )
     .join("\n    ");
 
-  return `<section class="aph-portfolio"${idAttr}>
+  return `<section class="aph-portfolio aph-reveal"${idAttr}>
   <div class="aph-inner">
     <div class="aph-section-header">
       <h2 class="aph-section-title">${esc(title)}</h2>
       ${subtitle ? `<p class="aph-section-subtitle">${esc(subtitle)}</p>` : ""}
     </div>
-    <div class="aph-portfolio-grid">
+    <div class="aph-portfolio-grid aph-stagger">
     ${cards}
     </div>
   </div>

@@ -30,6 +30,14 @@ export interface ExtractedStyleTokens {
   sectionPadding?: string;        // e.g. "64px", "96px", "120px"
   cardPadding?: string;           // e.g. "16px", "24px", "32px"
 
+  // Deeper style extraction (component-level)
+  shadowCard?: string;            // e.g. "0 4px 6px rgba(0,0,0,0.1)", "none"
+  shadowButton?: string;          // e.g. "0 2px 4px rgba(0,0,0,0.05)"
+  fontSizeHeading?: string;       // e.g. "clamp(24px, 3vw, 36px)", "32px"
+  fontSizeBody?: string;          // e.g. "16px", "1rem"
+  borderWidth?: string;           // e.g. "1px", "2px"
+  letterSpacingHeading?: string;  // e.g. "-0.02em", "0.05em"
+
   // Component observations
   buttonStyle?: string;           // e.g. "solid filled", "outlined", "ghost", "pill"
   cardStyle?: string;             // e.g. "flat", "elevated shadow", "bordered", "glass"

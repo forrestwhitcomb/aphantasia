@@ -8,6 +8,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   CanvasEngine,
   CanvasShape,
@@ -21,6 +22,8 @@ import type {
 } from "../CanvasEngine";
 import { CanvasContextWidget } from "@/components/CanvasContextWidget";
 import { CanvasReferenceWidget } from "@/components/CanvasReferenceWidget";
+import { ShapeTagDropdown } from "@/components/ShapeTagDropdown";
+import type { ComponentCatalogEntry } from "@/lib/componentCatalogData";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -608,6 +611,13 @@ export function CustomCanvasView() {
   const movingIdRef = useRef<string | null>(null);
   const resizeRef = useRef<{ id: string; handle: HandleDir; origX: number; origY: number; origW: number; origH: number; isFrame?: boolean } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [tagDropdownShapeId, setTagDropdownShapeId] = useState<string | null>(null);
+  const [tagDropdownAnchor, setTagDropdownAnchor] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const engine = engineRef.current;
 
@@ -1112,6 +1122,7 @@ export function CustomCanvasView() {
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
+      <style>{`[data-shape-id]:hover [data-tag-trigger] { opacity: 1 !important; }`}</style>
       {/* World layer */}
       <div
         style={{
@@ -1229,6 +1240,47 @@ export function CustomCanvasView() {
                   zIndex: 5,
                 }}>
                   {linkCount}
+                </div>
+              )}
+
+              {/* Tag as section/component — in-frame rectangles and roundedRects, visible on hover or selected */}
+              {(s.type === "rectangle" || s.type === "roundedRect") && engine.isInFrame(s) && (
+                <div
+                  data-tag-trigger
+                  role="button"
+                  tabIndex={0}
+                  title="Tag as section or component"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    setTagDropdownAnchor(rect);
+                    setTagDropdownShapeId(s.id);
+                  }}
+                  style={{
+                    position: "absolute",
+                    bottom: 6,
+                    right: 6,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 6,
+                    background: "#e8e7e3",
+                    border: "1px solid #c8c7c3",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    zIndex: 10,
+                    pointerEvents: "auto",
+                    opacity: selected ? 1 : 0,
+                    transition: "opacity 0.15s",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#d4d3cf"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#e8e7e3"; }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+                  </svg>
                 </div>
               )}
 
@@ -1475,6 +1527,41 @@ export function CustomCanvasView() {
       }}>
         {Math.round(cam.zoom * 100)}%
       </div>
+
+      {/* Per-shape tag dropdown (portal to body) */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <ShapeTagDropdown
+            open={!!tagDropdownShapeId}
+            onClose={() => {
+              setTagDropdownShapeId(null);
+              setTagDropdownAnchor(null);
+            }}
+            anchorRect={tagDropdownAnchor}
+            onSelect={(entry: ComponentCatalogEntry) => {
+              if (!tagDropdownShapeId) return;
+              const shape = engine.getShape(tagDropdownShapeId);
+              if (!shape) return;
+              const nextMeta = { ...(shape.meta || {}) };
+              if (entry.kind === "primitive") {
+                nextMeta.componentId = entry.id;
+                delete nextMeta.placementVariant;
+              } else {
+                delete nextMeta.componentId;
+                if (entry.variant) nextMeta.placementVariant = entry.variant;
+                else delete nextMeta.placementVariant;
+              }
+              engine.updateShape(tagDropdownShapeId, {
+                semanticTag: entry.semanticTag,
+                label: entry.label,
+                meta: nextMeta,
+              });
+              setTagDropdownShapeId(null);
+              setTagDropdownAnchor(null);
+            }}
+          />,
+          document.body
+        )}
     </div>
   );
 }

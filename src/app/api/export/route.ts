@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Inject meta tags into the exported HTML
+  const exportHtml = injectExportMeta(html, projectName);
+
   // Sanitize project name to URL-safe slug
   const slug = projectName
     .toLowerCase()
@@ -93,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Create or update index.html
-    const content = Buffer.from(html).toString("base64");
+    const content = Buffer.from(exportHtml).toString("base64");
     const putBody: Record<string, string> = {
       message: existingSha
         ? "Update site from Aphantasia"
@@ -138,3 +141,30 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+function injectExportMeta(html: string, projectName: string): string {
+  // Extract a description from the first hero section or fall back
+  const heroMatch = html.match(/data-aph-type="hero"[\s\S]*?<\/section>/i);
+  let description = `${projectName} — Built with Aphantasia`;
+  if (heroMatch) {
+    const textMatch = heroMatch[0].match(/<(?:p|span)[^>]*>([^<]{20,120})/);
+    if (textMatch) description = textMatch[1].trim();
+  }
+
+  const metaTags = `  <meta name="generator" content="Aphantasia" />
+  <meta property="og:title" content="${escapeAttr(projectName)}" />
+  <meta property="og:description" content="${escapeAttr(description)}" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <title>${escapeAttr(projectName)}</title>`;
+
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${metaTags}\n</head>`);
+  }
+  return html;
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+

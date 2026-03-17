@@ -9,11 +9,11 @@ export function renderGenericSection(props: GenericSectionProps, sectionId?: str
   const cta = props.cta;
   const idAttr = sectionId ? ` id="${esc(sectionId)}"` : "";
 
-  return `<section class="aph-generic"${idAttr}>
+  return `<section class="aph-generic aph-reveal"${idAttr}>
   <div class="aph-inner aph-generic-inner">
     <h2 class="aph-section-title">${esc(title)}</h2>
     <p class="aph-generic-body">${esc(body)}</p>
-    ${cta ? `<a href="${esc(props.ctaHref || '#')}" class="aph-btn-accent">${esc(cta)}</a>` : ""}
+    ${cta ? `<a href="${esc(props.ctaHref || "#")}" class="aph-btn-accent">${esc(cta)}</a>` : ""}
   </div>
 </section>`;
 }

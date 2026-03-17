@@ -23,10 +23,16 @@ export interface ThemeTokens {
   "--radius": string;
   "--radius-sm": string;
   "--radius-lg": string;
+  // Shadows (optional override from reference extraction)
+  "--shadow-card"?: string;
+  "--shadow-button"?: string;
   // Typography
   "--font-heading": string;
   "--font-body": string;
   "--font-mono": string;
+  "--font-size-heading"?: string;
+  "--font-size-body"?: string;
+  "--letter-spacing-heading"?: string;
   // Blur / glass
   "--surface-blur": string;
   "--surface-opacity": string;
@@ -158,6 +164,13 @@ export function applyReferenceTokens(
 
   // Spacing
   if (tokens.sectionPadding) result["--section-py"] = tokens.sectionPadding;
+
+  // Deeper extraction: shadows, font sizes, letter-spacing
+  if (tokens.shadowCard) result["--shadow-card"] = tokens.shadowCard;
+  if (tokens.shadowButton) result["--shadow-button"] = tokens.shadowButton;
+  if (tokens.fontSizeHeading) result["--font-size-heading"] = tokens.fontSizeHeading;
+  if (tokens.fontSizeBody) result["--font-size-body"] = tokens.fontSizeBody;
+  if (tokens.letterSpacingHeading) result["--letter-spacing-heading"] = tokens.letterSpacingHeading;
 
   return result;
 }

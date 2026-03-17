@@ -3,6 +3,7 @@ import type { SectionContent, TextImageSplitProps } from "@/types/render";
 import { resolveSemanticTag } from "./rules";
 import { buildContainmentTree, extractSlots, resolveLayout } from "@/spatial";
 import { parseTextLabel } from "@/lib/textParse";
+import { inferSectionFromContext } from "./LayoutToSection";
 
 // Hybrid resolver: rules first (Phase 1), SlotBag extraction + layout
 // resolution (Phase 1b), proximity grouping (Phase 1c), then AI (Phase 2+)
@@ -66,6 +67,22 @@ export async function resolveSemantics(doc: CanvasDocument): Promise<CanvasDocum
   // a user places an image NEXT TO a section rather than inside it.
   proximityGroupImages(inFrame, allConsumed, resolvedLayouts);
 
+  // ── Phase 1d: Layout-to-section inference ──────────────────────────────
+  // For shapes with generic/unknown tag, infer section type from context (order, position, size).
+  const renderableOrdered = resolvedShapes
+    .filter(
+      (s) =>
+        s.isInsideFrame &&
+        !allConsumed.has(s.id) &&
+        (s.type === "rectangle" || s.type === "roundedRect" || s.type === "text" || s.type === "image")
+    )
+    .sort((a, b) => a.y - b.y);
+  const inferredSectionMap = inferSectionFromContext(
+    renderableOrdered,
+    doc.frame.width,
+    doc.frame.height
+  );
+
   // Apply results to shapes
   const finalShapes = resolvedShapes.map((s) => {
     // Mark consumed children so renderers skip them
@@ -87,9 +104,17 @@ export async function resolveSemantics(doc: CanvasDocument): Promise<CanvasDocum
         meta: {
           ...s.meta,
           _resolvedLayout: layout,
-          // Keep _spatialGroup for backward compat with AI merge in PreviewPane
           _spatialGroup: layout.type === "feature-grid" ? layout.props : undefined,
         },
+      };
+    }
+
+    // Attach inferred section type from context (for generic/unknown tags)
+    const inferredType = inferredSectionMap.get(s.id);
+    if (inferredType) {
+      return {
+        ...s,
+        meta: { ...s.meta, _inferredSection: inferredType },
       };
     }
 

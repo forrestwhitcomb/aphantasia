@@ -16,7 +16,7 @@ export function renderEcommerceGrid(props: EcommerceGridProps, sectionId?: strin
 
   const cards = products
     .map(
-      (p) => `<div class="aph-product-card">
+      (p) => `<div class="aph-product-card aph-hover-lift">
       <div class="aph-product-thumb">
         ${p.badge ? `<span class="aph-badge aph-product-badge">${esc(p.badge)}</span>` : ""}
       </div>
@@ -32,13 +32,13 @@ export function renderEcommerceGrid(props: EcommerceGridProps, sectionId?: strin
     )
     .join("\n    ");
 
-  return `<section class="aph-ecommerce"${idAttr}>
+  return `<section class="aph-ecommerce aph-reveal"${idAttr}>
   <div class="aph-inner">
     <div class="aph-section-header">
       <h2 class="aph-section-title">${esc(title)}</h2>
       ${subtitle ? `<p class="aph-section-subtitle">${esc(subtitle)}</p>` : ""}
     </div>
-    <div class="aph-product-grid">
+    <div class="aph-product-grid aph-stagger">
     ${cards}
     </div>
   </div>

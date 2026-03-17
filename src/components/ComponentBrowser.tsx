@@ -3,14 +3,20 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   COMPONENT_CATALOG,
+  PRIMITIVE_CATALOG,
   CATEGORIES,
   placeComponent,
   type ComponentCategory,
   type ComponentCatalogEntry,
 } from "@/lib/componentCatalog";
 
+type TabKind = "sections" | "components";
+
+// Section-only categories (exclude "ui" for the Sections tab)
+const SECTION_CATEGORIES = CATEGORIES.filter((c) => c.id !== "ui");
+
 // ---------------------------------------------------------------------------
-// ComponentBrowser — overlay for browsing and inserting section components
+// ComponentBrowser — overlay for browsing and inserting sections + primitives
 // ---------------------------------------------------------------------------
 // Opened via custom event "aphantasia:open-component-browser" dispatched by
 // the Toolbar "+" button or the "/" keyboard shortcut.
@@ -18,6 +24,7 @@ import {
 
 export function ComponentBrowser() {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<TabKind>("sections");
   const [category, setCategory] = useState<ComponentCategory | "all">("all");
 
   // Listen for the open event
@@ -50,10 +57,11 @@ export function ComponentBrowser() {
 
   if (!open) return null;
 
-  const filtered =
+  const sectionFiltered =
     category === "all"
       ? COMPONENT_CATALOG
       : COMPONENT_CATALOG.filter((c) => c.category === category);
+  const list = tab === "sections" ? sectionFiltered : PRIMITIVE_CATALOG;
 
   return (
     <>
@@ -128,9 +136,33 @@ export function ComponentBrowser() {
             </span>
           </div>
 
-          {/* Category pills */}
+          {/* Tabs: Sections | Components */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+            {(["sections", "components"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  borderRadius: 8,
+                  border: "none",
+                  background: tab === t ? "rgba(255,255,255,0.15)" : "transparent",
+                  color: tab === t ? "#fff" : "rgba(255,255,255,0.5)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                {t === "sections" ? "Sections" : "Components"}
+              </button>
+            ))}
+          </div>
+
+          {/* Category pills (Sections tab only) */}
+          {tab === "sections" && (
           <div style={{ display: "flex", gap: 6 }}>
-            {CATEGORIES.map((cat) => (
+            {SECTION_CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setCategory(cat.id)}
@@ -161,6 +193,7 @@ export function ComponentBrowser() {
               </button>
             ))}
           </div>
+          )}
         </div>
 
         {/* Scrollable grid */}
@@ -175,7 +208,7 @@ export function ComponentBrowser() {
             alignContent: "start",
           }}
         >
-          {filtered.map((entry) => (
+          {list.map((entry) => (
             <ComponentCard
               key={entry.id}
               entry={entry}

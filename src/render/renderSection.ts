@@ -1,14 +1,20 @@
 // ============================================================
-// APHANTASIA — Shared Section Rendering
+// APHANTASIA — Shared Section + Primitive Rendering
 // ============================================================
-// Two functions that eliminate duplicated rendering dispatch
-// logic between WebRenderer.renderBlock() and
-// PreviewPane.renderEnrichedSection() / renderFallbackBlock().
+// shapeToBlock / renderBlock support both sections and primitives.
 // ============================================================
 
 import type { CanvasShape } from "@/engine/CanvasEngine";
-import type { SectionContent, FeatureGridProps, FeatureItem } from "@/types/render";
+import type {
+  SectionContent,
+  BlockContent,
+  PrimitiveContent,
+  FeatureGridProps,
+  FeatureItem,
+} from "@/types/render";
+import { isPrimitiveContent, detectVariantHint } from "@/types/render";
 import { parseTextLabel } from "@/lib/textParse";
+import { PRIMITIVE_IDS } from "@/lib/componentCatalogData";
 import {
   renderNav,
   renderHero,
@@ -21,6 +27,7 @@ import {
   renderEventSignup,
   renderGenericSection,
 } from "@/components/sections";
+import { renderPrimitive } from "@/components/primitives";
 
 // ---------------------------------------------------------------------------
 // renderSection — dispatches a SectionContent to the correct renderer
@@ -73,15 +80,24 @@ export function shapeToSection(shape: CanvasShape): SectionContent {
         title: (groupProps.title as string) || text || undefined,
         subtitle: groupProps.subtitle as string | undefined,
         features: groupProps.features as FeatureItem[] | undefined,
+        variant: shape.meta?.placementVariant as string | undefined,
       } satisfies FeatureGridProps,
     };
   }
 
-  // 3. Parse text and map based on semanticTag
+  // 3. Prefer context-inferred section type when tag is generic/unknown
+  const inferredType = shape.meta?._inferredSection as SectionContent["type"] | undefined;
+  const effectiveTag =
+    inferredType && (shape.semanticTag === "section" || shape.semanticTag === "unknown")
+      ? inferredType
+      : shape.semanticTag;
+
+  // 4. Parse text and map based on effectiveTag; detect variant from label + contextNote
   const text = shape.label || shape.content || "";
   const parsed = parseTextLabel(text);
+  const variantHint = detectVariantHint(`${text} ${shape.contextNote ?? ""}`);
 
-  switch (shape.semanticTag) {
+  switch (effectiveTag) {
     case "nav":
       return { type: "nav", props: { logo: parsed.heading || text || undefined } };
 
@@ -92,11 +108,18 @@ export function shapeToSection(shape: CanvasShape): SectionContent {
           headline: parsed.heading || undefined,
           subheadline: parsed.body || undefined,
           cta: parsed.cta || undefined,
+          variant: variantHint ?? (shape.meta?.placementVariant as string | undefined),
         },
       };
 
     case "cards":
-      return { type: "feature-grid", props: { title: parsed.heading || text || undefined } };
+      return {
+        type: "feature-grid",
+        props: {
+          title: parsed.heading || text || undefined,
+          variant: shape.meta?.placementVariant as string | undefined,
+        },
+      };
 
     case "split":
       return {
@@ -121,6 +144,7 @@ export function shapeToSection(shape: CanvasShape): SectionContent {
     case "footer":
       return { type: "footer", props: { logo: parsed.heading || text || undefined } };
 
+    case "cta":
     case "button":
       return { type: "cta", props: { cta: parsed.cta || text || "Button" } };
 
@@ -151,4 +175,150 @@ export function shapeToSection(shape: CanvasShape): SectionContent {
     default:
       return { type: "generic", props: {} };
   }
+}
+
+// ---------------------------------------------------------------------------
+// shapeToBlock — section or primitive from shape (uses meta.componentId for primitives)
+// ---------------------------------------------------------------------------
+
+export function shapeToBlock(shape: CanvasShape): BlockContent {
+  const componentId = shape.meta?.componentId as string | undefined;
+  if (componentId && PRIMITIVE_IDS.has(componentId)) {
+    const text = shape.label || shape.content || "";
+    const parsed = parseTextLabel(text);
+    switch (componentId) {
+      case "primitive-button":
+        return { type: "primitive-button", props: { label: parsed.cta || parsed.heading || text || "Button" } };
+      case "primitive-card":
+        return { type: "primitive-card", props: { title: parsed.heading || text || "Card", body: parsed.body } };
+      case "primitive-badge":
+        return { type: "primitive-badge", props: { text: parsed.heading || text || "Badge" } };
+      case "primitive-input":
+        return { type: "primitive-input", props: { placeholder: text || "Placeholder..." } };
+      case "primitive-separator":
+        return { type: "primitive-separator", props: { orientation: "horizontal" } };
+      case "primitive-accordion":
+        return { type: "primitive-accordion", props: {} };
+      case "primitive-alert":
+        return { type: "primitive-alert", props: { title: parsed.heading || text || undefined } };
+      case "primitive-alert-dialog":
+        return { type: "primitive-alert-dialog", props: { title: parsed.heading || text || undefined } };
+      case "primitive-aspect-ratio":
+        return { type: "primitive-aspect-ratio", props: { ratio: text || "16 / 9" } };
+      case "primitive-avatar":
+        return { type: "primitive-avatar", props: { fallback: text || "CN" } };
+      case "primitive-breadcrumb":
+        return { type: "primitive-breadcrumb", props: {} };
+      case "primitive-button-group":
+        return { type: "primitive-button-group", props: {} };
+      case "primitive-calendar":
+        return { type: "primitive-calendar", props: {} };
+      case "primitive-carousel":
+        return { type: "primitive-carousel", props: {} };
+      case "primitive-chart":
+        return { type: "primitive-chart", props: { title: parsed.heading || text || undefined } };
+      case "primitive-checkbox":
+        return { type: "primitive-checkbox", props: { label: text || undefined } };
+      case "primitive-collapsible":
+        return { type: "primitive-collapsible", props: { title: parsed.heading || text || undefined } };
+      case "primitive-combobox":
+        return { type: "primitive-combobox", props: { placeholder: text || undefined } };
+      case "primitive-command":
+        return { type: "primitive-command", props: {} };
+      case "primitive-context-menu":
+        return { type: "primitive-context-menu", props: {} };
+      case "primitive-data-table":
+        return { type: "primitive-data-table", props: {} };
+      case "primitive-date-picker":
+        return { type: "primitive-date-picker", props: { placeholder: text || undefined } };
+      case "primitive-dialog":
+        return { type: "primitive-dialog", props: { title: parsed.heading || text || undefined } };
+      case "primitive-direction":
+        return { type: "primitive-direction", props: {} };
+      case "primitive-drawer":
+        return { type: "primitive-drawer", props: { title: parsed.heading || text || undefined } };
+      case "primitive-dropdown-menu":
+        return { type: "primitive-dropdown-menu", props: { trigger: text || undefined } };
+      case "primitive-empty":
+        return { type: "primitive-empty", props: { title: parsed.heading || text || undefined } };
+      case "primitive-field":
+        return { type: "primitive-field", props: { label: parsed.heading || text || undefined } };
+      case "primitive-hover-card":
+        return { type: "primitive-hover-card", props: { trigger: text || undefined } };
+      case "primitive-input-group":
+        return { type: "primitive-input-group", props: {} };
+      case "primitive-input-otp":
+        return { type: "primitive-input-otp", props: {} };
+      case "primitive-item":
+        return { type: "primitive-item", props: { title: parsed.heading || text || undefined } };
+      case "primitive-kbd":
+        return { type: "primitive-kbd", props: {} };
+      case "primitive-label":
+        return { type: "primitive-label", props: { text: text || undefined } };
+      case "primitive-menubar":
+        return { type: "primitive-menubar", props: {} };
+      case "primitive-native-select":
+        return { type: "primitive-native-select", props: { placeholder: text || undefined } };
+      case "primitive-navigation-menu":
+        return { type: "primitive-navigation-menu", props: {} };
+      case "primitive-pagination":
+        return { type: "primitive-pagination", props: {} };
+      case "primitive-popover":
+        return { type: "primitive-popover", props: {} };
+      case "primitive-progress":
+        return { type: "primitive-progress", props: {} };
+      case "primitive-radio-group":
+        return { type: "primitive-radio-group", props: {} };
+      case "primitive-resizable":
+        return { type: "primitive-resizable", props: {} };
+      case "primitive-scroll-area":
+        return { type: "primitive-scroll-area", props: {} };
+      case "primitive-select":
+        return { type: "primitive-select", props: { placeholder: text || undefined } };
+      case "primitive-sheet":
+        return { type: "primitive-sheet", props: { title: parsed.heading || text || undefined } };
+      case "primitive-sidebar":
+        return { type: "primitive-sidebar", props: { title: parsed.heading || text || undefined } };
+      case "primitive-skeleton":
+        return { type: "primitive-skeleton", props: {} };
+      case "primitive-slider":
+        return { type: "primitive-slider", props: {} };
+      case "primitive-sonner":
+        return { type: "primitive-sonner", props: { title: parsed.heading || text || undefined } };
+      case "primitive-spinner":
+        return { type: "primitive-spinner", props: {} };
+      case "primitive-switch":
+        return { type: "primitive-switch", props: { label: text || undefined } };
+      case "primitive-table":
+        return { type: "primitive-table", props: {} };
+      case "primitive-tabs":
+        return { type: "primitive-tabs", props: {} };
+      case "primitive-textarea":
+        return { type: "primitive-textarea", props: { placeholder: text || undefined } };
+      case "primitive-toast":
+        return { type: "primitive-toast", props: { title: parsed.heading || text || undefined } };
+      case "primitive-toggle":
+        return { type: "primitive-toggle", props: { label: text || undefined } };
+      case "primitive-toggle-group":
+        return { type: "primitive-toggle-group", props: {} };
+      case "primitive-tooltip":
+        return { type: "primitive-tooltip", props: { content: text || undefined } };
+      case "primitive-typography":
+        return { type: "primitive-typography", props: { text: text || undefined } };
+      default:
+        break;
+    }
+  }
+  return shapeToSection(shape);
+}
+
+// ---------------------------------------------------------------------------
+// renderBlock — section or primitive to HTML
+// ---------------------------------------------------------------------------
+
+export function renderBlock(block: BlockContent, sectionId?: string): string {
+  if (isPrimitiveContent(block)) {
+    return renderPrimitive(block);
+  }
+  return renderSection(block, sectionId);
 }
