@@ -38,7 +38,7 @@ export function renderFeatureGrid(props: FeatureGridProps, sectionId?: string): 
   const features = props.features?.length ? props.features : DEFAULT_FEATURES;
   const idAttr = sectionId ? ` id="${esc(sectionId)}"` : "";
 
-  const layout = props.layout || props.variant === "bundui-bento" ? "bento" : (props.layout || "card-grid");
+  const layout = props.variant === "bundui-bento" ? "bento" : (props.layout || "card-grid");
   const cardStyle = props.cardStyle || "elevated";
   const iconTreatment = props.iconTreatment || "accent-bg-circle";
   const columns = props.columns || 3;

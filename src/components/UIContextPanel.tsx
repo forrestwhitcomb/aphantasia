@@ -139,14 +139,14 @@ export function UIContextPanel({ zoom }: Props) {
     reader.readAsDataURL(file);
   }
 
-  function handleInspDrop(e: React.DragEvent<HTMLDivElement>) {
+  function handleInspDrop(e: React.DragEvent<HTMLElement>) {
     e.preventDefault();
     e.stopPropagation();
     const file = e.dataTransfer.files[0];
     if (file?.type.startsWith("image/")) handleInspFile(file);
   }
 
-  function handleDesignDrop(e: React.DragEvent<HTMLDivElement>) {
+  function handleDesignDrop(e: React.DragEvent<HTMLElement>) {
     e.preventDefault();
     e.stopPropagation();
     const file = e.dataTransfer.files[0];
