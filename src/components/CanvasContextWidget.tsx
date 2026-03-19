@@ -56,8 +56,12 @@ export function CanvasContextWidget({ zoom }: Props) {
         setError(err.error ?? "Extraction failed");
         return;
       }
-      const structured: StructuredContext = await res.json();
-      contextStore.setContext(structured, rawText);
+      const structured = await res.json();
+      if (structured._tokenUsage) {
+        aiCallTracker.addTokens(structured._tokenUsage);
+        delete structured._tokenUsage;
+      }
+      contextStore.setContext(structured as StructuredContext, rawText);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -339,8 +343,9 @@ export function CanvasContextWidget({ zoom }: Props) {
               {context.productName && <Row label="Product" value={context.productName} />}
               {context.tagline && <Row label="Tagline" value={context.tagline} />}
               {context.description && <Row label="Desc" value={context.description} />}
-              {context.tone && <Row label="Tone" value={context.tone} pill />}
-              {context.pricing && <Row label="Pricing" value={context.pricing} />}
+              {context.tone && <Row label="Tone" value={typeof context.tone === "string" ? context.tone : [context.tone.energy, context.tone.formality, context.tone.personality].filter(Boolean).join(", ")} pill />}
+              {context.contentType && <Row label="Type" value={context.contentType} pill />}
+              {context.pricing && <Row label="Pricing" value={typeof context.pricing === "string" ? context.pricing : [context.pricing.model, context.pricing.tiers?.join(", ")].filter(Boolean).join(" — ")} />}
               {context.colors && context.colors.length > 0 && (
                 <Row label="Colors" value={context.colors.join(", ")} colors={context.colors} />
               )}

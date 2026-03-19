@@ -48,8 +48,12 @@ export default function ContextPanel({ isOpen, onClose }: Props) {
         setError(err.error ?? "Extraction failed");
         return;
       }
-      const structured: StructuredContext = await res.json();
-      contextStore.setContext(structured, rawText);
+      const structured = await res.json();
+      if (structured._tokenUsage) {
+        aiCallTracker.addTokens(structured._tokenUsage);
+        delete structured._tokenUsage;
+      }
+      contextStore.setContext(structured as StructuredContext, rawText);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -313,10 +317,13 @@ export default function ContextPanel({ isOpen, onClose }: Props) {
                   <ContextRow label="Description" value={context.description} />
                 )}
                 {context.tone && (
-                  <ContextRow label="Tone" value={context.tone} pill />
+                  <ContextRow label="Tone" value={typeof context.tone === "string" ? context.tone : [context.tone.energy, context.tone.formality, context.tone.personality].filter(Boolean).join(", ")} pill />
+                )}
+                {context.contentType && (
+                  <ContextRow label="Type" value={context.contentType} pill />
                 )}
                 {context.pricing && (
-                  <ContextRow label="Pricing" value={context.pricing} />
+                  <ContextRow label="Pricing" value={typeof context.pricing === "string" ? context.pricing : [context.pricing.model, context.pricing.tiers?.join(", ")].filter(Boolean).join(" — ")} />
                 )}
                 {context.colors && context.colors.length > 0 && (
                   <ContextRow

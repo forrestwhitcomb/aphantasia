@@ -29,6 +29,8 @@ export interface NavProps extends SectionDesignHints {
   links?: string[];
   cta?: string;
   ctaHref?: string;
+  layout?: "standard" | "centered-logo" | "minimal" | "mega-menu";
+  navStyle?: "transparent" | "solid" | "glass";
 }
 
 export interface HeroProps extends SectionDesignHints {
@@ -39,6 +41,13 @@ export interface HeroProps extends SectionDesignHints {
   ctaSecondary?: string;
   ctaSecondaryHref?: string;
   badge?: string;
+  imageSrc?: string;
+  imageAlt?: string;
+  layout?: "centered" | "left-aligned" | "split-image-right" | "split-image-left" | "full-bleed";
+  surface?: "flat" | "gradient-mesh" | "grain" | "glass" | "accent-wash";
+  headlineStyle?: "oversized" | "balanced" | "editorial" | "gradient";
+  density?: "spacious" | "balanced" | "compact";
+  /** @deprecated Use layout/surface/headlineStyle instead */
   variant?: string;
 }
 
@@ -55,6 +64,11 @@ export interface FeatureGridProps extends SectionDesignHints {
   title?: string;
   subtitle?: string;
   features?: FeatureItem[];
+  layout?: "card-grid" | "bento" | "icon-list" | "alternating-rows" | "numbered";
+  cardStyle?: "elevated" | "bordered" | "glass" | "flat" | "accent-top";
+  iconTreatment?: "accent-bg-circle" | "accent-text" | "outlined" | "none";
+  columns?: 2 | 3 | 4;
+  /** @deprecated Use layout instead */
   variant?: string;
 }
 
@@ -65,6 +79,9 @@ export interface TextImageSplitProps extends SectionDesignHints {
   ctaHref?: string;
   imageSrc?: string;
   imageAlt?: string;
+  layout?: "image-right" | "image-left" | "image-overlap" | "image-full-bleed";
+  imageStyle?: "rounded" | "sharp" | "browser-frame" | "phone-frame";
+  /** @deprecated Use layout instead */
   imagePosition?: "left" | "right";
 }
 
@@ -75,6 +92,9 @@ export interface CTAProps extends SectionDesignHints {
   ctaHref?: string;
   ctaSecondary?: string;
   ctaSecondaryHref?: string;
+  layout?: "centered" | "split" | "inline-bar";
+  surface?: "accent-wash" | "gradient-mesh" | "glass" | "inverted";
+  intensity?: "bold" | "subtle";
 }
 
 export interface FooterProps extends SectionDesignHints {
@@ -82,18 +102,25 @@ export interface FooterProps extends SectionDesignHints {
   tagline?: string;
   columns?: Array<{ heading: string; links: string[] }>;
   copyright?: string;
+  socialLinks?: string[];
+  layout?: "columns" | "simple" | "centered" | "mega";
+  footerStyle?: "subtle" | "bordered-top" | "contrasting";
 }
 
 export interface PortfolioItem {
   title?: string;
   description?: string;
   tags?: string[];
+  imageSrc?: string;
+  link?: string;
 }
 
 export interface PortfolioProps extends SectionDesignHints {
   title?: string;
   subtitle?: string;
   items?: PortfolioItem[];
+  layout?: "grid-uniform" | "grid-masonry" | "carousel" | "list-detailed";
+  hoverEffect?: "overlay-title" | "zoom" | "tilt" | "none";
 }
 
 export interface ProductItem {
@@ -101,12 +128,17 @@ export interface ProductItem {
   price?: string;
   description?: string;
   badge?: string;
+  imageSrc?: string;
+  cta?: string;
 }
 
 export interface EcommerceGridProps extends SectionDesignHints {
   title?: string;
   subtitle?: string;
   products?: ProductItem[];
+  layout?: "card-grid" | "horizontal-scroll" | "featured-plus-grid";
+  cardStyle?: "elevated" | "bordered" | "glass" | "flat" | "accent-top";
+  priceStyle?: "bold" | "inline" | "badge";
 }
 
 export interface EventSignupProps extends SectionDesignHints {
@@ -115,6 +147,9 @@ export interface EventSignupProps extends SectionDesignHints {
   location?: string;
   description?: string;
   cta?: string;
+  capacity?: string;
+  layout?: "split-details-form" | "centered-card" | "banner";
+  surface?: "flat" | "gradient-mesh" | "grain" | "glass" | "accent-wash";
 }
 
 export interface GenericSectionProps extends SectionDesignHints {
@@ -122,6 +157,120 @@ export interface GenericSectionProps extends SectionDesignHints {
   body?: string;
   cta?: string;
   ctaHref?: string;
+  layout?: "centered-text" | "left-text" | "split";
+  surface?: "flat" | "gradient-mesh" | "grain" | "glass" | "accent-wash";
+}
+
+// ---------------------------------------------------------------------------
+// New section types (Vertical 1, Part 2)
+// ---------------------------------------------------------------------------
+
+export interface PricingTier {
+  name?: string;
+  price?: string;
+  annualPrice?: string;
+  period?: string;
+  description?: string;
+  features?: string[];
+  cta?: string;
+  highlighted?: boolean;
+  badge?: string;
+}
+
+export interface PricingTableProps extends SectionDesignHints {
+  title?: string;
+  subtitle?: string;
+  tiers?: PricingTier[];
+  layout?: "cards-row" | "cards-highlighted" | "comparison-table" | "toggle-annual";
+  cardStyle?: "elevated" | "bordered" | "glass" | "flat" | "accent-top";
+  highlightStyle?: "scale-up" | "accent-border" | "accent-bg" | "badge";
+}
+
+export interface TestimonialItem {
+  quote?: string;
+  author?: string;
+  role?: string;
+  company?: string;
+  rating?: number;
+}
+
+export interface TestimonialsProps extends SectionDesignHints {
+  title?: string;
+  subtitle?: string;
+  items?: TestimonialItem[];
+  layout?: "cards-grid" | "carousel" | "single-featured" | "avatar-wall";
+  cardStyle?: "elevated" | "bordered" | "glass" | "flat" | "accent-top" | "quote-mark";
+}
+
+export interface LogoItem {
+  name?: string;
+  url?: string;
+  imageSrc?: string;
+}
+
+export interface LogoCloudProps extends SectionDesignHints {
+  title?: string;
+  logos?: LogoItem[];
+  layout?: "single-row" | "double-row" | "marquee-scroll" | "grid";
+  logoStyle?: "grayscale" | "color" | "monochrome";
+}
+
+export interface StatItem {
+  value?: string;
+  label?: string;
+  prefix?: string;
+  suffix?: string;
+}
+
+export interface StatsProps extends SectionDesignHints {
+  title?: string;
+  stats?: StatItem[];
+  layout?: "big-numbers" | "icon-stats" | "inline-bar" | "cards";
+}
+
+export interface NewsletterProps extends SectionDesignHints {
+  headline?: string;
+  subtext?: string;
+  placeholder?: string;
+  cta?: string;
+  privacyNote?: string;
+  layout?: "inline-bar" | "centered-card" | "split-with-copy" | "minimal";
+  surface?: "flat" | "gradient-mesh" | "grain" | "glass" | "accent-wash";
+}
+
+export interface FAQItem {
+  question?: string;
+  answer?: string;
+}
+
+export interface FAQProps extends SectionDesignHints {
+  title?: string;
+  subtitle?: string;
+  items?: FAQItem[];
+  layout?: "accordion" | "two-column" | "cards" | "inline";
+}
+
+export interface TeamMember {
+  name?: string;
+  role?: string;
+  bio?: string;
+  avatar?: string;
+}
+
+export interface TeamGridProps extends SectionDesignHints {
+  title?: string;
+  subtitle?: string;
+  members?: TeamMember[];
+  layout?: "photo-grid" | "card-grid" | "list" | "minimal";
+}
+
+export interface ComparisonTableProps extends SectionDesignHints {
+  title?: string;
+  subtitle?: string;
+  us?: { name?: string; features?: string[] };
+  them?: { name?: string; features?: string[] };
+  layout?: "table" | "cards-side-by-side" | "checklist";
+  highlightStyle?: "column-accent" | "badge" | "checkmark-color";
 }
 
 // ---------------------------------------------------------------------------
@@ -506,7 +655,15 @@ export type SectionContent =
   | { type: "portfolio"; props: PortfolioProps }
   | { type: "ecommerce-grid"; props: EcommerceGridProps }
   | { type: "event-signup"; props: EventSignupProps }
-  | { type: "generic"; props: GenericSectionProps };
+  | { type: "generic"; props: GenericSectionProps }
+  | { type: "pricing-table"; props: PricingTableProps }
+  | { type: "testimonials"; props: TestimonialsProps }
+  | { type: "logo-cloud"; props: LogoCloudProps }
+  | { type: "stats"; props: StatsProps }
+  | { type: "newsletter"; props: NewsletterProps }
+  | { type: "faq"; props: FAQProps }
+  | { type: "team-grid"; props: TeamGridProps }
+  | { type: "comparison-table"; props: ComparisonTableProps };
 
 /** Block = section or primitive; one unit in the rendered page. */
 export type BlockContent = SectionContent | PrimitiveContent;
@@ -540,4 +697,44 @@ export const SEMANTIC_TO_SECTION: Record<string, SectionContent["type"]> = {
   form: "event-signup",
   portfolio: "portfolio",
   ecommerce: "ecommerce-grid",
+  pricing: "pricing-table",
+  testimonials: "testimonials",
+  "logo-cloud": "logo-cloud",
+  stats: "stats",
+  newsletter: "newsletter",
+  faq: "faq",
+  team: "team-grid",
+  comparison: "comparison-table",
 };
+
+// ---------------------------------------------------------------------------
+// V2 — Variant-Aware AI Pipeline types
+// ---------------------------------------------------------------------------
+
+/** Set of all valid section type strings for runtime validation */
+export const SECTION_TYPE_SET: Set<string> = new Set([
+  "nav", "hero", "feature-grid", "text-image-split", "cta", "footer",
+  "portfolio", "ecommerce-grid", "event-signup", "generic",
+  "pricing-table", "testimonials", "logo-cloud", "stats",
+  "newsletter", "faq", "team-grid", "comparison-table",
+]);
+
+/** Page-wide design coherence decisions selected by AI */
+export interface CoherenceStrategy {
+  surface?: "flat" | "gradient-mesh" | "grain" | "glass" | "accent-wash";
+  density?: "spacious" | "balanced" | "compact";
+  animationLevel?: "none" | "subtle" | "expressive";
+}
+
+/** A single section in the AI JSON response */
+export interface RenderResponseSection {
+  id: string;                         // shape ID from canvas
+  type: SectionContent["type"];       // one of 18 section types
+  props: Record<string, unknown>;     // validated per-type at runtime
+}
+
+/** Complete AI response from /api/render-v2 */
+export interface RenderResponse {
+  coherenceStrategy: CoherenceStrategy;
+  sections: RenderResponseSection[];
+}

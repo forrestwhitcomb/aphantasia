@@ -26,6 +26,14 @@ import {
   renderEcommerceGrid,
   renderEventSignup,
   renderGenericSection,
+  renderPricingTable,
+  renderTestimonials,
+  renderLogoCloud,
+  renderStats,
+  renderNewsletter,
+  renderFAQ,
+  renderTeamGrid,
+  renderComparisonTable,
 } from "@/components/sections";
 import { renderPrimitive } from "@/components/primitives";
 
@@ -55,6 +63,22 @@ export function renderSection(section: SectionContent, sectionId?: string): stri
       return renderEventSignup(section.props, sectionId);
     case "generic":
       return renderGenericSection(section.props, sectionId);
+    case "pricing-table":
+      return renderPricingTable(section.props, sectionId);
+    case "testimonials":
+      return renderTestimonials(section.props, sectionId);
+    case "logo-cloud":
+      return renderLogoCloud(section.props, sectionId);
+    case "stats":
+      return renderStats(section.props, sectionId);
+    case "newsletter":
+      return renderNewsletter(section.props, sectionId);
+    case "faq":
+      return renderFAQ(section.props, sectionId);
+    case "team-grid":
+      return renderTeamGrid(section.props, sectionId);
+    case "comparison-table":
+      return renderComparisonTable(section.props, sectionId);
     default:
       return "";
   }
@@ -156,6 +180,23 @@ export function shapeToSection(shape: CanvasShape): SectionContent {
 
     case "ecommerce":
       return { type: "ecommerce-grid", props: { title: parsed.heading || text || undefined } };
+
+    case "pricing":
+      return { type: "pricing-table", props: { title: parsed.heading || text || undefined } };
+    case "testimonials":
+      return { type: "testimonials", props: { title: parsed.heading || text || undefined } };
+    case "logo-cloud":
+      return { type: "logo-cloud", props: { title: parsed.heading || text || undefined } };
+    case "stats":
+      return { type: "stats", props: { title: parsed.heading || text || undefined } };
+    case "newsletter":
+      return { type: "newsletter", props: { headline: parsed.heading || text || undefined } };
+    case "faq":
+      return { type: "faq", props: { title: parsed.heading || text || undefined } };
+    case "team":
+      return { type: "team-grid", props: { title: parsed.heading || text || undefined } };
+    case "comparison":
+      return { type: "comparison-table", props: { title: parsed.heading || text || undefined } };
 
     case "text-block": {
       // If entire text is just a button keyword (no heading), render as standalone CTA

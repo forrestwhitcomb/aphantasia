@@ -81,12 +81,19 @@ export async function POST(req: NextRequest) {
         .replace(/^```(?:html)?\s*/i, "")
         .replace(/\s*```$/, "");
 
+      // Get token usage from the completed stream
+      let tokenUsage: { input: number; output: number } | undefined;
+      try {
+        const final = await stream.finalMessage();
+        tokenUsage = { input: final.usage.input_tokens, output: final.usage.output_tokens };
+      } catch { /* stream may not support finalMessage */ }
+
       const hasMarkers = /data-aph-id=/.test(html);
 
       if (hasMarkers) {
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ done: true, html })}\n\n`
+            `data: ${JSON.stringify({ done: true, html, tokenUsage })}\n\n`
           )
         );
       } else {
@@ -95,6 +102,7 @@ export async function POST(req: NextRequest) {
             `data: ${JSON.stringify({
               done: true,
               html,
+              tokenUsage,
               warning: "AI output missing data-aph-id markers — projection may not work",
             })}\n\n`
           )

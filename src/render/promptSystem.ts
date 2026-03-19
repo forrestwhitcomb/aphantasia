@@ -6,12 +6,13 @@ import { buildContextBundle, serializeForPrompt } from "./serializer";
 import { resolveDesignDirection, serializeDesignDirection } from "./themeResolver";
 import { resolveSemanticTag } from "@/semantic/rules";
 import { getLibrariesForLevel, buildLibraryReference } from "./cdnCatalog";
+import { selectMood, type MoodDocument } from "./moodSelector";
 
 // ---------------------------------------------------------------------------
 // Build the system prompt for bespoke HTML generation
 // ---------------------------------------------------------------------------
 
-export function buildSystemPrompt(direction: ResolvedDesignDirection): string {
+export function buildSystemPrompt(direction: ResolvedDesignDirection, mood?: MoodDocument): string {
   const libs = getLibrariesForLevel(direction.animationLevel);
   const libRef = buildLibraryReference(libs);
 
@@ -131,7 +132,13 @@ ${libRef}
 - Do NOT use external CSS frameworks (no Tailwind classes, no Bootstrap)
 - Do NOT hardcode hex colors — use CSS custom properties
 - Do NOT generate placeholder text (lorem ipsum, "Your text here")
-- Do NOT leave empty sections — every section must have real content`;
+- Do NOT leave empty sections — every section must have real content${mood ? `
+
+## Design Aesthetic: ${mood.name}
+
+Follow these specific aesthetic instructions for this page. These are opinionated design directives — follow them precisely.
+
+${mood.fullContent}` : ""}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +174,14 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   const bundle = buildContextBundle(resolvedDoc, context ?? null, rawText);
   const canvasIntent = serializeForPrompt(resolvedDoc, bundle, references);
   const designDirectionBlock = serializeDesignDirection(direction);
+
+  // Select mood based on direction + scratchpad notes
+  const scratchpadNotes = resolvedDoc.shapes
+    .filter((s) => !s.isInsideFrame && (s.type === "note" || s.type === "text"))
+    .map((s) => s.label || s.content || "")
+    .filter(Boolean)
+    .join(" ");
+  const mood = selectMood(direction, context, scratchpadNotes);
 
   const insideFrame = resolvedDoc.shapes
     .filter(
@@ -235,7 +250,7 @@ Generate the complete <body> HTML for this page. Every section listed above must
     });
   }
 
-  const systemMessage = buildSystemPrompt(direction);
+  const systemMessage = buildSystemPrompt(direction, mood);
 
   return { systemMessage, userMessage, direction, imageBlocks };
 }

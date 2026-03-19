@@ -121,7 +121,11 @@ export function resolveDesignDirection(
 ): ResolvedDesignDirection {
   const signals = extractSignals(doc, context, references);
   const archetype = classifyArchetype(signals);
-  const contentType = classifyContentType(signals);
+  // Prefer explicit contentType from V3 extraction if available
+  const VALID_CONTENT_TYPES = new Set<string>(["saas", "portfolio", "editorial", "product", "personal", "restaurant", "agency", "general"]);
+  const extractedCT = context?.contentType;
+  const mappedCT = extractedCT === "ecommerce" ? "product" : extractedCT === "event" ? "general" : extractedCT === "nonprofit" ? "personal" : extractedCT;
+  const contentType = (mappedCT && VALID_CONTENT_TYPES.has(mappedCT) ? mappedCT : classifyContentType(signals)) as ContentType;
   const typographyScale = resolveTypographyScale(archetype, signals);
   const animationLevel = resolveAnimationLevel(archetype, signals);
   const layoutDensity = resolveLayoutDensity(archetype, signals);
@@ -211,7 +215,7 @@ function extractSignals(
     hasForm: tags.has("form"),
     allLabels: labels,
     allNotes: notes,
-    contextTone: (context?.tone || "").toLowerCase(),
+    contextTone: (typeof context?.tone === "string" ? context.tone : context?.tone?.personality || context?.tone?.energy || "").toLowerCase(),
     refMood: refMoods.toLowerCase(),
     refLayout: refLayouts.toLowerCase(),
     refToneOfVoice: refTones.toLowerCase(),

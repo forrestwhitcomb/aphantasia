@@ -10,15 +10,23 @@ import { contextStore } from "@/context/ContextStore";
 import { referenceStore } from "@/reference/ReferenceStore";
 import { tokensToCSS } from "@/lib/theme";
 import { aiCallTracker } from "@/lib/aiCallTracker";
-import { renderBlock, shapeToBlock } from "@/render/renderSection";
+import { renderBlock, renderSection, shapeToBlock, shapeToSection } from "@/render/renderSection";
 import { exportStore } from "@/lib/exportStore";
 import { resolveDesignDirection } from "@/render/themeResolver";
 import { getLibrariesForLevel, buildScriptTags } from "@/render/cdnCatalog";
 import { BASE_CSS, RESPONSIVE_CSS } from "@/render/sharedCSS";
+import { applySectionProps } from "@/render/validateRenderResponse";
+import type { SectionContent, CoherenceStrategy } from "@/types/render";
 
 const renderer = new WebRenderer();
 
-type RenderPhase = "IDLE" | "LAYER1" | "LAYER2_STREAMING" | "BESPOKE";
+type RenderPhase =
+  | "IDLE"
+  | "LAYER1"
+  | "LAYER2_PROPS_STREAMING"
+  | "LAYER2_PROPS"
+  | "DEEP_RENDER_STREAMING"
+  | "DEEP_RENDER";
 
 interface BespokeFragment {
   type: string;
@@ -63,10 +71,14 @@ export function PreviewPane() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Bespoke HTML fragments from Layer 2 (keyed by shape ID)
+  // Bespoke HTML fragments from Deep Render (keyed by shape ID)
   const bespokeRef = useRef<Map<string, BespokeFragment>>(new Map());
   // Global style/script blocks from the bespoke render
   const bespokeGlobalsRef = useRef<{ styles: string; scripts: string } | null>(null);
+
+  // V2: Enriched section props from Layer 2 JSON AI (keyed by shape ID)
+  const enrichedPropsRef = useRef<Map<string, SectionContent>>(new Map());
+  const coherenceRef = useRef<CoherenceStrategy | null>(null);
 
   // Scale the 1280px iframe to fit whatever width the pane has
   useEffect(() => {
@@ -83,14 +95,16 @@ export function PreviewPane() {
   useEffect(() => {
     doLayer1();
     canvasEngine.on("canvas:changed", handleChange);
-    canvasEngine.on("render:requested", handleRenderRequest);
+    canvasEngine.on("render:requested", handleLayer2PropsRequest);
+    canvasEngine.on("render:deep-requested", handleDeepRenderRequest);
     const unsubRef = referenceStore.subscribe(() => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(doLayer1, 300);
     });
     return () => {
       canvasEngine.off("canvas:changed", handleChange);
-      canvasEngine.off("render:requested", handleRenderRequest);
+      canvasEngine.off("render:requested", handleLayer2PropsRequest);
+      canvasEngine.off("render:deep-requested", handleDeepRenderRequest);
       unsubRef();
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -102,8 +116,12 @@ export function PreviewPane() {
     debounceRef.current = setTimeout(doLayer1, 200);
   }
 
-  function handleRenderRequest() {
-    doLayer2();
+  function handleLayer2PropsRequest() {
+    doLayer2Props();
+  }
+
+  function handleDeepRenderRequest() {
+    doDeepRender();
   }
 
   // -----------------------------------------------------------------------
@@ -115,29 +133,131 @@ export function PreviewPane() {
     const resolved = await resolveSemantics(doc);
     setPhase("LAYER1");
 
+    // Priority 1: Deep Render bespoke fragments (if available)
     if (bespokeRef.current.size > 0) {
       const html = projectCanvasChanges(resolved, bespokeRef.current, bespokeGlobalsRef.current);
       setSrcDoc(html);
       exportStore.setHTML(html);
-      setPhase("BESPOKE");
-    } else {
-      const output = renderer.renderPhase1(resolved);
-      setSrcDoc(output.html);
-      exportStore.setHTML(output.html);
+      setPhase("DEEP_RENDER");
+      return;
+    }
+
+    // Priority 2: Layer 2 enriched props (if available) — render through component library
+    if (enrichedPropsRef.current.size > 0) {
+      const html = renderWithEnrichedProps(resolved, enrichedPropsRef.current);
+      setSrcDoc(html);
+      exportStore.setHTML(html);
+      setPhase("LAYER2_PROPS");
+      return;
+    }
+
+    // Default: pure Layer 1
+    const output = renderer.renderPhase1(resolved);
+    setSrcDoc(output.html);
+    exportStore.setHTML(output.html);
+    setPhase("IDLE");
+  }
+
+  // -----------------------------------------------------------------------
+  // Layer 2 — Variant-aware JSON prop-schema via /api/render-v2
+  // -----------------------------------------------------------------------
+
+  async function doLayer2Props() {
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setPhase("LAYER2_PROPS_STREAMING");
+
+    const doc = canvasEngine.getDocument();
+    const resolved = await resolveSemantics(doc);
+    const context = contextStore.getContext();
+    const rawText = contextStore.getRawText();
+    const references = referenceStore.getReferences();
+
+    try {
+      aiCallTracker.trackRender();
+      const res = await fetch("/api/render-v2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doc: resolved, context, rawText, references }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        setPhase("IDLE");
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const json = line.slice(6);
+          try {
+            const event = JSON.parse(json);
+            if (event.done && event.sections) {
+              // Report token usage
+              if (event.tokenUsage) {
+                aiCallTracker.addTokens(event.tokenUsage);
+              }
+
+              // Store enriched props
+              const newMap = new Map<string, SectionContent>();
+              for (const s of event.sections as Array<{ id: string; section: SectionContent }>) {
+                if (s.id && s.section) {
+                  newMap.set(s.id, s.section);
+                }
+              }
+              enrichedPropsRef.current = newMap;
+              if (event.coherenceStrategy) {
+                coherenceRef.current = event.coherenceStrategy;
+              }
+
+              // Clear any bespoke fragments (Layer 2 props take priority over stale Deep Render)
+              bespokeRef.current = new Map();
+              bespokeGlobalsRef.current = null;
+
+              // Re-render with enriched props
+              doLayer1();
+              return;
+            }
+            if (event.done && event.error) {
+              console.warn("[render-v2] AI error:", event.error);
+              setPhase("IDLE");
+              return;
+            }
+          } catch {
+            // Ignore partial SSE
+          }
+        }
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setPhase("IDLE");
     }
   }
 
   // -----------------------------------------------------------------------
-  // Layer 2 — AI bespoke HTML via /api/render
+  // Deep Render — AI bespoke HTML via /api/render (original pipeline)
   // -----------------------------------------------------------------------
 
-  async function doLayer2() {
+  async function doDeepRender() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
-    setPhase("LAYER2_STREAMING");
+    setPhase("DEEP_RENDER_STREAMING");
 
     const doc = canvasEngine.getDocument();
     const resolved = await resolveSemantics(doc);
@@ -177,11 +297,20 @@ export function PreviewPane() {
           try {
             const event = JSON.parse(json);
             if (event.done && event.html) {
+              // Report token usage
+              if (event.tokenUsage) {
+                aiCallTracker.addTokens(event.tokenUsage);
+              }
+
               const bodyHtml = event.html as string;
 
               // Parse into per-section fragments for projection
               const fragments = parseBespokeFragments(bodyHtml);
               bespokeRef.current = fragments;
+
+              // Clear enriched props (Deep Render takes priority)
+              enrichedPropsRef.current = new Map();
+              coherenceRef.current = null;
 
               // Extract global style/script blocks
               bespokeGlobalsRef.current = extractGlobalBlocks(bodyHtml);
@@ -190,7 +319,7 @@ export function PreviewPane() {
               const fullDoc = buildBespokeDocument(bodyHtml, resolved);
               setSrcDoc(fullDoc);
               exportStore.setHTML(fullDoc);
-              setPhase("BESPOKE");
+              setPhase("DEEP_RENDER");
             }
           } catch {
             // Partial JSON or streaming text delta — ignore
@@ -220,13 +349,26 @@ export function PreviewPane() {
         }}
       >
         {/* Preview in new tab — <a> tag avoids popup blockers */}
-        {srcDoc && phase !== "LAYER2_STREAMING" && (
+        {srcDoc && phase !== "LAYER2_PROPS_STREAMING" && phase !== "DEEP_RENDER_STREAMING" && (
           <a
             href="/preview"
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => {
-              try { sessionStorage.setItem("aphantasia-preview", srcDoc); } catch { /* storage full */ }
+            onClick={async (e) => {
+              e.preventDefault();
+              try {
+                const res = await fetch("/api/preview", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ html: srcDoc }),
+                });
+                const { token } = await res.json();
+                if (token) window.open(`/api/preview?token=${token}`, "_blank");
+              } catch {
+                // Fallback to sessionStorage if API fails
+                try { sessionStorage.setItem("aphantasia-preview", srcDoc); } catch { /* */ }
+                window.open("/preview", "_blank");
+              }
             }}
             title="Open in new tab — interact with the full site"
             style={{
@@ -256,7 +398,7 @@ export function PreviewPane() {
         )}
 
         {/* Phase indicators */}
-        {phase === "LAYER2_STREAMING" && (
+        {phase === "LAYER2_PROPS_STREAMING" && (
           <div
             style={{
               background: "rgba(0,0,0,0.8)",
@@ -279,11 +421,11 @@ export function PreviewPane() {
                 animation: "pulse 1s infinite",
               }}
             />
-            Generating bespoke design...
+            Enhancing design...
             <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
           </div>
         )}
-        {phase === "BESPOKE" && (
+        {phase === "LAYER2_PROPS" && (
           <div
             style={{
               background: "rgba(0,0,0,0.7)",
@@ -294,7 +436,48 @@ export function PreviewPane() {
               fontWeight: 500,
             }}
           >
-            Bespoke Design
+            AI Enhanced
+          </div>
+        )}
+        {phase === "DEEP_RENDER_STREAMING" && (
+          <div
+            style={{
+              background: "rgba(0,0,0,0.8)",
+              color: "#fff",
+              padding: "6px 14px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#a78bfa",
+                animation: "pulse 1s infinite",
+              }}
+            />
+            Generating bespoke design...
+            <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+          </div>
+        )}
+        {phase === "DEEP_RENDER" && (
+          <div
+            style={{
+              background: "rgba(0,0,0,0.7)",
+              color: "#a78bfa",
+              padding: "6px 14px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 500,
+            }}
+          >
+            ✦ Bespoke Design
           </div>
         )}
       </div>
@@ -317,6 +500,56 @@ export function PreviewPane() {
       )}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// V2: Render with enriched AI props through the component library
+// ---------------------------------------------------------------------------
+
+function renderWithEnrichedProps(
+  doc: CanvasDocument,
+  enriched: Map<string, SectionContent>
+): string {
+  const inside = doc.shapes
+    .filter(
+      (s) =>
+        s.isInsideFrame &&
+        s.semanticTag !== "unknown" &&
+        s.semanticTag !== "scratchpad" &&
+        s.semanticTag !== "context-note" &&
+        s.semanticTag !== "image" &&
+        !s.meta?._consumed
+    )
+    .sort((a, b) => a.y - b.y);
+
+  if (inside.length === 0) return "";
+
+  const blocks = inside
+    .map((s) => {
+      // Check enriched props first
+      const enrichedSection = enriched.get(s.id);
+      if (enrichedSection) {
+        return renderSection(enrichedSection, s.id);
+      }
+
+      // Fallback to Layer 1 default with "New" badge
+      const block = shapeToBlock(s);
+      const html = renderBlock(block, s.id);
+      return `<div style="position:relative;">\n<div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);color:#fbbf24;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:500;z-index:5;">New — hit Render</div>\n${html}\n</div>`;
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  // Wrap in full HTML document using Layer 1's wrapDocument approach
+  const output = renderer.renderPhase1(doc);
+  // Replace the body content but keep the same document wrapper
+  const bodyStart = output.html.indexOf("<body>");
+  const bodyEnd = output.html.indexOf("</body>");
+  if (bodyStart !== -1 && bodyEnd !== -1) {
+    return output.html.slice(0, bodyStart + 6) + "\n" + blocks + "\n" + output.html.slice(bodyEnd);
+  }
+  // Fallback: return the standard render
+  return output.html;
 }
 
 // ---------------------------------------------------------------------------
@@ -409,9 +642,7 @@ img { max-width: 100%; height: auto; display: block; }
   ${fontLink}
   ${cdnScripts}
   <style>
-:root {
 ${rootCSS}
-}
 ${baseReset}${placeholderCSS}
   </style>
 </head>

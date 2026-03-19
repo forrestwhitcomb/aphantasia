@@ -34,6 +34,14 @@ export type SemanticTag =
   | "form"
   | "portfolio"
   | "ecommerce"
+  | "pricing"
+  | "testimonials"
+  | "logo-cloud"
+  | "stats"
+  | "newsletter"
+  | "faq"
+  | "team"
+  | "comparison"
   | "scratchpad"
   | "context-note"
   | "page-candidate"
@@ -70,7 +78,7 @@ export interface CanvasFrame {
 export interface CanvasDocument {
   id: string;
   version: number;
-  outputType: "site" | "slides" | "doodles";
+  outputType: "site" | "slides" | "doodles" | "ui";
   frame: CanvasFrame;
   frames: CanvasFrame[];
   activeFrameId: string;
@@ -88,7 +96,8 @@ export type CanvasEventType =
   | "shape:deselected"
   | "canvas:changed"
   | "canvas:saved"
-  | "render:requested";
+  | "render:requested"
+  | "render:deep-requested";
 
 export interface CanvasEvent {
   type: CanvasEventType;
@@ -123,4 +132,5 @@ export interface CanvasEngine {
   setTool(tool: CanvasTool): void;
   getTool(): CanvasTool;
   requestRender(): void;
+  requestDeepRender(): void;
 }

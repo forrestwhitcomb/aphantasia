@@ -4,11 +4,41 @@
 
 /** Structured context extracted by AI from raw user input */
 export interface StructuredContext {
+  // Identity
   productName?: string;
   tagline?: string;
   description?: string;
-  tone?: string;
-  pricing?: string;
+
+  // Classification (V3 — feeds mood selection + Layer 1 defaults)
+  contentType?: "saas" | "portfolio" | "editorial" | "ecommerce" | "event" | "personal" | "agency" | "restaurant" | "nonprofit" | "general";
+  audience?: string;
+
+  // Voice (V3 — structured tone replaces flat string)
+  tone?: string | {
+    formality?: "casual" | "neutral" | "formal";
+    energy?: "calm" | "confident" | "urgent" | "playful";
+    personality?: string;
+  };
+
+  // Content signals (V3)
+  valueProp?: string;
+  features?: string[];
+  socialProof?: string;
+  pricing?: string | {
+    model?: "free" | "freemium" | "paid" | "enterprise" | "custom";
+    tiers?: string[];
+  };
+  cta?: {
+    primary?: string;
+    secondary?: string;
+  };
+
+  // Visual signals
+  brandColors?: string[];
+  visualDirection?: string;
+  references?: string[];
+
+  // Legacy fields (backward compat — old extraction may still produce these)
   events?: string[];
   products?: string[];
   portfolio?: string[];

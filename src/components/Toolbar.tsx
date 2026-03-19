@@ -67,7 +67,7 @@ function ToolIcon({ tool }: { tool: CanvasTool }) {
   }
 }
 
-export function Toolbar() {
+export function Toolbar({ outputType }: { outputType?: string }) {
   const [activeTool, setActiveTool] = useState<CanvasTool>(canvasEngine.getTool());
 
   // Poll tool state from engine (syncs with keyboard shortcuts)
@@ -181,61 +181,89 @@ export function Toolbar() {
         </svg>
       </button>
 
-      {/* Separator */}
-      <div style={{ width: 1, height: 24, background: "#333", margin: "0 8px" }} />
+      {outputType !== "ui" && (
+        <>
+          {/* Separator */}
+          <div style={{ width: 1, height: 24, background: "#333", margin: "0 8px" }} />
 
-      {/* Render button */}
-      <button
-        onClick={() => canvasEngine.requestRender()}
-        style={{
-          padding: "8px 20px",
-          background: "#fff",
-          color: "#000",
-          borderRadius: "0.75rem",
-          border: "none",
-          fontSize: 14,
-          fontWeight: 500,
-          cursor: "pointer",
-          fontFamily: "var(--font-poppins)",
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-        }}
-      >
-        <SparkleIcon size={16} />
-        Render
-      </button>
+          {/* Render button */}
+          <button
+            onClick={() => canvasEngine.requestRender()}
+            style={{
+              padding: "8px 20px",
+              background: "#fff",
+              color: "#000",
+              borderRadius: "0.75rem",
+              border: "none",
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "var(--font-poppins)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <SparkleIcon size={16} />
+            Render
+          </button>
 
-      {/* Deploy button */}
-      <button
-        onClick={() =>
-          window.dispatchEvent(
-            new CustomEvent("aphantasia:open-deploy-modal")
-          )
-        }
-        title="Deploy to GitHub"
-        style={{
-          padding: "8px 20px",
-          background: "transparent",
-          color: "rgba(255,255,255,0.7)",
-          borderRadius: "0.75rem",
-          border: "1px solid rgba(255,255,255,0.15)",
-          fontSize: 14,
-          fontWeight: 500,
-          cursor: "pointer",
-          fontFamily: "var(--font-poppins)",
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          transition: "border-color 0.15s, color 0.15s",
-        }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 14l8-8 8 8" />
-          <path d="M12 6v14" />
-        </svg>
-        Deploy
-      </button>
+          {/* Deep Render button */}
+          <button
+            onClick={() => canvasEngine.requestDeepRender()}
+            title="Deep Render — bespoke AI-generated HTML"
+            style={{
+              padding: "8px 16px",
+              background: "transparent",
+              color: "rgba(255,255,255,0.6)",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.12)",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "var(--font-poppins)",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              transition: "border-color 0.15s, color 0.15s",
+            }}
+          >
+            <span style={{ fontSize: 14 }}>✦</span>
+            Deep
+          </button>
+
+          {/* Deploy button */}
+          <button
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("aphantasia:open-deploy-modal")
+              )
+            }
+            title="Deploy to GitHub"
+            style={{
+              padding: "8px 20px",
+              background: "transparent",
+              color: "rgba(255,255,255,0.7)",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.15)",
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "var(--font-poppins)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "border-color 0.15s, color 0.15s",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 14l8-8 8 8" />
+              <path d="M12 6v14" />
+            </svg>
+            Deploy
+          </button>
+        </>
+      )}
     </div>
   );
 }

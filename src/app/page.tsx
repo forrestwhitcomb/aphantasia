@@ -1,16 +1,37 @@
 "use client";
 
+import { useState } from "react";
 import { SplashHero } from "@/components/SplashHero";
 import { GradientBackground } from "@/components/GradientBackground";
 import { CanvasView } from "@/engine";
 import { PreviewPane } from "@/components/PreviewPane";
+import { UIPreviewPane } from "@/components/UIPreviewPane";
 import { Toolbar } from "@/components/Toolbar";
 import { OutputToggle } from "@/components/OutputToggle";
+import type { OutputType } from "@/components/OutputToggle";
 import { AICallCounter } from "@/components/AICallCounter";
 import { ComponentBrowser } from "@/components/ComponentBrowser";
 import { DeployModal } from "@/components/DeployModal";
+import { getCustomEngine } from "@/engine/engines/CustomCanvasEngine";
 
 export default function Home() {
+  const [outputType, setOutputType] = useState<OutputType>("site");
+
+  function handleOutputChange(type: OutputType) {
+    const engine = getCustomEngine();
+    if (type === "ui") {
+      engine.initMobileUIFrame();
+    } else {
+      if (outputType === "ui") {
+        // Leaving UI mode — restore desktop frame
+        engine.restoreDesktopFrame();
+      } else {
+        engine.setOutputType(type);
+      }
+    }
+    setOutputType(type);
+  }
+
   return (
     <div style={{ minHeight: "calc(175vh - 100px)", position: "relative" }}>
       {/* Gradient background — fixed, behind everything */}
@@ -93,11 +114,11 @@ export default function Home() {
                   zIndex: 50,
                 }}
               >
-                <OutputToggle />
+                <OutputToggle value={outputType} onChange={handleOutputChange} />
               </div>
 
               <CanvasView />
-              <Toolbar />
+              <Toolbar outputType={outputType} />
               <AICallCounter />
               <ComponentBrowser />
               <DeployModal />
@@ -109,11 +130,11 @@ export default function Home() {
               style={{
                 flex: 1,
                 borderRadius: 16,
-                background: "#FFFFFF",
+                background: outputType === "ui" ? "#F0F0F0" : "#FFFFFF",
                 boxShadow: "0 4px 22.4px rgba(155,155,155,0.25)",
               }}
             >
-              <PreviewPane />
+              {outputType === "ui" ? <UIPreviewPane /> : <PreviewPane />}
             </div>
           </div>
         </div>

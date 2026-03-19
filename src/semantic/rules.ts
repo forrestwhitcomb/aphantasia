@@ -37,8 +37,29 @@ export function resolveSemanticTag(
   // Hero / banner
   if (/\b(hero|banner|jumbotron|headline|above[- ]fold)\b/.test(hint)) return "hero";
 
-  // Feature grid / cards / pricing
-  if (/\b(features?|cards?|grid|pricing|benefits?|capabilities|highlights?)\b/.test(hint)) return "cards";
+  // Pricing table (check before general cards/features)
+  if (/\b(pricing|plans?|tiers?|subscription)\b/.test(hint)) return "pricing";
+
+  // Testimonials / social proof
+  if (/\b(testimonials?|reviews?|quotes?|what people say|social[- ]proof)\b/.test(hint)) return "testimonials";
+
+  // Logo cloud / partners
+  if (/\b(logos?|partners?|clients?|trusted[- ]by|press|as[- ]seen)\b/.test(hint)) return "logo-cloud";
+
+  // Stats / metrics
+  if (/\b(stats?|metrics?|numbers?|by[- ]the[- ]numbers?|counter)\b/.test(hint)) return "stats";
+
+  // FAQ
+  if (/\b(faq|frequently[- ]asked|questions?|q[- ]?&[- ]?a)\b/.test(hint)) return "faq";
+
+  // Team
+  if (/\b(team|people|our[- ]team|who[- ]we[- ]are|staff|members?)\b/.test(hint)) return "team";
+
+  // Comparison
+  if (/\b(comparison|compare|vs|us[- ]vs[- ]them|versus)\b/.test(hint)) return "comparison";
+
+  // Feature grid / cards
+  if (/\b(features?|cards?|grid|benefits?|capabilities|highlights?)\b/.test(hint)) return "cards";
 
   // Split / two-column
   if (/\b(split|two[- ]col|side[- ]by[- ]side|text[- ]image|image[- ]text)\b/.test(hint)) return "split";
@@ -52,11 +73,14 @@ export function resolveSemanticTag(
   // E-commerce / products / shop
   if (/\b(shop|products?|store|ecommerce|e-commerce|catalog|buy|merchandise)\b/.test(hint)) return "ecommerce";
 
+  // Newsletter / email capture
+  if (/\b(newsletter|subscribe|stay[- ]updated|join[- ]us|email[- ]capture|mailing[- ]list)\b/.test(hint)) return "newsletter";
+
   // Event signup / registration / RSVP
   if (/\b(event|rsvp|register|registration|conference|meetup|webinar|workshop|ticket)\b/.test(hint)) return "form";
 
   // Form / contact
-  if (/\b(form|contact|signup|sign[- ]up|subscribe|newsletter|email[- ]capture)\b/.test(hint)) return "form";
+  if (/\b(form|contact|signup|sign[- ]up)\b/.test(hint)) return "form";
 
   // Footer
   if (/\b(footer|bottom|copyright)\b/.test(hint)) return "footer";

@@ -22,6 +22,7 @@ import type {
 } from "../CanvasEngine";
 import { CanvasContextWidget } from "@/components/CanvasContextWidget";
 import { CanvasReferenceWidget } from "@/components/CanvasReferenceWidget";
+import { UIContextPanel } from "@/components/UIContextPanel";
 import { ShapeTagDropdown } from "@/components/ShapeTagDropdown";
 import type { ComponentCatalogEntry } from "@/lib/componentCatalogData";
 
@@ -32,6 +33,9 @@ import type { ComponentCatalogEntry } from "@/lib/componentCatalogData";
 export const FRAME_WIDTH = 1280;
 export const FRAME_HEIGHT = 800;
 const DESKTOP_FRAME_ID = "frame:desktop";
+export const MOBILE_FRAME_WIDTH = 393;
+export const MOBILE_FRAME_HEIGHT = 852;
+const MOBILE_FRAME_ID = "frame:mobile-ui";
 const MIN_SHAPE_SIZE = 10;
 const MIN_RESIZE = 20;
 
@@ -59,7 +63,7 @@ export class CustomCanvasEngine implements CanvasEngine {
   private activeFrameId: string = DESKTOP_FRAME_ID;
   private handlers = new Map<CanvasEventType, Set<CanvasEventHandler>>();
   private ver = 0;
-  private _outputType: "site" | "slides" | "doodles" = "site";
+  private _outputType: "site" | "slides" | "doodles" | "ui" = "site";
   private _tool: CanvasTool = "select";
   private _clipboard: CanvasShape[] = [];
   camera: Camera = { x: 0, y: 0, zoom: 1 };
@@ -91,8 +95,46 @@ export class CustomCanvasEngine implements CanvasEngine {
 
   // -- Output type ----------------------------------------------------------
 
-  setOutputType(type: "site" | "slides" | "doodles") {
+  setOutputType(type: "site" | "slides" | "doodles" | "ui") {
     this._outputType = type;
+    this.changed();
+  }
+
+  /** Switch to UI mode: clear shapes, set iPhone 17 frame, re-center camera. */
+  initMobileUIFrame() {
+    this.shapes.clear();
+    this.selectedIds.clear();
+    this.selectedFrameId = null;
+    this.frames = [{
+      id: MOBILE_FRAME_ID,
+      type: "mobile",
+      width: MOBILE_FRAME_WIDTH,
+      height: MOBILE_FRAME_HEIGHT,
+      x: 0,
+      y: 0,
+    }];
+    this.activeFrameId = MOBILE_FRAME_ID;
+    this._outputType = "ui";
+    this.zoomToFit();
+    this.changed();
+  }
+
+  /** Restore default desktop frame when leaving UI mode. */
+  restoreDesktopFrame() {
+    this.shapes.clear();
+    this.selectedIds.clear();
+    this.selectedFrameId = null;
+    this.frames = [{
+      id: DESKTOP_FRAME_ID,
+      type: "desktop",
+      width: FRAME_WIDTH,
+      height: FRAME_HEIGHT,
+      x: 0,
+      y: 0,
+    }];
+    this.activeFrameId = DESKTOP_FRAME_ID;
+    this._outputType = "site";
+    this.zoomToFit();
     this.changed();
   }
 
@@ -109,6 +151,10 @@ export class CustomCanvasEngine implements CanvasEngine {
 
   requestRender(): void {
     this.emit({ type: "render:requested" });
+  }
+
+  requestDeepRender(): void {
+    this.emit({ type: "render:deep-requested" });
   }
 
   // -- Copy / Paste --------------------------------------------------------
@@ -565,6 +611,37 @@ export class CustomCanvasEngine implements CanvasEngine {
     this.ver++;
     this.emit({ type: "canvas:changed" });
     this.onStateChange?.();
+    // Auto-persist to localStorage
+    this.persistToStorage();
+  }
+
+  /** Public method to re-emit canvas:changed (used after restore to notify late listeners) */
+  emitChanged() {
+    this.emit({ type: "canvas:changed" });
+  }
+
+  private _persistTimer: ReturnType<typeof setTimeout> | null = null;
+  private persistToStorage() {
+    if (this._persistTimer) clearTimeout(this._persistTimer);
+    this._persistTimer = setTimeout(() => {
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("aphantasia:canvas", this.serialize());
+        }
+      } catch { /* localStorage full or unavailable — silently skip */ }
+    }, 300);
+  }
+
+  restoreFromStorage(): boolean {
+    try {
+      if (typeof window === "undefined") return false;
+      const saved = window.localStorage.getItem("aphantasia:canvas");
+      if (saved) {
+        this.deserialize(saved);
+        return true;
+      }
+    } catch { /* corrupt data — start fresh */ }
+    return false;
   }
 }
 
@@ -621,10 +698,18 @@ export function CustomCanvasView() {
 
   const engine = engineRef.current;
 
-  // Wire engine → React re-render
+  // Wire engine → React re-render + restore saved state
   useEffect(() => {
     engine.onStateChange = rerender;
+    // Restore saved canvas state — use requestAnimationFrame to ensure
+    // sibling components (PreviewPane) have mounted their event listeners
+    const restored = engine.restoreFromStorage();
     engine.zoomToFit();
+    if (restored) {
+      rerender();
+      // Re-emit changed after a tick so PreviewPane picks it up
+      requestAnimationFrame(() => engine.emitChanged());
+    }
     if (typeof window !== "undefined") {
       (window as any).__aphEngine = engine;
     }
@@ -1132,11 +1217,17 @@ export function CustomCanvasView() {
           willChange: "transform",
         }}
       >
-        {/* Context widget — draggable, lives in world space */}
-        <CanvasContextWidget zoom={cam.zoom} />
-
-        {/* Reference widget — draggable, lives in world space */}
-        <CanvasReferenceWidget zoom={cam.zoom} />
+        {/* UI mode context panel (replaces context/reference widgets in UI mode) */}
+        {engine.getDocument().outputType === "ui" ? (
+          <UIContextPanel zoom={cam.zoom} />
+        ) : (
+          <>
+            {/* Context widget — draggable, lives in world space */}
+            <CanvasContextWidget zoom={cam.zoom} />
+            {/* Reference widget — draggable, lives in world space */}
+            <CanvasReferenceWidget zoom={cam.zoom} />
+          </>
+        )}
 
         {/* Frames — only border edges are clickable, interior is click-through */}
         {allFrames.map((f) => {

@@ -3,12 +3,21 @@
 import { useState, useEffect } from "react";
 import { aiCallTracker, type AICallStats } from "@/lib/aiCallTracker";
 
+function formatTokens(n: number | undefined): string {
+  if (n == null || isNaN(n)) return "0";
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
 export function AICallCounter() {
   const [stats, setStats] = useState<AICallStats>(aiCallTracker.get());
 
   useEffect(() => {
     return aiCallTracker.subscribe(setStats);
   }, []);
+
+  const totalTokens = stats.tokensIn + stats.tokensOut;
 
   return (
     <div
@@ -28,7 +37,7 @@ export function AICallCounter() {
         display: "flex",
         flexDirection: "column",
         gap: 3,
-        minWidth: 130,
+        minWidth: 140,
       }}
     >
       <div
@@ -41,15 +50,19 @@ export function AICallCounter() {
           marginBottom: 2,
         }}
       >
-        AI Calls
+        AI Usage
       </div>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <span>Extract</span>
-        <span style={{ fontWeight: 600, color: "#fff" }}>{stats.extract}</span>
+        <span>Calls</span>
+        <span style={{ fontWeight: 600, color: "#fff" }}>{stats.total}</span>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <span>Render</span>
-        <span style={{ fontWeight: 600, color: "#fff" }}>{stats.render}</span>
+        <span>Tokens in</span>
+        <span style={{ fontWeight: 600, color: "#fff" }}>{formatTokens(stats.tokensIn)}</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <span>Tokens out</span>
+        <span style={{ fontWeight: 600, color: "#fff" }}>{formatTokens(stats.tokensOut)}</span>
       </div>
       <div
         style={{
@@ -63,7 +76,7 @@ export function AICallCounter() {
         }}
       >
         <span>Total</span>
-        <span>{stats.total}</span>
+        <span>{formatTokens(totalTokens)}</span>
       </div>
     </div>
   );

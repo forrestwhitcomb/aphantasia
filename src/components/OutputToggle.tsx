@@ -1,19 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { getCustomEngine } from "@/engine/engines/CustomCanvasEngine";
+export type OutputType = "site" | "slides" | "ui";
 
-type OutputType = "site" | "slides" | "doodles";
+interface OutputToggleProps {
+  value: OutputType;
+  onChange: (type: OutputType) => void;
+}
 
-export function OutputToggle() {
-  const [active, setActive] = useState<OutputType>("site");
+const options: { label: string; value: OutputType }[] = [
+  { label: "Site", value: "site" },
+  { label: "Slides", value: "slides" },
+  { label: "UI", value: "ui" },
+];
 
-  const options: { label: string; value: OutputType }[] = [
-    { label: "Site", value: "site" },
-    { label: "Slides", value: "slides" },
-    { label: "Doodles", value: "doodles" },
-  ];
-
+export function OutputToggle({ value, onChange }: OutputToggleProps) {
   return (
     <div
       style={{
@@ -31,10 +31,7 @@ export function OutputToggle() {
       {options.map((opt) => (
         <button
           key={opt.value}
-          onClick={() => {
-            setActive(opt.value);
-            getCustomEngine().setOutputType(opt.value);
-          }}
+          onClick={() => onChange(opt.value)}
           style={{
             padding: "6px 18px",
             borderRadius: 12,
@@ -44,7 +41,7 @@ export function OutputToggle() {
             cursor: "pointer",
             transition: "background 0.15s, color 0.15s",
             fontFamily: "var(--font-poppins)",
-            ...(active === opt.value
+            ...(value === opt.value
               ? { background: "rgba(255,255,255,0.15)", color: "#fff" }
               : { background: "transparent", color: "rgba(255,255,255,0.5)" }),
           }}

@@ -39,19 +39,122 @@ export interface ThemeTokens {
   // Spacing scale
   "--section-py": string;
   "--inner-max": string;
+  "--spacing-xs": string;
+  "--spacing-sm": string;
+  "--spacing-md": string;
+  "--spacing-lg": string;
+  "--spacing-xl": string;
+  "--spacing-2xl": string;
+  "--spacing-3xl": string;
+  "--spacing-4xl": string;
+  // Typography scale
+  "--text-xs": string;
+  "--text-sm": string;
+  "--text-base": string;
+  "--text-md": string;
+  "--text-lg": string;
+  "--text-xl": string;
+  "--text-2xl": string;
+  "--text-3xl": string;
+  // Content max-widths
+  "--max-w-sm": string;
+  "--max-w-md": string;
+  "--max-w-lg": string;
 }
 
 export const PRESETS: Record<string, ThemeTokens> = {
-  "Light Minimal": {
-    "--background": "#ffffff",
-    "--surface": "#f8f8f8",
-    "--surface-alt": "#f0f0f0",
-    "--foreground": "#111111",
-    "--muted-foreground": "#666666",
-    "--accent": "#111111",
+  Midnight: {
+    "--background": "#0a0a0f",
+    "--surface": "rgba(255,255,255,0.06)",
+    "--surface-alt": "rgba(255,255,255,0.03)",
+    "--foreground": "#f0f0f0",
+    "--muted-foreground": "#8a8a9a",
+    "--accent": "#7c3aed",
     "--accent-foreground": "#ffffff",
-    "--border": "#e8e8e8",
+    "--border": "rgba(255,255,255,0.08)",
+    "--border-opacity": "0.08",
+    "--radius": "10px",
+    "--radius-sm": "6px",
+    "--radius-lg": "20px",
+    "--font-heading": "'Inter', system-ui, sans-serif",
+    "--font-body": "'Inter', system-ui, sans-serif",
+    "--font-mono": "'JetBrains Mono', monospace",
+    "--surface-blur": "16px",
+    "--surface-opacity": "0.06",
+    "--section-py": "96px",
+    "--inner-max": "1100px",
+    "--spacing-xs": "4px",
+    "--spacing-sm": "8px",
+    "--spacing-md": "12px",
+    "--spacing-lg": "16px",
+    "--spacing-xl": "24px",
+    "--spacing-2xl": "32px",
+    "--spacing-3xl": "48px",
+    "--spacing-4xl": "72px",
+    "--text-xs": "12px",
+    "--text-sm": "13px",
+    "--text-base": "14px",
+    "--text-md": "15px",
+    "--text-lg": "16px",
+    "--text-xl": "18px",
+    "--text-2xl": "20px",
+    "--text-3xl": "24px",
+    "--max-w-sm": "560px",
+    "--max-w-md": "720px",
+    "--max-w-lg": "800px",
+  },
+
+  Editorial: {
+    "--background": "#faf9f6",
+    "--surface": "#ffffff",
+    "--surface-alt": "#f3f1ec",
+    "--foreground": "#1a1a1a",
+    "--muted-foreground": "#6b6b6b",
+    "--accent": "#9b7c5c",
+    "--accent-foreground": "#ffffff",
+    "--border": "#e5e2dc",
     "--border-opacity": "1",
+    "--radius": "6px",
+    "--radius-sm": "3px",
+    "--radius-lg": "12px",
+    "--font-heading": "'Playfair Display', Georgia, serif",
+    "--font-body": "'Inter', system-ui, sans-serif",
+    "--font-mono": "'JetBrains Mono', monospace",
+    "--surface-blur": "0px",
+    "--surface-opacity": "1",
+    "--section-py": "112px",
+    "--inner-max": "1060px",
+    "--spacing-xs": "4px",
+    "--spacing-sm": "8px",
+    "--spacing-md": "12px",
+    "--spacing-lg": "16px",
+    "--spacing-xl": "24px",
+    "--spacing-2xl": "32px",
+    "--spacing-3xl": "48px",
+    "--spacing-4xl": "72px",
+    "--text-xs": "12px",
+    "--text-sm": "13px",
+    "--text-base": "14px",
+    "--text-md": "15px",
+    "--text-lg": "16px",
+    "--text-xl": "18px",
+    "--text-2xl": "20px",
+    "--text-3xl": "24px",
+    "--max-w-sm": "560px",
+    "--max-w-md": "720px",
+    "--max-w-lg": "800px",
+  },
+
+  Vivid: {
+    "--background": "#0f0f0f",
+    "--surface": "#1a1a1a",
+    "--surface-alt": "#141414",
+    "--foreground": "#f5f5f5",
+    "--muted-foreground": "#999999",
+    "--accent": "#f97316",
+    "--accent-foreground": "#ffffff",
+    "--border": "rgba(255,255,255,0.1)",
+    "--border-opacity": "0.1",
     "--radius": "8px",
     "--radius-sm": "4px",
     "--radius-lg": "16px",
@@ -60,56 +163,31 @@ export const PRESETS: Record<string, ThemeTokens> = {
     "--font-mono": "'JetBrains Mono', monospace",
     "--surface-blur": "0px",
     "--surface-opacity": "1",
-    "--section-py": "80px",
-    "--inner-max": "1100px",
-  },
-
-  "Dark Glass": {
-    "--background": "#0a0a0f",
-    "--surface": "rgba(255,255,255,0.06)",
-    "--surface-alt": "rgba(255,255,255,0.03)",
-    "--foreground": "#f0f0f0",
-    "--muted-foreground": "#888888",
-    "--accent": "#7c3aed",
-    "--accent-foreground": "#ffffff",
-    "--border": "rgba(255,255,255,0.1)",
-    "--border-opacity": "0.1",
-    "--radius": "10px",
-    "--radius-sm": "6px",
-    "--radius-lg": "20px",
-    "--font-heading": "'Inter', system-ui, sans-serif",
-    "--font-body": "'Inter', system-ui, sans-serif",
-    "--font-mono": "'JetBrains Mono', monospace",
-    "--surface-blur": "12px",
-    "--surface-opacity": "0.06",
-    "--section-py": "96px",
-    "--inner-max": "1100px",
-  },
-
-  "Bold Color": {
-    "--background": "#fff7ed",
-    "--surface": "#ffffff",
-    "--surface-alt": "#fef3c7",
-    "--foreground": "#1c1917",
-    "--muted-foreground": "#78716c",
-    "--accent": "#ea580c",
-    "--accent-foreground": "#ffffff",
-    "--border": "#e7e5e4",
-    "--border-opacity": "1",
-    "--radius": "12px",
-    "--radius-sm": "6px",
-    "--radius-lg": "24px",
-    "--font-heading": "'Inter', system-ui, sans-serif",
-    "--font-body": "'Inter', system-ui, sans-serif",
-    "--font-mono": "'JetBrains Mono', monospace",
-    "--surface-blur": "0px",
-    "--surface-opacity": "1",
-    "--section-py": "88px",
-    "--inner-max": "1100px",
+    "--section-py": "72px",
+    "--inner-max": "1140px",
+    "--spacing-xs": "4px",
+    "--spacing-sm": "8px",
+    "--spacing-md": "12px",
+    "--spacing-lg": "16px",
+    "--spacing-xl": "24px",
+    "--spacing-2xl": "32px",
+    "--spacing-3xl": "48px",
+    "--spacing-4xl": "72px",
+    "--text-xs": "12px",
+    "--text-sm": "13px",
+    "--text-base": "14px",
+    "--text-md": "15px",
+    "--text-lg": "16px",
+    "--text-xl": "18px",
+    "--text-2xl": "20px",
+    "--text-3xl": "24px",
+    "--max-w-sm": "560px",
+    "--max-w-md": "720px",
+    "--max-w-lg": "800px",
   },
 };
 
-export const DEFAULT_PRESET = "Light Minimal";
+export const DEFAULT_PRESET = "Midnight";
 
 /** Convert a ThemeTokens map to an inline CSS :root block */
 export function tokensToCSS(tokens: ThemeTokens): string {
