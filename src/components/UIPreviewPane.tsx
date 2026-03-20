@@ -6,6 +6,7 @@ import { uiDesignStore } from "@/lib/UIDesignStore";
 import { MOBILE_FRAME_WIDTH, MOBILE_FRAME_HEIGHT } from "@/engine/engines/CustomCanvasEngine";
 import { renderMobileBlock, buildMobileDocument } from "@/render/mobileComponents";
 import type { MobileShapeBlock } from "@/render/mobileComponents";
+import { resolveMobileSemanticTag } from "@/semantic/rules";
 
 // ---------------------------------------------------------------------------
 // UIPreviewPane
@@ -69,22 +70,90 @@ export function UIPreviewPane() {
     const frameH = doc.frame.height;
     setActualFrameHeight(frameH);
 
+    const fw = doc.frame.width;
+    const fh = doc.frame.height;
+
     const frameShapes = doc.shapes
       .filter((s) => s.isInsideFrame && !s.meta?._consumed)
       .sort((a, b) => a.y - b.y);
 
-    const blocks: MobileShapeBlock[] = frameShapes.map((s) => ({
+    // Resolve tags and build raw blocks
+    const rawBlocks: MobileShapeBlock[] = frameShapes.map((s) => ({
       id: s.id,
-      semanticTag: s.semanticTag ?? "section",
+      semanticTag: resolveMobileSemanticTag(s, fw, fh),
       label: s.label ?? s.content ?? "",
+      x: s.x,
       y: s.y,
+      width: s.width,
       height: s.height,
       isSticky: /sticky/i.test(s.label ?? "") || /sticky/i.test(s.contextNote ?? ""),
     }));
 
-    const bodyHtml = blocks.map((b) => renderMobileBlock(b, extractedDesignSystem ?? undefined)).join("\n");
-    const html = buildMobileDocument(bodyHtml, extractedDesignSystem ?? undefined);
+    // Group adjacent blocks with the same groupable tag into one block with itemCount.
+    // e.g. 4 adjacent "split" (list) blocks → 1 block with itemCount=4
+    const blocks = groupAdjacentBlocks(rawBlocks, fh);
+
+    const bodyHtml = blocks.map((b) => renderMobileBlock(b, extractedDesignSystem)).join("\n");
+    const html = buildMobileDocument(bodyHtml, extractedDesignSystem);
     setSrcDoc(html);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Grouping: merge adjacent same-tagged shapes into one block with itemCount
+  // ---------------------------------------------------------------------------
+
+  function groupAdjacentBlocks(blocks: MobileShapeBlock[], frameHeight: number): MobileShapeBlock[] {
+    if (blocks.length < 2) return blocks;
+
+    // Tags that should be grouped when adjacent
+    const groupableTags = new Set(["split", "cards"]);
+    const GAP_THRESHOLD = frameHeight * 0.03; // ~25px gap tolerance
+
+    const result: MobileShapeBlock[] = [];
+    let i = 0;
+
+    while (i < blocks.length) {
+      const current = blocks[i];
+
+      if (!groupableTags.has(current.semanticTag)) {
+        result.push(current);
+        i++;
+        continue;
+      }
+
+      // Collect all adjacent blocks with the same tag
+      const group = [current];
+      let j = i + 1;
+      while (j < blocks.length) {
+        const next = blocks[j];
+        const prevBottom = group[group.length - 1].y + group[group.length - 1].height;
+        const gap = next.y - prevBottom;
+        if (next.semanticTag === current.semanticTag && gap < GAP_THRESHOLD) {
+          group.push(next);
+          j++;
+        } else {
+          break;
+        }
+      }
+
+      if (group.length > 1) {
+        // Merge: use the first block as the representative, set itemCount
+        const merged: MobileShapeBlock = {
+          ...group[0],
+          label: group[0].label || group.find(g => g.label)?.label || "",
+          itemCount: group.length,
+          consumedIds: group.slice(1).map(g => g.id),
+          height: (group[group.length - 1].y + group[group.length - 1].height) - group[0].y,
+        };
+        result.push(merged);
+      } else {
+        result.push(current);
+      }
+
+      i = j;
+    }
+
+    return result;
   }
 
   // ---------------------------------------------------------------------------

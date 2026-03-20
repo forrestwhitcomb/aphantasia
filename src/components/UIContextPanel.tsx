@@ -271,11 +271,11 @@ export function UIContextPanel({ zoom }: Props) {
                     {/* Token preview */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                       {[
-                        { label: "Primary", color: designSystem.primaryColor },
-                        { label: "BG", color: designSystem.backgroundColor },
-                        { label: "Surface", color: designSystem.surfaceColor },
-                        { label: "Text", color: designSystem.textColor },
-                        { label: "Muted", color: designSystem.textMutedColor },
+                        { label: "Accent", color: designSystem.colors.accent },
+                        { label: "BG", color: designSystem.colors.background },
+                        { label: "Surface", color: designSystem.colors.surface },
+                        { label: "Text", color: designSystem.colors.foreground },
+                        { label: "Muted", color: designSystem.colors.foregroundSecondary },
                       ].map(({ label, color }) => (
                         <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, background: "#f8f8f8", borderRadius: 6, padding: "3px 7px" }}>
                           <span style={{ width: 10, height: 10, borderRadius: 3, background: color, border: "1px solid rgba(0,0,0,0.1)", flexShrink: 0 }} />
@@ -285,7 +285,7 @@ export function UIContextPanel({ zoom }: Props) {
                     </div>
                     <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
                       <span style={{ fontSize: 11, color: "#555", flex: 1 }}>
-                        <b style={{ color: "#111" }}>{designSystem.fontFamily.split(",")[0].replace(/'/g, "")}</b> · r{designSystem.cardRadius} · {designSystem.mood ?? ""}
+                        <b style={{ color: "#111" }}>{designSystem.typography.fontFamily.split(",")[0].replace(/'/g, "")}</b> · r{designSystem.shape.radiusMedium} · {designSystem.platform}
                       </span>
                       <button
                         onClick={() => uiDesignStore.setExtractedDesignSystem(null)}

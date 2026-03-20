@@ -29,7 +29,16 @@ class UIDesignStore {
     if (typeof window !== "undefined") {
       const saved = persistence.load<UIDesignStoreState>(STORAGE_KEY);
       if (saved) {
-        this.state = { ...DEFAULT_STATE, ...saved };
+        this.state = {
+          ...DEFAULT_STATE,
+          ...saved,
+          // Clear placeholder values — images are session-only
+          designContextImage: saved.designContextImage === "__image_present__" ? null : (saved.designContextImage ?? null),
+          inspirations: (saved.inspirations ?? []).map((i) => ({
+            ...i,
+            source: i.source === "__image_present__" ? "" : i.source,
+          })),
+        };
       }
     }
   }
@@ -38,7 +47,19 @@ class UIDesignStore {
   rehydrate(): void {
     if (typeof window === "undefined") return;
     const saved = persistence.load<UIDesignStoreState>(STORAGE_KEY);
-    this.state = saved ? { ...DEFAULT_STATE, ...saved } : { ...DEFAULT_STATE };
+    if (saved) {
+      this.state = {
+        ...DEFAULT_STATE,
+        ...saved,
+        designContextImage: saved.designContextImage === "__image_present__" ? null : (saved.designContextImage ?? null),
+        inspirations: (saved.inspirations ?? []).map((i) => ({
+          ...i,
+          source: i.source === "__image_present__" ? "" : i.source,
+        })),
+      };
+    } else {
+      this.state = { ...DEFAULT_STATE };
+    }
     this.notify();
   }
 
@@ -110,7 +131,20 @@ class UIDesignStore {
   }
 
   private persist(): void {
-    persistence.save(STORAGE_KEY, this.state);
+    // Persist only lightweight fields — exclude base64 image data which can
+    // exceed localStorage quota (5MB). Images are session-only; the extracted
+    // design system tokens (~2KB) are what we need to survive reloads.
+    const { designContextImage, inspirations, ...lightweight } = this.state;
+    persistence.save(STORAGE_KEY, {
+      ...lightweight,
+      // Store a flag that an image was present (for UI state), not the image itself
+      designContextImage: designContextImage ? "__image_present__" : null,
+      // Strip base64 data from inspirations, keep metadata
+      inspirations: inspirations.map(({ source, ...rest }) => ({
+        ...rest,
+        source: source?.startsWith("data:") ? "__image_present__" : source,
+      })),
+    });
   }
 }
 

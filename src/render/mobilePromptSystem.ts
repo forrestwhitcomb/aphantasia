@@ -28,7 +28,14 @@ export interface MobileBuiltPrompt {
 // ---------------------------------------------------------------------------
 
 function buildSystemPrompt(ds: UIDesignSystem): string {
-  return `You are a world-class mobile UI engineer specializing in iOS-grade interfaces.
+  const c = ds.colors;
+  const t = ds.typography;
+  const s = ds.shape;
+  const sp = ds.spacing;
+  const comp = ds.components;
+  const elev = ds.elevation;
+
+  return `You are a world-class mobile UI engineer specializing in ${ds.platform === "android" ? "Material Design" : "iOS-grade"} interfaces.
 Your output will be rendered directly inside an iPhone frame at exactly 393px wide.
 This is a native-feeling mobile app screen — not a website.
 
@@ -55,50 +62,53 @@ Every section MUST have: data-aph-id="<shapeId>" AND data-aph-type="<sectionType
 
 ## Design System (Use these EXACTLY)
 :root {
-  --color-primary: ${ds.primaryColor};
-  --color-secondary: ${ds.secondaryColor};
-  --color-bg: ${ds.backgroundColor};
-  --color-surface: ${ds.surfaceColor};
-  --color-surface-alt: ${ds.surfaceAltColor};
-  --color-text: ${ds.textColor};
-  --color-text-muted: ${ds.textMutedColor};
-  --color-accent: ${ds.accentColor};
-  --color-border: ${ds.borderColor};
-  --font: ${ds.fontFamily};
-  --font-heading: ${ds.headingSize};
-  --font-body: ${ds.bodySize};
-  --font-caption: ${ds.captionSize};
-  --font-weight-heading: ${ds.headingWeight};
-  --radius: ${ds.borderRadius};
-  --radius-card: ${ds.cardRadius};
-  --radius-button: ${ds.buttonRadius};
-  --radius-input: ${ds.inputRadius};
-  --shadow-sm: ${ds.shadowSm};
-  --shadow-card: ${ds.shadowCard};
-  --spacing: ${ds.spacingBase};
-  --spacing-lg: ${ds.spacingLg};
+  --color-bg: ${c.background};
+  --color-bg-secondary: ${c.backgroundSecondary};
+  --color-text: ${c.foreground};
+  --color-text-muted: ${c.foregroundSecondary};
+  --color-text-tertiary: ${c.foregroundTertiary};
+  --color-primary: ${c.accent};
+  --color-primary-fg: ${c.accentForeground};
+  --color-separator: ${c.separator};
+  --color-surface: ${c.surface};
+  --color-surface-elevated: ${c.surfaceElevated};
+  --font: ${t.fontFamily};
+  --font-title1: ${t.scale.title1.size};
+  --font-title3: ${t.scale.title3.size};
+  --font-headline: ${t.scale.headline.size};
+  --font-body: ${t.scale.body.size};
+  --font-caption: ${t.scale.caption.size};
+  --font-weight-heading: ${t.scale.headline.weight};
+  --radius-sm: ${s.radiusSmall};
+  --radius-md: ${s.radiusMedium};
+  --radius-lg: ${s.radiusLarge};
+  --shadow-card: ${elev.cardShadow};
+  --screen-padding: ${sp.screenPadding};
+  --inner-padding: ${sp.innerPadding};
+  --icon-size: ${sp.iconSize};
 }
 
+## Component Patterns
+- Nav bar: ${comp.navBar.style} style, ${comp.navBar.hasDivider ? "with divider" : "no divider"}
+- Tab bar: ${comp.tabBar.style} style, active=${comp.tabBar.activeColor}
+- List items: ${comp.listItem.style} style, height=${comp.listItem.height}, ${comp.listItem.hasChevron ? "chevron" : "no chevron"}
+- Cards: ${comp.card.style} style, radius=${comp.card.radius}, padding=${comp.card.padding}
+- Buttons: ${comp.button.primaryStyle} style, radius=${comp.button.radius}, height=${comp.button.height}
+- Inputs: ${comp.input.style} style, radius=${comp.input.radius}, height=${comp.input.height}
+
 ## Mobile Component Excellence Standards
-- Cards: always use --radius-card, --shadow-card, consistent padding (16-20px)
-- Buttons: always full-width on mobile, --radius-button, min-height 50px, --color-primary background
-- Nav bars: 56px height, clean with logo/title left, action icon right
+- Cards: always use --radius-md, --shadow-card, consistent padding
+- Buttons: always full-width on mobile, --radius-md, min-height ${comp.button.height}
+- Nav bars: clean with logo/title left, action icon right
 - Tab bars: 5 items max, icons with labels, active item in --color-primary
-- Lists: 60-70px row height, leading icon/avatar, title+subtitle, trailing chevron
-- Typography: heading 20-28px font-weight:700, body 15px, captions 12px, all using --font
-- Imagery: always with --radius-card, object-fit:cover
-- Empty states: centered, illustration placeholder, helpful message
+- Lists: ${comp.listItem.height} row height, leading icon/avatar, title+subtitle
+- Typography: heading ${t.scale.title1.size} weight:${t.scale.title1.weight}, body ${t.scale.body.size}
+- Imagery: always with --radius-lg, object-fit:cover
 
 ## If Design Style Reference Provided
-Study the reference screenshot closely. Extract:
-- The exact visual personality (flat/depth, sparse/dense, light/dark, playful/serious)
-- Component proportions and spacing rhythm
-- Border styles (thin/thick/none)
-- Icon style (outline/filled/duotone)
-- Button styles (pill/rounded/sharp)
-Replicate this personality faithfully in your output.
+Study the reference screenshot closely. Replicate the visual personality faithfully.
 
-${ds.mood ? `## Design Mood\n${ds.mood}` : ""}`;
+${ds.productName ? `## Product: ${ds.productName}` : ""}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,7 +125,7 @@ function shapeToDescription(shape: CanvasShape): string {
 }
 
 function buildUserMessage(input: MobilePromptInput): string {
-  const { doc, designSystem: ds, screenContext, inspirations } = input;
+  const { doc, designSystem: d, screenContext, inspirations } = input;
   const frameShapes = doc.shapes
     .filter((s) => s.isInsideFrame && !s.meta?._consumed)
     .sort((a, b) => a.y - b.y);
@@ -140,20 +150,18 @@ ${layoutLines || "  (empty — create a compelling placeholder screen)"}
 ${inspirationLines}
 
 ## Design Tokens Reference
-primaryColor: ${ds.primaryColor}
-secondaryColor: ${ds.secondaryColor}
-backgroundColor: ${ds.backgroundColor}
-surfaceColor: ${ds.surfaceColor}
-textColor: ${ds.textColor}
-textMutedColor: ${ds.textMutedColor}
-fontFamily: ${ds.fontFamily}
-headingSize: ${ds.headingSize}
-bodySize: ${ds.bodySize}
-cardRadius: ${ds.cardRadius}
-buttonRadius: ${ds.buttonRadius}
-shadowCard: ${ds.shadowCard}
-spacingBase: ${ds.spacingBase}
-${ds.mood ? `mood: ${ds.mood}` : ""}
+accent: ${d.colors.accent}
+background: ${d.colors.background}
+surface: ${d.colors.surface}
+foreground: ${d.colors.foreground}
+foregroundSecondary: ${d.colors.foregroundSecondary}
+fontFamily: ${d.typography.fontFamily}
+title1: ${d.typography.scale.title1.size}
+body: ${d.typography.scale.body.size}
+cardRadius: ${d.components.card.radius}
+buttonRadius: ${d.components.button.radius}
+elevation: ${d.elevation.model}
+platform: ${d.platform}
 
 ## Output Requirements
 - Output <style> block first, then HTML sections in the exact order from Canvas Layout
