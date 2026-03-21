@@ -6,7 +6,9 @@ import { contextStore } from "@/context/ContextStore";
 import { referenceStore } from "@/reference/ReferenceStore";
 import { renderBlock, shapeToBlock } from "@/render/renderSection";
 import { resolveDesignDirection, type ResolvedDesignDirection } from "@/render/themeResolver";
-import { BASE_CSS, ANIMATION_CSS, RESPONSIVE_CSS, SCROLL_REVEAL_SCRIPT } from "@/render/sharedCSS";
+import { BASE_CSS, RESPONSIVE_CSS, SCROLL_REVEAL_SCRIPT, getAnimationCSS, getDecorativeCSS } from "@/render/sharedCSS";
+import { buildGoogleFontsLink } from "@/dna/fontLibrary";
+import { dnaToRootCSS, dnaStore } from "@/dna";
 
 // ---------------------------------------------------------------------------
 // WebRenderer — Phase 1
@@ -77,22 +79,23 @@ function renderShapeBlock(shape: CanvasShape, _direction: ResolvedDesignDirectio
 // ---------------------------------------------------------------------------
 
 function wrapDocument(body: string, direction: ResolvedDesignDirection): string {
-  const rootCSS = tokensToCSS(direction.tokenPalette);
-  const fontLink = buildFontLink(direction);
-  const animCSS = direction.animationLevel !== "none" ? ANIMATION_CSS : "";
+  const dna = direction.dna;
+  const rootCSS = dnaToRootCSS(dna);
+  const fontLinks = buildGoogleFontsLink(dna.typography.headingFamily, dna.typography.bodyFamily);
+  const motionCSS = getAnimationCSS(dna);
+  const decorativeCSS = getDecorativeCSS(dna);
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-deco="${dna.decorative.style}" data-motion="${dna.motion.level}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  ${fontLink}
+  ${fontLinks}
   <style>
 ${rootCSS}
 
 ${BASE_CSS}
-${animCSS}
+${motionCSS}
+${decorativeCSS}
 ${RESPONSIVE_CSS}
   </style>
 </head>
@@ -103,24 +106,8 @@ ${direction.animationLevel !== "none" ? SCROLL_REVEAL_SCRIPT : ""}
 </html>`;
 }
 
-function buildFontLink(direction: ResolvedDesignDirection): string {
-  const heading = direction.tokenPalette["--font-heading"];
-  const body = direction.tokenPalette["--font-body"];
-  const families = new Set<string>();
-  for (const val of [heading, body]) {
-    const match = val.match(/^'([^']+)'/);
-    if (match && !["system-ui", "Georgia", "serif", "sans-serif"].includes(match[1])) {
-      families.add(match[1]);
-    }
-  }
-  if (families.size === 0) families.add("Inter");
-  const params = Array.from(families)
-    .map((f) => `family=${f.replace(/ /g, "+")}:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400`)
-    .join("&");
-  return `<link href="https://fonts.googleapis.com/css2?${params}&display=swap" rel="stylesheet" />`;
-}
-
 function emptyState(theme: ThemeTokens): string {
+  const dna = dnaStore.getDNA();
   const direction: ResolvedDesignDirection = {
     archetype: "minimal",
     contentType: "general",
@@ -129,6 +116,7 @@ function emptyState(theme: ThemeTokens): string {
     animationLevel: "none",
     layoutDensity: "balanced",
     tokenPaletteCSS: tokensToCSS(theme),
+    dna,
   };
   return wrapDocument(
     `<div class="aph-empty"><p>Draw shapes inside the Page frame to see a live preview.</p></div>`,

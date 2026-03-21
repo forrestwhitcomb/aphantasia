@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { canvasEngine } from "@/engine";
 import type { CanvasTool } from "@/engine";
 import { SparkleIcon } from "@/components/SparkleIcon";
+import { DNAToolbarPill } from "@/dna/DNAToolbarPill";
+import { DNAEditor } from "@/dna/DNAEditor";
 
 type ToolDef = {
   id: CanvasTool;
@@ -186,6 +188,12 @@ export function Toolbar({ outputType }: { outputType?: string }) {
           {/* Separator */}
           <div style={{ width: 1, height: 24, background: "#333", margin: "0 8px" }} />
 
+          {/* DNA Pill */}
+          <DNAToolbarPill />
+
+          {/* Separator */}
+          <div style={{ width: 1, height: 24, background: "#333", margin: "0 8px" }} />
+
           {/* Render button */}
           <button
             onClick={() => canvasEngine.requestRender()}
@@ -264,6 +272,8 @@ export function Toolbar({ outputType }: { outputType?: string }) {
           </button>
         </>
       )}
+      {/* DNA Editor panel (slides out on demand) */}
+      <DNAEditor />
     </div>
   );
 }

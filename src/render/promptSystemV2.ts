@@ -141,6 +141,18 @@ Typography scale: ${direction.typographyScale}
 Layout density: ${direction.layoutDensity}
 Animation level: ${direction.animationLevel}
 
+## Design DNA
+
+This project has a unique design direction (DesignDNA). Your variant selections MUST be coherent with this DNA:
+- Palette: bg=${direction.dna.palette.background}, fg=${direction.dna.palette.foreground}, accent=${direction.dna.palette.accent}
+- Typography: "${direction.dna.typography.headingFamily}" (heading) + "${direction.dna.typography.bodyFamily}" (body), scale=${direction.dna.typography.scale}
+- Decorative: ${direction.dna.decorative.style}, intensity=${direction.dna.decorative.intensity}
+- Motion: ${direction.dna.motion.level}, entrance=${direction.dna.motion.entrance}, hover=${direction.dna.motion.hover}
+- Surfaces: hero=${direction.dna.surfaces.hero}, cards=${direction.dna.surfaces.cards}
+- Buttons: radius=${direction.dna.buttons.radius}, style=${direction.dna.buttons.style}
+- Spacing: density=${direction.dna.spacing.density}
+- Mood: ${direction.dna.moodSlug}
+
 ## Coherence Rules
 
 1. Select coherenceStrategy FIRST — this sets the page-wide mood

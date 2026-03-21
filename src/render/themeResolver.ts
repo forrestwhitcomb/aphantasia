@@ -10,7 +10,10 @@ import type { CanvasDocument, CanvasShape } from "@/engine/CanvasEngine";
 import type { StructuredContext } from "@/types/context";
 import type { ExtractedStyleTokens, ReferenceItem } from "@/types/reference";
 import type { ThemeTokens } from "@/lib/theme";
-import { PRESETS, DEFAULT_PRESET, applyReferenceTokens, applyBrandColors, tokensToCSS } from "@/lib/theme";
+import { applyReferenceTokens, applyBrandColors, tokensToCSS } from "@/lib/theme";
+import type { DesignDNA } from "@/dna";
+import { dnaStore, dnaToCSS } from "@/dna";
+import { extractCanvasSignals, type DNADelta } from "@/dna/canvasSignals";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -45,6 +48,8 @@ export interface ResolvedDesignDirection {
   animationLevel: AnimationLevel;
   layoutDensity: LayoutDensity;
   tokenPaletteCSS: string;
+  /** The project's DesignDNA — source of truth for all design tokens */
+  dna: DesignDNA;
 }
 
 // ---------------------------------------------------------------------------
@@ -129,7 +134,8 @@ export function resolveDesignDirection(
   const typographyScale = resolveTypographyScale(archetype, signals);
   const animationLevel = resolveAnimationLevel(archetype, signals);
   const layoutDensity = resolveLayoutDensity(archetype, signals);
-  const tokenPalette = resolveTokenPalette(archetype, context, references);
+  const effectiveDNA = resolveEffectiveDNA(doc);
+  const tokenPalette = resolveTokenPalette(archetype, context, references, effectiveDNA);
 
   return {
     archetype,
@@ -139,7 +145,41 @@ export function resolveDesignDirection(
     animationLevel,
     layoutDensity,
     tokenPaletteCSS: tokensToCSS(tokenPalette),
+    dna: effectiveDNA,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Canvas-signal-refined DNA (transient — not persisted to DNAStore)
+// ---------------------------------------------------------------------------
+
+function resolveEffectiveDNA(doc: CanvasDocument): DesignDNA {
+  const baseDNA = dnaStore.getDNA();
+  const signals = extractCanvasSignals(doc);
+  if (!signals) return baseDNA;
+
+  // Deep merge signals into base DNA
+  return deepMergeSignals(baseDNA, signals);
+}
+
+function deepMergeSignals(base: DesignDNA, signals: DNADelta): DesignDNA {
+  const result = { ...base } as Record<string, unknown>;
+  for (const key of Object.keys(signals)) {
+    const val = (signals as Record<string, unknown>)[key];
+    if (val === undefined) continue;
+    if (
+      typeof val === "object" &&
+      val !== null &&
+      !Array.isArray(val) &&
+      typeof result[key] === "object" &&
+      result[key] !== null
+    ) {
+      result[key] = { ...(result[key] as Record<string, unknown>), ...(val as Record<string, unknown>) };
+    } else {
+      result[key] = val;
+    }
+  }
+  return result as unknown as DesignDNA;
 }
 
 // ---------------------------------------------------------------------------
@@ -347,10 +387,11 @@ function resolveLayoutDensity(arch: DesignArchetype, signals: CanvasSignals): La
 function resolveTokenPalette(
   archetype: DesignArchetype,
   context: StructuredContext | null,
-  references: ReferenceItem[]
+  references: ReferenceItem[],
+  effectiveDNA?: DesignDNA
 ): ThemeTokens {
-  // 1. Start from default preset
-  let theme: ThemeTokens = { ...PRESETS[DEFAULT_PRESET] };
+  // 1. Start from DNA-derived tokens (uses canvas-signal-refined DNA if available)
+  let theme: ThemeTokens = { ...dnaToCSS(effectiveDNA ?? dnaStore.getDNA()) };
 
   // 2. Apply archetype-specific overrides
   const archetypeOverrides = ARCHETYPE_TOKENS[archetype];
@@ -379,12 +420,22 @@ function resolveTokenPalette(
 // ---------------------------------------------------------------------------
 
 export function serializeDesignDirection(dir: ResolvedDesignDirection): string {
+  const { dna } = dir;
   const lines: string[] = [
     `Design archetype: ${dir.archetype}`,
     `Content type: ${dir.contentType}`,
     `Typography scale: ${dir.typographyScale}`,
     `Animation level: ${dir.animationLevel}`,
     `Layout density: ${dir.layoutDensity}`,
+    "",
+    "Design DNA:",
+    `  Palette: bg=${dna.palette.background}, fg=${dna.palette.foreground}, accent=${dna.palette.accent}`,
+    `  Typography: "${dna.typography.headingFamily}" (heading) + "${dna.typography.bodyFamily}" (body), scale=${dna.typography.scale}`,
+    `  Decorative: ${dna.decorative.style}, intensity=${dna.decorative.intensity}`,
+    `  Motion: ${dna.motion.level}, entrance=${dna.motion.entrance}, hover=${dna.motion.hover}`,
+    `  Surfaces: hero=${dna.surfaces.hero}, cards=${dna.surfaces.cards}`,
+    `  Buttons: radius=${dna.buttons.radius}, style=${dna.buttons.style}`,
+    `  Spacing: density=${dna.spacing.density}`,
     "",
     "Token palette (CSS custom properties):",
     dir.tokenPaletteCSS,

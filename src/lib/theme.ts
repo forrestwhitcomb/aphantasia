@@ -62,6 +62,7 @@ export interface ThemeTokens {
   "--max-w-lg": string;
 }
 
+/** @deprecated Use `dnaToCSS(dnaStore.getDNA())` from `@/dna` instead. Presets are replaced by per-project DesignDNA. */
 export const PRESETS: Record<string, ThemeTokens> = {
   Midnight: {
     "--background": "#0a0a0f",
@@ -187,6 +188,7 @@ export const PRESETS: Record<string, ThemeTokens> = {
   },
 };
 
+/** @deprecated Use `DEFAULT_DNA` from `@/dna` instead. */
 export const DEFAULT_PRESET = "Midnight";
 
 /** Convert a ThemeTokens map to an inline CSS :root block */

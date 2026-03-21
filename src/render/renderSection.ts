@@ -42,45 +42,50 @@ import { renderPrimitive } from "@/components/primitives";
 // ---------------------------------------------------------------------------
 
 export function renderSection(section: SectionContent, sectionId?: string): string {
-  switch (section.type) {
-    case "nav":
-      return renderNav(section.props, sectionId);
-    case "hero":
-      return renderHero(section.props, sectionId);
-    case "feature-grid":
-      return renderFeatureGrid(section.props, sectionId);
-    case "text-image-split":
-      return renderTextImageSplit(section.props, sectionId);
-    case "cta":
-      return renderCTA(section.props, sectionId);
-    case "footer":
-      return renderFooter(section.props, sectionId);
-    case "portfolio":
-      return renderPortfolio(section.props, sectionId);
-    case "ecommerce-grid":
-      return renderEcommerceGrid(section.props, sectionId);
-    case "event-signup":
-      return renderEventSignup(section.props, sectionId);
-    case "generic":
-      return renderGenericSection(section.props, sectionId);
-    case "pricing-table":
-      return renderPricingTable(section.props, sectionId);
-    case "testimonials":
-      return renderTestimonials(section.props, sectionId);
-    case "logo-cloud":
-      return renderLogoCloud(section.props, sectionId);
-    case "stats":
-      return renderStats(section.props, sectionId);
-    case "newsletter":
-      return renderNewsletter(section.props, sectionId);
-    case "faq":
-      return renderFAQ(section.props, sectionId);
-    case "team-grid":
-      return renderTeamGrid(section.props, sectionId);
-    case "comparison-table":
-      return renderComparisonTable(section.props, sectionId);
-    default:
-      return "";
+  try {
+    switch (section.type) {
+      case "nav":
+        return renderNav(section.props, sectionId);
+      case "hero":
+        return renderHero(section.props, sectionId);
+      case "feature-grid":
+        return renderFeatureGrid(section.props, sectionId);
+      case "text-image-split":
+        return renderTextImageSplit(section.props, sectionId);
+      case "cta":
+        return renderCTA(section.props, sectionId);
+      case "footer":
+        return renderFooter(section.props, sectionId);
+      case "portfolio":
+        return renderPortfolio(section.props, sectionId);
+      case "ecommerce-grid":
+        return renderEcommerceGrid(section.props, sectionId);
+      case "event-signup":
+        return renderEventSignup(section.props, sectionId);
+      case "generic":
+        return renderGenericSection(section.props, sectionId);
+      case "pricing-table":
+        return renderPricingTable(section.props, sectionId);
+      case "testimonials":
+        return renderTestimonials(section.props, sectionId);
+      case "logo-cloud":
+        return renderLogoCloud(section.props, sectionId);
+      case "stats":
+        return renderStats(section.props, sectionId);
+      case "newsletter":
+        return renderNewsletter(section.props, sectionId);
+      case "faq":
+        return renderFAQ(section.props, sectionId);
+      case "team-grid":
+        return renderTeamGrid(section.props, sectionId);
+      case "comparison-table":
+        return renderComparisonTable(section.props, sectionId);
+      default:
+        return "";
+    }
+  } catch (err) {
+    console.error(`[renderSection] Error rendering "${section.type}" (id: ${sectionId}):`, err);
+    return `<section data-aph-id="${sectionId ?? ""}" style="padding:40px;text-align:center;color:var(--muted-fg,#888);font-family:var(--font-body,sans-serif);"><p style="font-size:14px;">⚠ Section failed to render</p><p style="font-size:11px;opacity:0.5;">${section.type}</p></section>`;
   }
 }
 

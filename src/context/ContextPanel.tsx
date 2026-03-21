@@ -4,6 +4,10 @@ import { useState, useEffect } from "react";
 import { contextStore } from "./ContextStore";
 import type { StructuredContext } from "@/types/context";
 import { aiCallTracker } from "@/lib/aiCallTracker";
+import { dnaStore } from "@/dna";
+import { generateDNA, regenerateDNA } from "@/dna/generateDNA";
+import type { DesignDNA } from "@/dna/DesignDNA";
+import DNAPreview from "@/dna/DNAPreview";
 
 // ContextPanel — global context input + extraction UI
 // Opens as a slide-in overlay on the canvas panel.
@@ -20,6 +24,12 @@ export default function ContextPanel({ isOpen, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // DNA generation state
+  const [generatedDNA, setGeneratedDNA] = useState<DesignDNA | null>(null);
+  const [dnaLoading, setDnaLoading] = useState(false);
+  const [dnaError, setDnaError] = useState<string | null>(null);
+  const [dnaApplied, setDnaApplied] = useState(false);
+
   // Hydrate from store after mount (avoids SSR/client mismatch)
   useEffect(() => {
     setRawText(contextStore.getRawText());
@@ -28,6 +38,48 @@ export default function ContextPanel({ isOpen, onClose }: Props) {
       setContext(ctx);
     });
   }, []);
+
+  // Auto-generate DNA after context extraction succeeds
+  async function handleGenerateDNA(text: string) {
+    setDnaLoading(true);
+    setDnaError(null);
+    setDnaApplied(false);
+    try {
+      const result = await generateDNA(text);
+      if (result.tokenUsage) {
+        aiCallTracker.addTokens(result.tokenUsage);
+      }
+      setGeneratedDNA(result.dna);
+    } catch (e) {
+      setDnaError(e instanceof Error ? e.message : "DNA generation failed");
+    } finally {
+      setDnaLoading(false);
+    }
+  }
+
+  async function handleRegenerateDNA() {
+    if (!rawText.trim()) return;
+    setDnaLoading(true);
+    setDnaError(null);
+    setDnaApplied(false);
+    try {
+      const result = await regenerateDNA(rawText);
+      if (result.tokenUsage) {
+        aiCallTracker.addTokens(result.tokenUsage);
+      }
+      setGeneratedDNA(result.dna);
+    } catch (e) {
+      setDnaError(e instanceof Error ? e.message : "DNA generation failed");
+    } finally {
+      setDnaLoading(false);
+    }
+  }
+
+  function handleApplyDNA() {
+    if (!generatedDNA) return;
+    dnaStore.setDNA(generatedDNA, "generated");
+    setDnaApplied(true);
+  }
 
   const isDirty = contextStore.isDirty(rawText);
   const hasContext = context !== null;
@@ -54,6 +106,8 @@ export default function ContextPanel({ isOpen, onClose }: Props) {
         delete structured._tokenUsage;
       }
       contextStore.setContext(structured as StructuredContext, rawText);
+      // Auto-trigger DNA generation after successful context extraction
+      handleGenerateDNA(rawText);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -345,6 +399,111 @@ export default function ContextPanel({ isOpen, onClose }: Props) {
                   <ContextRow label="Team" value={context.team.join(", ")} />
                 )}
               </div>
+            </div>
+          )}
+
+          {/* DNA Generation Section */}
+          {context && (dnaLoading || generatedDNA || dnaError) && (
+            <div style={{ marginTop: 16 }}>
+              <p
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#888",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  marginBottom: 10,
+                }}
+              >
+                Design Direction
+              </p>
+
+              {/* DNA loading state */}
+              {dnaLoading && !generatedDNA && (
+                <div
+                  style={{
+                    background: "#111",
+                    borderRadius: 12,
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    padding: "24px 16px",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <Spinner />
+                  <span style={{ fontSize: 12, color: "#888" }}>
+                    Generating design direction…
+                  </span>
+                </div>
+              )}
+
+              {/* DNA error */}
+              {dnaError && !dnaLoading && (
+                <div
+                  style={{
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    fontSize: 12,
+                    color: "#b91c1c",
+                    marginBottom: 8,
+                  }}
+                >
+                  {dnaError}
+                  <button
+                    onClick={() => handleGenerateDNA(rawText)}
+                    style={{
+                      display: "block",
+                      marginTop: 6,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "#b91c1c",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      padding: 0,
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* DNA preview card */}
+              {generatedDNA && (
+                <>
+                  <DNAPreview
+                    dna={generatedDNA}
+                    onApply={handleApplyDNA}
+                    onRegenerate={handleRegenerateDNA}
+                    isLoading={dnaLoading}
+                  />
+                  {dnaApplied && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        background: "#dcfce7",
+                        border: "1px solid #bbf7d0",
+                        borderRadius: 8,
+                        padding: "6px 10px",
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: "#166534",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <CheckIcon />
+                      DNA applied — preview updating
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>

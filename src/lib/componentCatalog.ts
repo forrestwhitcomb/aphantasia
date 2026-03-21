@@ -34,11 +34,12 @@ export function placeComponent(entry: ComponentCatalogEntry): void {
       : entry.variant
         ? { placementVariant: entry.variant }
         : undefined;
+  const frameWidth = canvasEngine.getDocument().frame.width;
   const created = canvasEngine.createShape({
     type: shapeType,
     x: 0,
     y: nextY,
-    width: entry.defaultWidth,
+    width: Math.min(entry.defaultWidth, frameWidth),
     height: entry.defaultHeight,
     label: entry.label,
     semanticTag: entry.semanticTag,

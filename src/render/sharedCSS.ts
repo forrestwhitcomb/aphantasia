@@ -6,7 +6,25 @@
 // Consumed by WebRenderer (Layer 1) and PreviewPane (Layer 2).
 // ============================================================
 
+import type { DesignDNA } from "@/dna/DesignDNA";
+import { generateDecorativeCSS } from "@/dna/decorativeCSS";
+import { generateMotionCSS } from "@/dna/motionCSS";
+
 export { BASE_CSS, ANIMATION_CSS, RESPONSIVE_CSS, SCROLL_REVEAL_SCRIPT };
+
+// ---------------------------------------------------------------------------
+// DNA-driven CSS functions (Phase 3)
+// ---------------------------------------------------------------------------
+
+/** Generate decorative CSS from DNA (geometric, organic, minimal, etc.) */
+export function getDecorativeCSS(dna: DesignDNA): string {
+  return generateDecorativeCSS(dna.decorative.style, dna.decorative.intensity, dna.palette);
+}
+
+/** Generate motion CSS from DNA (entrance, hover, stagger, reduced-motion) */
+export function getAnimationCSS(dna: DesignDNA): string {
+  return generateMotionCSS(dna.motion);
+}
 
 const BASE_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

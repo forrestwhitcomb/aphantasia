@@ -8,13 +8,14 @@ import { WebRenderer } from "@/render/renderers/WebRenderer";
 import { FRAME_WIDTH } from "@/engine/engines/CustomCanvasEngine";
 import { contextStore } from "@/context/ContextStore";
 import { referenceStore } from "@/reference/ReferenceStore";
-import { tokensToCSS } from "@/lib/theme";
 import { aiCallTracker } from "@/lib/aiCallTracker";
+import { dnaStore, dnaToRootCSS, DNA_CHANGED_EVENT } from "@/dna";
+import { buildGoogleFontsLink } from "@/dna/fontLibrary";
 import { renderBlock, renderSection, shapeToBlock, shapeToSection } from "@/render/renderSection";
 import { exportStore } from "@/lib/exportStore";
 import { resolveDesignDirection } from "@/render/themeResolver";
 import { getLibrariesForLevel, buildScriptTags } from "@/render/cdnCatalog";
-import { BASE_CSS, RESPONSIVE_CSS } from "@/render/sharedCSS";
+import { BASE_CSS, RESPONSIVE_CSS, getAnimationCSS, getDecorativeCSS } from "@/render/sharedCSS";
 import { applySectionProps } from "@/render/validateRenderResponse";
 import type { SectionContent, CoherenceStrategy } from "@/types/render";
 
@@ -26,7 +27,8 @@ type RenderPhase =
   | "LAYER2_PROPS_STREAMING"
   | "LAYER2_PROPS"
   | "DEEP_RENDER_STREAMING"
-  | "DEEP_RENDER";
+  | "DEEP_RENDER"
+  | "ERROR";
 
 interface BespokeFragment {
   type: string;
@@ -34,22 +36,23 @@ interface BespokeFragment {
 }
 
 // Parse bespoke HTML body into per-section fragments keyed by data-aph-id
+// Uses DOMParser for robustness — handles any element type and attribute order
 function parseBespokeFragments(html: string): Map<string, BespokeFragment> {
   const map = new Map<string, BespokeFragment>();
-  const regex = /<section\s[^>]*data-aph-id="([^"]+)"[^>]*data-aph-type="([^"]+)"[^>]*>[\s\S]*?<\/section>/gi;
-  let match;
-  while ((match = regex.exec(html)) !== null) {
-    map.set(match[1], { type: match[2], html: match[0] });
-  }
-
-  // Also handle reverse attribute order: data-aph-type before data-aph-id
-  const regex2 = /<section\s[^>]*data-aph-type="([^"]+)"[^>]*data-aph-id="([^"]+)"[^>]*>[\s\S]*?<\/section>/gi;
-  while ((match = regex2.exec(html)) !== null) {
-    if (!map.has(match[2])) {
-      map.set(match[2], { type: match[1], html: match[0] });
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const elements = doc.querySelectorAll("[data-aph-id]");
+    for (const el of elements) {
+      const id = el.getAttribute("data-aph-id");
+      const type = el.getAttribute("data-aph-type");
+      if (id && type) {
+        map.set(id, { type, html: el.outerHTML });
+      }
     }
+  } catch {
+    // DOMParser unavailable — map stays empty, bespoke projection disabled
   }
-
   return map;
 }
 
@@ -66,6 +69,7 @@ function extractGlobalBlocks(html: string): { styles: string; scripts: string } 
 export function PreviewPane() {
   const [srcDoc, setSrcDoc] = useState<string>("");
   const [phase, setPhase] = useState<RenderPhase>("IDLE");
+  const [renderError, setRenderError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,7 +95,7 @@ export function PreviewPane() {
     return () => obs.disconnect();
   }, []);
 
-  // Layer 1 render on mount + every canvas change + reference store changes
+  // Layer 1 render on mount + every canvas change + reference store changes + DNA changes
   useEffect(() => {
     doLayer1();
     canvasEngine.on("canvas:changed", handleChange);
@@ -101,11 +105,17 @@ export function PreviewPane() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(doLayer1, 300);
     });
+    // Re-render when DNA changes (e.g. user applies a new design direction)
+    const unsubDNA = dnaStore.subscribe(() => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(doLayer1, 100);
+    });
     return () => {
       canvasEngine.off("canvas:changed", handleChange);
       canvasEngine.off("render:requested", handleLayer2PropsRequest);
       canvasEngine.off("render:deep-requested", handleDeepRenderRequest);
       unsubRef();
+      unsubDNA();
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,19 +146,26 @@ export function PreviewPane() {
     // Priority 1: Deep Render bespoke fragments (if available)
     if (bespokeRef.current.size > 0) {
       const html = projectCanvasChanges(resolved, bespokeRef.current, bespokeGlobalsRef.current);
-      setSrcDoc(html);
-      exportStore.setHTML(html);
-      setPhase("DEEP_RENDER");
-      return;
+      if (html) {
+        setSrcDoc(html);
+        exportStore.setHTML(html);
+        setPhase("DEEP_RENDER");
+        return;
+      }
+      console.warn("[doLayer1] Bespoke projection produced empty HTML, falling back");
     }
 
     // Priority 2: Layer 2 enriched props (if available) — render through component library
     if (enrichedPropsRef.current.size > 0) {
       const html = renderWithEnrichedProps(resolved, enrichedPropsRef.current);
-      setSrcDoc(html);
-      exportStore.setHTML(html);
-      setPhase("LAYER2_PROPS");
-      return;
+      if (html) {
+        setSrcDoc(html);
+        exportStore.setHTML(html);
+        setPhase("LAYER2_PROPS");
+        return;
+      }
+      // Enriched render produced empty output — fall through to Layer 1
+      console.warn("[doLayer1] Enriched render produced empty HTML, falling back to Layer 1");
     }
 
     // Default: pure Layer 1
@@ -168,6 +185,7 @@ export function PreviewPane() {
     abortRef.current = controller;
 
     setPhase("LAYER2_PROPS_STREAMING");
+    setRenderError(null);
 
     const doc = canvasEngine.getDocument();
     const resolved = await resolveSemantics(doc);
@@ -185,7 +203,9 @@ export function PreviewPane() {
       });
 
       if (!res.ok || !res.body) {
-        setPhase("IDLE");
+        console.error("[render-v2] HTTP error:", res.status, res.statusText);
+        setRenderError(`Render failed (${res.status}). Try again.`);
+        setPhase("ERROR");
         return;
       }
 
@@ -233,18 +253,21 @@ export function PreviewPane() {
               return;
             }
             if (event.done && event.error) {
-              console.warn("[render-v2] AI error:", event.error);
-              setPhase("IDLE");
+              console.error("[render-v2] AI error:", event.error);
+              setRenderError("AI couldn't generate design. Try again.");
+              setPhase("ERROR");
               return;
             }
           } catch {
-            // Ignore partial SSE
+            // Ignore incomplete SSE fragments (expected during streaming)
           }
         }
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
-      setPhase("IDLE");
+      console.error("[render-v2] Unexpected error:", err);
+      setRenderError("Render failed unexpectedly. Try again.");
+      setPhase("ERROR");
     }
   }
 
@@ -258,6 +281,7 @@ export function PreviewPane() {
     abortRef.current = controller;
 
     setPhase("DEEP_RENDER_STREAMING");
+    setRenderError(null);
 
     const doc = canvasEngine.getDocument();
     const resolved = await resolveSemantics(doc);
@@ -275,13 +299,17 @@ export function PreviewPane() {
       });
 
       if (!res.ok || !res.body) {
-        setPhase("IDLE");
+        console.error("[deep-render] HTTP error:", res.status, res.statusText);
+        setRenderError(`Deep Render failed (${res.status}). Try again.`);
+        setPhase("ERROR");
         return;
       }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+
+      let receivedDone = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -297,12 +325,17 @@ export function PreviewPane() {
           try {
             const event = JSON.parse(json);
             if (event.done && event.html) {
+              receivedDone = true;
               // Report token usage
               if (event.tokenUsage) {
                 aiCallTracker.addTokens(event.tokenUsage);
               }
 
-              const bodyHtml = event.html as string;
+              // Strip <body> tags if Claude included them despite instructions
+              let bodyHtml = (event.html as string)
+                .replace(/^\s*<body[^>]*>/i, "")
+                .replace(/<\/body>\s*$/i, "")
+                .trim();
 
               // Parse into per-section fragments for projection
               const fragments = parseBespokeFragments(bodyHtml);
@@ -326,9 +359,52 @@ export function PreviewPane() {
           }
         }
       }
+
+      // Process any remaining data in the buffer after stream ends
+      if (!receivedDone && buffer.trim()) {
+        // Flush the TextDecoder
+        buffer += decoder.decode();
+        const remaining = buffer.trim();
+        if (remaining.startsWith("data: ")) {
+          const json = remaining.slice(6);
+          try {
+            const event = JSON.parse(json);
+            if (event.done && event.html) {
+              receivedDone = true;
+              if (event.tokenUsage) {
+                aiCallTracker.addTokens(event.tokenUsage);
+              }
+              let bodyHtml = (event.html as string)
+                .replace(/^\s*<body[^>]*>/i, "")
+                .replace(/<\/body>\s*$/i, "")
+                .trim();
+              const fragments = parseBespokeFragments(bodyHtml);
+              bespokeRef.current = fragments;
+              enrichedPropsRef.current = new Map();
+              coherenceRef.current = null;
+              bespokeGlobalsRef.current = extractGlobalBlocks(bodyHtml);
+              const fullDoc = buildBespokeDocument(bodyHtml, resolved);
+              setSrcDoc(fullDoc);
+              exportStore.setHTML(fullDoc);
+              setPhase("DEEP_RENDER");
+            }
+          } catch (parseErr) {
+            console.error("[deep-render] Failed to parse final SSE event from buffer:", parseErr);
+          }
+        }
+      }
+
+      // Safety net: if stream ended without a done event, surface the error
+      if (!receivedDone) {
+        console.error("[deep-render] Stream ended without receiving done event");
+        setRenderError("Deep Render stream ended unexpectedly. Try again.");
+        setPhase("ERROR");
+      }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
-      setPhase("IDLE");
+      console.error("[deep-render] Unexpected error:", err);
+      setRenderError("Deep Render failed unexpectedly. Try again.");
+      setPhase("ERROR");
     }
   }
 
@@ -480,6 +556,30 @@ export function PreviewPane() {
             ✦ Bespoke Design
           </div>
         )}
+        {phase === "ERROR" && renderError && (
+          <div
+            style={{
+              background: "rgba(220,38,38,0.9)",
+              color: "#fff",
+              padding: "6px 14px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              setRenderError(null);
+              setPhase("IDLE");
+            }}
+            title="Click to dismiss"
+          >
+            {renderError}
+            <span style={{ opacity: 0.6, fontSize: 10 }}>✕</span>
+          </div>
+        )}
       </div>
 
       {srcDoc && (
@@ -514,7 +614,6 @@ function renderWithEnrichedProps(
     .filter(
       (s) =>
         s.isInsideFrame &&
-        s.semanticTag !== "unknown" &&
         s.semanticTag !== "scratchpad" &&
         s.semanticTag !== "context-note" &&
         s.semanticTag !== "image" &&
@@ -522,13 +621,20 @@ function renderWithEnrichedProps(
     )
     .sort((a, b) => a.y - b.y);
 
-  if (inside.length === 0) return "";
+  // No shapes to render — signal caller to fall back to Layer 1
+  if (inside.length === 0) {
+    console.warn("[renderWithEnrichedProps] No shapes inside frame, returning empty");
+    return "";
+  }
 
+  // Log matching stats for debugging
+  let matchCount = 0;
   const blocks = inside
     .map((s) => {
       // Check enriched props first
       const enrichedSection = enriched.get(s.id);
       if (enrichedSection) {
+        matchCount++;
         return renderSection(enrichedSection, s.id);
       }
 
@@ -540,16 +646,33 @@ function renderWithEnrichedProps(
     .filter(Boolean)
     .join("\n");
 
-  // Wrap in full HTML document using Layer 1's wrapDocument approach
-  const output = renderer.renderPhase1(doc);
-  // Replace the body content but keep the same document wrapper
-  const bodyStart = output.html.indexOf("<body>");
-  const bodyEnd = output.html.indexOf("</body>");
-  if (bodyStart !== -1 && bodyEnd !== -1) {
-    return output.html.slice(0, bodyStart + 6) + "\n" + blocks + "\n" + output.html.slice(bodyEnd);
+  if (matchCount === 0) {
+    console.warn("[renderWithEnrichedProps] No enriched props matched any shapes — AI response IDs may not match canvas");
+    return ""; // Trigger clean Layer 1 fallback — badge flood is worse UX than plain Layer 1
   }
-  // Fallback: return the standard render
-  return output.html;
+
+  // If blocks are empty after rendering, signal failure
+  if (!blocks.trim()) {
+    console.warn("[renderWithEnrichedProps] All blocks rendered empty");
+    return "";
+  }
+
+  // Wrap in full HTML document using Layer 1's wrapDocument approach
+  try {
+    const output = renderer.renderPhase1(doc);
+    // Replace the body content but keep the same document wrapper (head, styles, fonts)
+    const bodyStart = output.html.indexOf("<body>");
+    const bodyEnd = output.html.indexOf("</body>");
+    if (bodyStart !== -1 && bodyEnd !== -1) {
+      return output.html.slice(0, bodyStart + 6) + "\n" + blocks + "\n" + output.html.slice(bodyEnd);
+    }
+    // Body tags not found — return the full phase1 output as fallback
+    console.warn("[renderWithEnrichedProps] Could not find <body> tags in wrapper, using standard render");
+    return output.html;
+  } catch (err) {
+    console.error("[renderWithEnrichedProps] Wrapper generation failed:", err);
+    return "";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -565,7 +688,6 @@ function projectCanvasChanges(
     .filter(
       (s) =>
         s.isInsideFrame &&
-        s.semanticTag !== "unknown" &&
         s.semanticTag !== "scratchpad" &&
         s.semanticTag !== "context-note" &&
         s.semanticTag !== "image" &&
@@ -582,7 +704,7 @@ function projectCanvasChanges(
 
       // New shape without bespoke fragment — render as Layer 1 placeholder
       const block = shapeToBlock(s);
-      const placeholder = renderBlock(block);
+      const placeholder = renderBlock(block, s.id);
       return `<!-- new-section -->\n<div style="position:relative;">\n<div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);color:#fbbf24;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:500;z-index:5;">New — hit Render to generate</div>\n${placeholder}\n</div>`;
     })
     .filter(Boolean)
@@ -603,16 +725,21 @@ function buildBespokeDocument(body: string, doc: CanvasDocument): string {
   const ctx = contextStore.getContext();
   const refs = referenceStore.getReadyReferences();
   const direction = resolveDesignDirection(doc, ctx, refs);
+  const dna = direction.dna;
 
-  const rootCSS = tokensToCSS(direction.tokenPalette);
+  // Use DNA-derived CSS custom properties
+  const rootCSS = dnaToRootCSS(dna);
   const libs = getLibrariesForLevel(direction.animationLevel);
   const cdnScripts = buildScriptTags(libs);
 
-  // Detect Google Fonts used in the AI's CSS (look for font-family declarations)
-  const fontFamilies = extractGoogleFonts(body, direction);
-  const fontLink = fontFamilies.length > 0
-    ? `<link href="https://fonts.googleapis.com/css2?${fontFamilies.map((f) => `family=${encodeURIComponent(f)}:wght@300;400;500;600;700;800;900`).join("&")}&display=swap" rel="stylesheet" />`
-    : `<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&display=swap" rel="stylesheet" />`;
+  // Use DNA font pairing for primary fonts, plus scan body for any AI-added fonts
+  const dnaFontLinks = buildGoogleFontsLink(dna.typography.headingFamily, dna.typography.bodyFamily);
+
+  // Also detect any extra fonts the AI used in its bespoke output
+  const extraFonts = extractExtraFonts(body, dna.typography.headingFamily, dna.typography.bodyFamily);
+  const extraFontLink = extraFonts.length > 0
+    ? `<link href="https://fonts.googleapis.com/css2?${extraFonts.map((f) => `family=${encodeURIComponent(f)}:wght@300;400;500;600;700;800;900`).join("&")}&display=swap" rel="stylesheet" />`
+    : "";
 
   // Minimal base reset — the AI handles section-level styles
   const baseReset = `
@@ -632,49 +759,63 @@ img { max-width: 100%; height: auto; display: block; }
   // Layer 1 placeholder styles (for projected new sections)
   const placeholderCSS = body.includes("<!-- new-section -->") ? `\n${BASE_CSS}\n${RESPONSIVE_CSS}` : "";
 
+  // DNA-driven decorative + motion CSS
+  const motionCSS = getAnimationCSS(dna);
+  const decorativeCSS = getDecorativeCSS(dna);
+
+  // Safety net: recover from GSAP animations that leave elements invisible.
+  // Claude's gsap.from({ opacity: 0 }) sets inline opacity: 0 immediately;
+  // if ANY JS error halts execution, those elements stay invisible forever.
+  const gsapSafetyScript = `<script>
+(function(){
+  // Wait for GSAP animations to initialize, then check for stuck invisible elements
+  setTimeout(function(){
+    var els = document.querySelectorAll('[data-aph-type] h1, [data-aph-type] h2, [data-aph-type] p, [data-aph-type] a, [data-aph-type] button, [data-aph-type] .hero-headline, [data-aph-type] .hero-content, [data-aph-type] .word');
+    for(var i=0;i<els.length;i++){
+      var s=window.getComputedStyle(els[i]);
+      if(s.opacity==='0'||s.visibility==='hidden'){
+        els[i].style.opacity='1';
+        els[i].style.visibility='visible';
+        els[i].style.transform='none';
+      }
+    }
+  }, 3000);
+})();
+</script>`;
+
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-deco="${dna.decorative.style}" data-motion="${dna.motion.level}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  ${fontLink}
+  ${dnaFontLinks}
+  ${extraFontLink}
   ${cdnScripts}
   <style>
 ${rootCSS}
 ${baseReset}${placeholderCSS}
+${motionCSS}
+${decorativeCSS}
   </style>
 </head>
 <body>
 ${body}
+${gsapSafetyScript}
 </body>
 </html>`;
 }
 
-// Attempt to detect Google Font families referenced in the body CSS or token palette
-function extractGoogleFonts(
-  body: string,
-  direction: ReturnType<typeof resolveDesignDirection>
-): string[] {
+/** Detect extra Google Font families the AI may have used beyond the DNA fonts */
+function extractExtraFonts(body: string, headingFamily: string, bodyFamily: string): string[] {
+  const known = new Set([headingFamily.toLowerCase(), bodyFamily.toLowerCase()]);
+  const skip = new Set(["inherit", "var", "system-ui", "sans-serif", "serif", "monospace", "georgia", "menlo"]);
   const fonts = new Set<string>();
 
-  // From token palette
-  const heading = direction.tokenPalette["--font-heading"] || "";
-  const bodyFont = direction.tokenPalette["--font-body"] || "";
-  for (const raw of [heading, bodyFont]) {
-    const match = raw.match(/^'([^']+)'/);
-    if (match && !["Georgia", "serif", "system-ui", "sans-serif", "monospace"].includes(match[1])) {
-      fonts.add(match[1]);
-    }
-  }
-
-  // Scan body for font-family declarations referencing Google Fonts
   const fontFamilyRegex = /font-family:\s*['"]([^'"]+)['"]/gi;
   let m;
   while ((m = fontFamilyRegex.exec(body)) !== null) {
     const name = m[1];
-    if (name && !["inherit", "var", "system-ui", "sans-serif", "serif", "monospace"].some((k) => name.toLowerCase().includes(k))) {
+    if (name && !skip.has(name.toLowerCase()) && !known.has(name.toLowerCase())) {
       fonts.add(name);
     }
   }
