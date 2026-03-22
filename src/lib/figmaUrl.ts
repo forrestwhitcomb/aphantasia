@@ -30,3 +30,26 @@ export function extractFigmaUrl(text: string): string | null {
   const match = text.match(/https?:\/\/(?:www\.)?figma\.com\/[^\s)>\]"']+/i);
   return match ? match[0] : null;
 }
+
+/**
+ * Rebuild a shareable Figma design URL from persisted file metadata
+ * (used to hydrate the URL field after localStorage restore so Connect stays usable).
+ */
+export function buildFigmaDesignUrl(
+  fileKey: string,
+  fileName: string,
+  nodeId: string | null
+): string {
+  const slug =
+    fileName
+      .trim()
+      .replace(/[/\\?%*:|"<>]/g, "-")
+      .replace(/\s+/g, "-")
+      .slice(0, 96) || "file";
+  let url = `https://www.figma.com/design/${fileKey}/${encodeURIComponent(slug)}`;
+  if (nodeId) {
+    const nodeParam = nodeId.replace(/:/g, "-");
+    url += `?node-id=${encodeURIComponent(nodeParam)}`;
+  }
+  return url;
+}

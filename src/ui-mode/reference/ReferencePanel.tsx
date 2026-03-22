@@ -11,7 +11,11 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { uiDesignStoreV2 } from "./UIDesignStore";
 import type { FigmaReferenceMeta } from "./UIDesignStore";
 import type { UIDesignSystem } from "../types";
-import { parseFigmaFileKey, extractFigmaUrl } from "@/lib/figmaUrl";
+import {
+  parseFigmaFileKey,
+  extractFigmaUrl,
+  buildFigmaDesignUrl,
+} from "@/lib/figmaUrl";
 
 type TabId = "screenshot" | "website" | "figma";
 
@@ -31,8 +35,30 @@ export function ReferencePanel() {
     return "";
   });
 
+  // Restore Figma URL field from persisted metadata so Connect isn't stuck disabled
+  // (token is in localStorage; URL was only in ephemeral React state before).
   useEffect(() => {
-    return uiDesignStoreV2.subscribe(setState);
+    const s = uiDesignStoreV2.getState();
+    if (s.figmaMeta?.fileKey) {
+      setFigmaUrl((prev) =>
+        prev.trim()
+          ? prev
+          : buildFigmaDesignUrl(
+              s.figmaMeta!.fileKey,
+              s.figmaMeta!.fileName,
+              s.figmaMeta!.nodeId
+            )
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    return uiDesignStoreV2.subscribe((next) => {
+      setState(next);
+      if (!next.sourceLayers.figma && !next.figmaMeta) {
+        setFigmaUrl("");
+      }
+    });
   }, []);
 
   const layers = state.sourceLayers;
@@ -64,6 +90,7 @@ export function ReferencePanel() {
       }
 
       const { designSystem } = await res.json();
+      uiDesignStoreV2.clearOverrides();
       uiDesignStoreV2.setSourceLayer("screenshot", designSystem as UIDesignSystem);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Extraction failed");
@@ -107,6 +134,7 @@ export function ReferencePanel() {
       }
 
       const { designSystem } = await res.json();
+      uiDesignStoreV2.clearOverrides();
       uiDesignStoreV2.setSourceLayer("website", designSystem as UIDesignSystem);
     } catch (err) {
       setError(err instanceof Error ? err.message : "URL extraction failed");
@@ -148,6 +176,7 @@ export function ReferencePanel() {
           componentHints?: string[];
         };
 
+      uiDesignStoreV2.clearOverrides();
       uiDesignStoreV2.setSourceLayer("figma", designSystem);
 
       const fk = parseFigmaFileKey(figmaUrl.trim()) || "";
@@ -365,6 +394,7 @@ export function ReferencePanel() {
                 onClick={() => {
                   uiDesignStoreV2.clearSourceLayer("figma");
                   uiDesignStoreV2.setFigmaMeta(null);
+                  setFigmaUrl("");
                 }}
               >
                 Remove Figma source from merge
@@ -389,7 +419,11 @@ export function ReferencePanel() {
             <button
               type="button"
               style={styles.resetBtn}
-              onClick={() => uiDesignStoreV2.reset()}
+              onClick={() => {
+                uiDesignStoreV2.reset();
+                setFigmaUrl("");
+                setUrlInput("");
+              }}
             >
               Reset all
             </button>
