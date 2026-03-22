@@ -2,8 +2,8 @@
 // APHANTASIA — Note Attachment Logic
 // ============================================================
 // Attaches notes to shapes via two mechanisms:
-//   1. Explicit: note.linkedShapeId is set
-//   2. Proximity: nearest non-note shape within threshold
+//   1. Explicit: note.linkedShapeId is set (always wins — proximity is skipped)
+//   2. Proximity: nearest non-note shape within threshold (only when no link)
 //
 // Notes that don't attach to any shape become global context.
 // ============================================================

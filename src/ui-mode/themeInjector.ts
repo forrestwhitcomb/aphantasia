@@ -28,28 +28,32 @@ import type { UIDesignSystem } from "./types";
 /**
  * Convert a UIDesignSystem into a CSS `:root` block with custom properties.
  * This string is injected into the viewport iframe's `<style>` tag.
+ *
+ * Runs a contrast enforcement pass: if a foreground/background pair
+ * has insufficient contrast, the foreground is auto-corrected.
  */
 export function designSystemToCSS(ds: UIDesignSystem): string {
+  const c = enforceContrast(ds.colors);
   const lines: string[] = [":root {"];
 
   // ── Colors ──
   lines.push("  /* Colors */");
-  lines.push(`  --color-background: ${ds.colors.background};`);
-  lines.push(`  --color-foreground: ${ds.colors.foreground};`);
-  lines.push(`  --color-primary: ${ds.colors.primary};`);
-  lines.push(`  --color-primary-foreground: ${ds.colors.primaryForeground};`);
-  lines.push(`  --color-secondary: ${ds.colors.secondary};`);
-  lines.push(`  --color-secondary-foreground: ${ds.colors.secondaryForeground};`);
-  lines.push(`  --color-muted: ${ds.colors.muted};`);
-  lines.push(`  --color-muted-foreground: ${ds.colors.mutedForeground};`);
-  lines.push(`  --color-accent: ${ds.colors.accent};`);
-  lines.push(`  --color-accent-foreground: ${ds.colors.accentForeground};`);
-  lines.push(`  --color-destructive: ${ds.colors.destructive};`);
-  lines.push(`  --color-border: ${ds.colors.border};`);
-  lines.push(`  --color-input: ${ds.colors.input};`);
-  lines.push(`  --color-ring: ${ds.colors.ring};`);
-  lines.push(`  --color-card: ${ds.colors.card};`);
-  lines.push(`  --color-card-foreground: ${ds.colors.cardForeground};`);
+  lines.push(`  --color-background: ${c.background};`);
+  lines.push(`  --color-foreground: ${c.foreground};`);
+  lines.push(`  --color-primary: ${c.primary};`);
+  lines.push(`  --color-primary-foreground: ${c.primaryForeground};`);
+  lines.push(`  --color-secondary: ${c.secondary};`);
+  lines.push(`  --color-secondary-foreground: ${c.secondaryForeground};`);
+  lines.push(`  --color-muted: ${c.muted};`);
+  lines.push(`  --color-muted-foreground: ${c.mutedForeground};`);
+  lines.push(`  --color-accent: ${c.accent};`);
+  lines.push(`  --color-accent-foreground: ${c.accentForeground};`);
+  lines.push(`  --color-destructive: ${c.destructive};`);
+  lines.push(`  --color-border: ${c.border};`);
+  lines.push(`  --color-input: ${c.input};`);
+  lines.push(`  --color-ring: ${c.ring};`);
+  lines.push(`  --color-card: ${c.card};`);
+  lines.push(`  --color-card-foreground: ${c.cardForeground};`);
 
   // ── Typography — Fonts ──
   lines.push("  /* Typography — Fonts */");
@@ -203,6 +207,58 @@ function extractGoogleFontFamily(stack: string): string | null {
     }
   }
   return null;
+}
+
+// ── Contrast Enforcement ─────────────────────────────────────
+// Ensures every foreground/background pair has sufficient contrast.
+// If a pair fails, the foreground is auto-corrected to black or white.
+
+type ColorRoles = UIDesignSystem["colors"];
+
+function enforceContrast(colors: ColorRoles): ColorRoles {
+  const c = { ...colors };
+
+  c.foreground = ensureReadable(c.foreground, c.background);
+  c.cardForeground = ensureReadable(c.cardForeground, c.card);
+  c.primaryForeground = ensureReadable(c.primaryForeground, c.primary);
+  c.secondaryForeground = ensureReadable(c.secondaryForeground, c.secondary);
+  c.accentForeground = ensureReadable(c.accentForeground, c.accent);
+  c.mutedForeground = ensureReadable(c.mutedForeground, c.muted, 2.5);
+
+  return c;
+}
+
+function ensureReadable(fg: string, bg: string, minRatio = 3.5): string {
+  const ratio = contrastRatio(fg, bg);
+  if (ratio >= minRatio) return fg;
+  // Pick whichever of black/white gives better contrast
+  const withBlack = contrastRatio("#000000", bg);
+  const withWhite = contrastRatio("#FFFFFF", bg);
+  return withBlack > withWhite ? "#000000" : "#FFFFFF";
+}
+
+function contrastRatio(hex1: string, hex2: string): number {
+  const l1 = relativeLuminance(hex1);
+  const l2 = relativeLuminance(hex2);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function relativeLuminance(hex: string): number {
+  const rgb = parseHex(hex);
+  if (!rgb) return 0;
+  const [r, g, b] = [rgb.r, rgb.g, rgb.b].map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function parseHex(hex: string): { r: number; g: number; b: number } | null {
+  const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!m) return null;
+  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
 }
 
 // ── Full Document Builder ───────────────────────────────────

@@ -19,7 +19,7 @@ import { attachNotes } from "./noteAttachment";
 // Valid UIComponentType set for Pass 0 validation
 const VALID_UI_TYPES = new Set<string>([
   "statusBar", "navBar", "tabBar", "bottomSheet",
-  "card", "listItem", "listGroup", "sectionHeader", "avatar", "badge", "tag", "emptyState",
+  "card", "listItem", "listGroup", "sectionHeader", "header", "avatar", "badge", "tag", "emptyState",
   "button", "textInput", "searchBar", "toggle", "checkbox", "segmentedControl", "slider", "stepper",
   "imagePlaceholder", "carousel", "progressBar", "divider",
   "alert", "toast", "modal", "floatingActionButton",
@@ -78,7 +78,7 @@ export function resolveUIComponents(
   // Separate notes from drawable shapes
   const drawableShapes = frameShapes.filter((s) => s.type !== "note" && s.type !== "sticky");
 
-  // Attach notes to shapes (includes both in-frame and near-frame notes)
+  // attachNotes: explicit linkedShapeId wins; proximity only when unlinked (see noteAttachment.ts)
   const { attachedNotes, globalNotes } = attachNotes(frameShapes);
 
   // Resolve each drawable shape through Pass 0 → 1 → 2
@@ -154,22 +154,88 @@ export function resolveUIComponents(
     resolvedIds.add(shape.id);
   }
 
-  // Pass 3: Containment grouping
-  return groupAdjacentComponents(resolved, frameHeight);
+  // Pass 3a: Containment — nest small shapes inside card shapes
+  const afterContainment = resolveContainment(resolved);
+
+  // Pass 3b: Grouping (list stacking, horizontal card rows)
+  return groupAdjacentComponents(afterContainment, frameHeight);
 }
 
-// ── Pass 3: Containment Grouping ────────────────────────────
-// Detect clusters of similarly-typed shapes stacked vertically
-// and merge them into ListGroups with itemCount.
+// ── Pass 3a: Containment ─────────────────────────────────────
+// Detect shapes that are spatially inside a card and nest them
+// as children. This lets users drop a toggle or text into a card
+// and have it render as card content.
 
-const GROUPABLE_TYPES = new Set<UIComponentType>(["listItem", "settingsRow", "card"]);
+const CONTAINER_TYPES = new Set<UIComponentType>(["card", "bottomSheet", "modal"]);
+const NESTABLE_TYPES = new Set<UIComponentType>([
+  "toggle", "checkbox", "button", "textInput", "slider", "stepper",
+  "segmentedControl", "divider", "badge", "tag", "progressBar",
+  "listItem", "settingsRow",
+]);
+
+function resolveContainment(components: UIResolvedComponent[]): UIResolvedComponent[] {
+  if (components.length < 2) return components;
+
+  const containers = components.filter((c) => CONTAINER_TYPES.has(c.type));
+  if (containers.length === 0) return components;
+
+  const consumed = new Set<string>();
+  const containerChildren = new Map<string, UIResolvedComponent[]>();
+
+  for (const container of containers) {
+    const cb = container.bounds;
+    const children: UIResolvedComponent[] = [];
+
+    for (const comp of components) {
+      if (comp.shapeId === container.shapeId) continue;
+      if (consumed.has(comp.shapeId)) continue;
+      if (!NESTABLE_TYPES.has(comp.type)) continue;
+
+      const b = comp.bounds;
+      // Check if comp is fully inside the container (with small tolerance)
+      const tol = 4;
+      if (
+        b.x >= cb.x - tol &&
+        b.y >= cb.y - tol &&
+        b.x + b.width <= cb.x + cb.width + tol &&
+        b.y + b.height <= cb.y + cb.height + tol
+      ) {
+        children.push(comp);
+        consumed.add(comp.shapeId);
+      }
+    }
+
+    if (children.length > 0) {
+      children.sort((a, b) => a.bounds.y - b.bounds.y);
+      containerChildren.set(container.shapeId, children);
+    }
+  }
+
+  if (consumed.size === 0) return components;
+
+  return components
+    .filter((c) => !consumed.has(c.shapeId))
+    .map((c) => {
+      const kids = containerChildren.get(c.shapeId);
+      if (kids) return { ...c, children: kids, consumedIds: [...(c.consumedIds ?? []), ...kids.map((k) => k.shapeId)] };
+      return c;
+    });
+}
+
+// ── Pass 3b: Containment Grouping ────────────────────────────
+// Detect clusters of similarly-typed shapes and merge them:
+//   - Vertically stacked listItems/settingsRows → ListGroup
+//   - Horizontally adjacent cards → single card component with itemCount
+//   - Vertically stacked cards → kept separate (each renders independently)
+
+const LIST_GROUPABLE = new Set<UIComponentType>(["listItem", "settingsRow"]);
 const GAP_FRACTION = 0.03; // ~25px gap tolerance at 852px frame
 
 function groupAdjacentComponents(
   components: UIResolvedComponent[],
   frameHeight: number
 ): UIResolvedComponent[] {
-  if (components.length < 2) return components;
+  if (components.length < 2) return groupHorizontalCards(components);
 
   const gapThreshold = frameHeight * GAP_FRACTION;
   const result: UIResolvedComponent[] = [];
@@ -178,14 +244,12 @@ function groupAdjacentComponents(
   while (i < components.length) {
     const current = components[i];
 
-    // Only group certain component types
-    if (!GROUPABLE_TYPES.has(current.type)) {
+    if (!LIST_GROUPABLE.has(current.type)) {
       result.push(current);
       i++;
       continue;
     }
 
-    // Collect adjacent components of the same type
     const group = [current];
     let j = i + 1;
 
@@ -202,7 +266,6 @@ function groupAdjacentComponents(
     }
 
     if (group.length > 1) {
-      // Merge into a ListGroup
       const labels = group
         .map((c) => c.label)
         .filter((l): l is string => !!l);
@@ -212,7 +275,7 @@ function groupAdjacentComponents(
 
       result.push({
         shapeId: current.shapeId,
-        type: current.type === "card" ? "card" : "listGroup",
+        type: "listGroup",
         label: current.label,
         notes: group.flatMap((c) => c.notes),
         globalNotes: current.globalNotes,
@@ -231,6 +294,78 @@ function groupAdjacentComponents(
     }
 
     i = j;
+  }
+
+  return groupHorizontalCards(result);
+}
+
+/**
+ * Group cards that sit on the same horizontal row into a single
+ * card component with itemCount = number of cards in that row.
+ * A "row" means overlapping Y ranges and sorted left-to-right.
+ */
+function groupHorizontalCards(
+  components: UIResolvedComponent[]
+): UIResolvedComponent[] {
+  const result: UIResolvedComponent[] = [];
+  const consumed = new Set<string>();
+
+  for (let i = 0; i < components.length; i++) {
+    const c = components[i];
+    if (consumed.has(c.shapeId)) continue;
+
+    if (c.type !== "card") {
+      result.push(c);
+      continue;
+    }
+
+    // Find other cards on the same horizontal row
+    const row = [c];
+    const cMidY = c.bounds.y + c.bounds.height / 2;
+    const yTolerance = c.bounds.height * 0.5;
+
+    for (let j = i + 1; j < components.length; j++) {
+      const other = components[j];
+      if (consumed.has(other.shapeId) || other.type !== "card") continue;
+
+      const otherMidY = other.bounds.y + other.bounds.height / 2;
+      if (Math.abs(otherMidY - cMidY) <= yTolerance) {
+        row.push(other);
+      }
+    }
+
+    if (row.length === 1) {
+      result.push(c);
+      continue;
+    }
+
+    // Sort left-to-right
+    row.sort((a, b) => a.bounds.x - b.bounds.x);
+
+    const labels = row.map((r) => r.label).filter((l): l is string => !!l);
+    const minX = Math.min(...row.map((r) => r.bounds.x));
+    const maxRight = Math.max(...row.map((r) => r.bounds.x + r.bounds.width));
+    const minY = Math.min(...row.map((r) => r.bounds.y));
+    const maxBottom = Math.max(...row.map((r) => r.bounds.y + r.bounds.height));
+
+    result.push({
+      shapeId: row[0].shapeId,
+      type: "card",
+      label: row[0].label,
+      notes: row.flatMap((r) => r.notes),
+      globalNotes: row[0].globalNotes,
+      bounds: {
+        x: minX,
+        y: minY,
+        width: maxRight - minX,
+        height: maxBottom - minY,
+      },
+      itemCount: row.length,
+      itemLabels: labels.length > 0 ? labels : undefined,
+      consumedIds: row.slice(1).map((r) => r.shapeId),
+    });
+
+    for (const r of row.slice(1)) consumed.add(r.shapeId);
   }
 
   return result;

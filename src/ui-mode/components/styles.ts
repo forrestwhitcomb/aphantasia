@@ -24,11 +24,21 @@ html, body {
   letter-spacing: var(--font-body-ls);
   font-size: var(--font-size-base);
 }
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
 button { -webkit-tap-highlight-color: transparent; border: none; cursor: pointer; font-family: var(--font-body-family); }
 input, textarea { appearance: none; -webkit-appearance: none; font-family: var(--font-body-family); }
 
-/* Section rhythm */
-body > * + * { margin-top: 0; }
+/* Section rhythm — tight vertical flow, no double-padding */
+body > * + * { margin-top: var(--spacing-sm); }
+body > .ui-status-bar + * { margin-top: 0; }
+body > .ui-navbar + * { margin-top: 0; }
+body > .ui-tabbar { margin-top: auto; }
+body > .ui-tabbar ~ .ui-home-indicator { margin-top: 0; }
+body > .ui-home-indicator { margin-top: auto; }
 
 /* ── Status Bar ───────────────────────────────────────────── */
 .ui-status-bar {
@@ -265,6 +275,22 @@ body > * + * { margin-top: 0; }
   gap: var(--spacing-md);
 }
 .ui-cards__grid--single { grid-template-columns: 1fr; }
+.ui-cards__grid--three { grid-template-columns: repeat(3, 1fr); }
+
+/* ── Header ──────────────────────────────────────────────── */
+.ui-header {
+  padding: 0 var(--spacing-md);
+}
+.ui-header__text {
+  font-family: var(--font-heading-family);
+  font-weight: var(--font-heading-weight);
+  letter-spacing: var(--font-heading-ls);
+  color: var(--color-foreground);
+  line-height: 1.2;
+}
+.ui-header--large .ui-header__text { font-size: var(--font-size-3xl); }
+.ui-header--medium .ui-header__text { font-size: var(--font-size-xl); }
+.ui-header--small .ui-header__text { font-size: var(--font-size-lg); font-weight: 600; }
 
 /* ── ListItem ─────────────────────────────────────────────── */
 .ui-list-item {
@@ -442,7 +468,7 @@ body > * + * { margin-top: 0; }
 }
 
 /* ── Button ───────────────────────────────────────────────── */
-.ui-btn-wrap { padding: var(--spacing-sm) var(--spacing-md); }
+.ui-btn-wrap { padding: 0 var(--spacing-md); }
 .ui-btn {
   display: inline-flex;
   align-items: center;
@@ -491,7 +517,7 @@ body > * + * { margin-top: 0; }
 }
 
 /* ── TextInput ────────────────────────────────────────────── */
-.ui-input-wrap { padding: var(--spacing-sm) var(--spacing-md); }
+.ui-input-wrap { padding: 0 var(--spacing-md); }
 .ui-input__label {
   display: block;
   font-size: var(--font-size-sm);
@@ -566,7 +592,7 @@ body > * + * { margin-top: 0; }
 }
 
 /* ── Toggle row ───────────────────────────────────────────── */
-.ui-toggle-wrap { padding: var(--spacing-sm) var(--spacing-md); }
+.ui-toggle-wrap { padding: 0 var(--spacing-md); }
 .ui-toggle-row {
   display: flex;
   align-items: center;
@@ -579,7 +605,7 @@ body > * + * { margin-top: 0; }
 }
 
 /* ── Checkbox ─────────────────────────────────────────────── */
-.ui-checkbox-wrap { padding: var(--spacing-sm) var(--spacing-md); }
+.ui-checkbox-wrap { padding: 0 var(--spacing-md); }
 .ui-checkbox-row {
   display: flex;
   align-items: center;
@@ -607,7 +633,7 @@ body > * + * { margin-top: 0; }
 }
 
 /* ── SegmentedControl ─────────────────────────────────────── */
-.ui-segments { padding: var(--spacing-sm) var(--spacing-md); }
+.ui-segments { padding: 0 var(--spacing-md); }
 .ui-segments__track {
   display: flex;
   background: var(--color-secondary);
@@ -640,7 +666,7 @@ body > * + * { margin-top: 0; }
 }
 
 /* ── Slider ───────────────────────────────────────────────── */
-.ui-slider-wrap { padding: var(--spacing-sm) var(--spacing-md); }
+.ui-slider-wrap { padding: 0 var(--spacing-md); }
 .ui-slider__header {
   display: flex;
   align-items: center;
@@ -691,7 +717,7 @@ body > * + * { margin-top: 0; }
 }
 
 /* ── Stepper ──────────────────────────────────────────────── */
-.ui-stepper-wrap { padding: var(--spacing-sm) var(--spacing-md); }
+.ui-stepper-wrap { padding: 0 var(--spacing-md); }
 .ui-stepper-row {
   display: flex;
   align-items: center;

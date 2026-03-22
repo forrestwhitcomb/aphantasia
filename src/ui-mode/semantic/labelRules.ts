@@ -23,7 +23,10 @@ export interface LabelRule {
 
 export const LABEL_RULES: LabelRule[] = [
   // Navigation & Structure
-  { pattern: /\b(nav|navbar|navigation|header|app\s*bar)\b/i, type: "navBar" },
+  { pattern: /\b(nav|navbar|navigation|app\s*bar)\b/i, type: "navBar" },
+
+  // Text
+  { pattern: /\b(header|heading|title|h1|h2|h3)\b/i, type: "header" },
   { pattern: /\b(tab|tabbar|tabs|bottom\s*nav)\b/i, type: "tabBar" },
   { pattern: /\b(bottom\s*sheet|sheet|drawer)\b/i, type: "bottomSheet" },
   { pattern: /\b(status\s*bar)\b/i, type: "statusBar" },

@@ -8,6 +8,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type {
   CanvasEngine,
@@ -40,6 +41,11 @@ export const MOBILE_FRAME_HEIGHT = 852;
 const MOBILE_FRAME_ID = "frame:mobile-ui";
 const MIN_SHAPE_SIZE = 10;
 const MIN_RESIZE = 20;
+
+/** Canvas note shapes: `sticky` is normalized to `note` on load — treated the same everywhere. */
+function isNoteShape(t: string): boolean {
+  return t === "note" || t === "sticky";
+}
 
 // ---------------------------------------------------------------------------
 // Engine implementation
@@ -191,7 +197,7 @@ export class CustomCanvasEngine implements CanvasEngine {
   linkNoteToShape(noteId: string, shapeId: string) {
     const note = this.shapes.get(noteId);
     const shape = this.shapes.get(shapeId);
-    if (!note || !shape || note.type !== "note") return;
+    if (!note || !shape || !isNoteShape(note.type)) return;
     // Update note with linked shape
     this.shapes.set(noteId, { ...note, linkedShapeId: shapeId });
     // Update shape with linked note
@@ -304,7 +310,11 @@ export class CustomCanvasEngine implements CanvasEngine {
     this.frames = doc.frames?.length ? doc.frames.map((f) => ({ ...f })) : [{ ...doc.frame }];
     this.activeFrameId = doc.activeFrameId ?? this.frames[0].id;
     for (const s of doc.shapes) {
-      this.shapes.set(s.id, { ...s });
+      const normalized =
+        s.type === "sticky"
+          ? { ...s, type: "note" as ShapeType }
+          : s;
+      this.shapes.set(normalized.id, normalized);
     }
     this.changed();
   }
@@ -896,7 +906,7 @@ export function CustomCanvasView() {
       movingIdRef.current = id;
 
       // If dragging a note, track for linking
-      if (shape.type === "note") {
+      if (isNoteShape(shape.type)) {
         draggingNoteRef.current = { id, overShapeId: null };
         setMode("dragging-note");
       } else {
@@ -1021,7 +1031,7 @@ export function CustomCanvasView() {
       // Hit-test: is the cursor over a content shape (not note/image)?
       let foundTarget: string | null = null;
       for (const s of engine.getInternalShapes()) {
-        if (s.id === connectingRef.current.sourceId || s.type === "note" || s.type === "image") continue;
+        if (s.id === connectingRef.current.sourceId || isNoteShape(s.type) || s.type === "image") continue;
         if (wp.x >= s.x && wp.x <= s.x + s.width && wp.y >= s.y && wp.y <= s.y + s.height) {
           foundTarget = s.id;
           break;
@@ -1293,6 +1303,14 @@ export function CustomCanvasView() {
           const isNoteDropTarget = draggingNoteRef.current?.overShapeId === s.id || connectingRef.current?.overShapeId === s.id;
           const linkCount = (s.linkedNoteIds?.length ?? 0) + (s.linkedImageIds?.length ?? 0);
           const isLinked = linkCount > 0;
+          const isNote = isNoteShape(s.type);
+          const linkedTarget = s.linkedShapeId
+            ? shapes.find((x) => x.id === s.linkedShapeId)
+            : undefined;
+          const linkedTargetLabel =
+            (linkedTarget?.label as string | undefined) ||
+            (linkedTarget?.meta?.uiComponentType as string | undefined) ||
+            "element";
 
           // Shape-specific styles
           const shapeStyles = getShapeStyle(s, selected, engine.isInFrame(s), isNoteDropTarget);
@@ -1310,11 +1328,13 @@ export function CustomCanvasView() {
                 cursor: mode === "idle" || mode === "dragging-note" ? "move" : undefined,
                 userSelect: "none",
                 boxSizing: "border-box",
+                display: isNote ? "flex" : undefined,
+                flexDirection: isNote ? "column" : undefined,
                 ...shapeStyles,
               }}
             >
               {/* Link indicator */}
-              {isLinked && s.type !== "note" && (
+              {isLinked && !isNote && (
                 <div style={{
                   position: "absolute",
                   top: -8,
@@ -1402,30 +1422,55 @@ export function CustomCanvasView() {
                 </div>
               ) : null}
 
-              {/* Connection handle on notes and images */}
-              {(s.type === "note" || s.type === "image") && (
+              {/* Connection handle on notes and images — large hit target */}
+              {(isNote || s.type === "image") && (
                 <div
                   data-connect-handle="true"
                   data-source-id={s.id}
-                  data-source-type={s.type}
+                  data-source-type={isNote ? "note" : "image"}
                   style={{
                     position: "absolute",
-                    right: -7,
-                    top: "33%",
-                    width: 14,
-                    height: 14,
-                    borderRadius: "50%",
-                    background: "#3b82f6",
-                    border: "2px solid #fff",
+                    right: -18,
+                    top: "50%",
+                    marginTop: -22,
+                    width: 44,
+                    height: 44,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     cursor: "crosshair",
                     pointerEvents: "auto",
                     zIndex: 10,
-                    opacity: s.linkedShapeId ? 1 : 0.4,
-                    transition: "opacity 0.15s, transform 0.15s",
                   }}
-                  onMouseEnter={(e) => { (e.target as HTMLElement).style.opacity = "1"; (e.target as HTMLElement).style.transform = "scale(1.3)"; }}
-                  onMouseLeave={(e) => { (e.target as HTMLElement).style.opacity = s.linkedShapeId ? "1" : "0.4"; (e.target as HTMLElement).style.transform = "scale(1)"; }}
-                />
+                  onMouseEnter={(e) => {
+                    const dot = (e.currentTarget as HTMLElement).querySelector("[data-link-dot]") as HTMLElement;
+                    if (dot) {
+                      dot.style.opacity = "1";
+                      dot.style.transform = "scale(1.15)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    const dot = (e.currentTarget as HTMLElement).querySelector("[data-link-dot]") as HTMLElement;
+                    if (dot) {
+                      dot.style.opacity = s.linkedShapeId ? "1" : "0.45";
+                      dot.style.transform = "scale(1)";
+                    }
+                  }}
+                >
+                  <div
+                    data-link-dot
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: "50%",
+                      background: s.linkedShapeId ? "#d97706" : "#94a3b8",
+                      border: "2px solid #fff",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                      opacity: s.linkedShapeId ? 1 : 0.45,
+                      transition: "opacity 0.15s, transform 0.15s",
+                    }}
+                  />
+                </div>
               )}
 
               {/* Image preview */}
@@ -1445,25 +1490,94 @@ export function CustomCanvasView() {
                 />
               )}
 
-              {/* Label display */}
-              {s.label && !isEditing && (
-                <div style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  alignItems: s.type === "note" ? "flex-start" : "center",
-                  justifyContent: s.type === "text" ? "flex-start" : "center",
-                  fontSize: s.type === "text" ? 16 : s.type === "note" ? 12 : 13,
-                  color: s.type === "note" ? "#1a1a1a" : s.type === "text" ? "#333" : "#666",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  padding: s.type === "note" ? 10 : 8,
-                  textAlign: s.type === "text" ? "left" : "center",
-                  wordBreak: "break-word",
-                  whiteSpace: "pre-wrap",
-                  pointerEvents: "none",
-                  lineHeight: 1.4,
-                }}>
+              {/* Note card — header + body */}
+              {isNote && !isEditing && (
+                <>
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 6,
+                      padding: "6px 10px",
+                      background: "linear-gradient(180deg, #fff4d6 0%, #ffe8bc 100%)",
+                      borderBottom: "1px solid #e8d5b5",
+                      fontFamily: "var(--font-poppins), sans-serif",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: "#78350f" }}>
+                      NOTE
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 500,
+                        color: s.linkedShapeId ? "#15803d" : "#78716c",
+                        maxWidth: "55%",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={s.linkedShapeId ? `Linked to ${linkedTargetLabel}` : "Not wired — used as global context"}
+                    >
+                      {s.linkedShapeId ? `Linked · ${linkedTargetLabel}` : "Global"}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      minHeight: 0,
+                      padding: "8px 10px",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      fontFamily: "var(--font-poppins), sans-serif",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {s.label ? (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: "#1c1917",
+                          lineHeight: 1.45,
+                          wordBreak: "break-word",
+                          whiteSpace: "pre-wrap",
+                        }}
+                      >
+                        {s.label}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: "#a8a29e", fontStyle: "italic" }}>
+                        Add a prompt for this element…
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Label display — non-note */}
+              {!isNote && s.label && !isEditing && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: s.type === "text" ? "flex-start" : "center",
+                    fontSize: s.type === "text" ? 16 : 13,
+                    color: s.type === "text" ? "#333" : "#666",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    padding: 8,
+                    textAlign: s.type === "text" ? "left" : "center",
+                    wordBreak: "break-word",
+                    whiteSpace: "pre-wrap",
+                    pointerEvents: "none",
+                    lineHeight: 1.4,
+                  }}
+                >
                   {s.label}
                 </div>
               )}
@@ -1490,7 +1604,7 @@ export function CustomCanvasView() {
                 <EditOverlay
                   value={s.label ?? ""}
                   zoom={cam.zoom}
-                  isNote={s.type === "note"}
+                  isNote={isNote}
                   onCommit={(text) => {
                     engine.updateShape(s.id, { label: text || undefined, content: text || undefined });
                     setEditingId(null);
@@ -1525,7 +1639,7 @@ export function CustomCanvasView() {
 
         {/* Connection lines — each rendered as its own positioned SVG */}
         {shapes
-          .filter((s) => (s.type === "note" || s.type === "image") && !!s.linkedShapeId)
+          .filter((s) => (isNoteShape(s.type) || s.type === "image") && !!s.linkedShapeId)
           .map((note) => {
             const target = shapes.find((s) => s.id === note.linkedShapeId);
             if (!target) return null;
@@ -1563,14 +1677,14 @@ export function CustomCanvasView() {
                     markerHeight="8"
                     orient="auto-start-reverse"
                   >
-                    <path d="M 0 0 L 12 5 L 0 10 Z" fill="#4b4b4b" />
+                    <path d="M 0 0 L 12 5 L 0 10 Z" fill="#b45309" />
                   </marker>
                 </defs>
                 <path
                   d={d}
                   fill="none"
-                  stroke="#4b4b4b"
-                  strokeWidth={3.5}
+                  stroke="#d97706"
+                  strokeWidth={2.5}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   markerEnd={`url(#arrow-${note.id})`}
@@ -1615,17 +1729,17 @@ export function CustomCanvasView() {
                   markerHeight="8"
                   orient="auto-start-reverse"
                 >
-                  <path d="M 0 0 L 12 5 L 0 10 Z" fill="#4b4b4b" opacity={0.5} />
+                  <path d="M 0 0 L 12 5 L 0 10 Z" fill="#d97706" opacity={0.6} />
                 </marker>
               </defs>
               <path
                 d={d}
                 fill="none"
-                stroke="#4b4b4b"
-                strokeWidth={3}
+                stroke="#d97706"
+                strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                opacity={0.5}
+                opacity={0.55}
                 markerEnd="url(#arrow-drag)"
               />
             </svg>
@@ -1770,16 +1884,19 @@ function getShapeStyle(
         background: "transparent",
       };
     case "note":
+    case "sticky":
       return {
         ...base,
-        border: selected ? "2px solid #3b82f6" : "1px solid #E8C49A",
-        borderRadius: 4,
-        background: "#F9D8B2",
+        border: selected ? "2px solid #3b82f6" : "1px solid #d4b896",
+        borderRadius: 10,
+        background: "#fff8e8",
+        padding: 0,
+        overflow: "hidden",
         boxShadow: isDropTarget
-          ? "0 0 0 3px #f59e0b"
+          ? "0 0 0 3px rgba(217,119,6,0.45)"
           : s.linkedShapeId
-            ? "2px 2px 8px rgba(0,0,0,0.1), 0 0 0 2px #3b82f6"
-            : "2px 2px 8px rgba(0,0,0,0.1)",
+            ? "0 4px 14px rgba(28,25,23,0.12), 0 0 0 1px rgba(217,119,6,0.25)"
+            : "0 4px 12px rgba(28,25,23,0.08)",
       };
     case "image":
       return {
@@ -1852,15 +1969,14 @@ function EditOverlay({
   onCommit: (text: string) => void;
   onCancel: () => void;
 }) {
+  void zoom;
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    // Use innerHTML with <br> to preserve newlines in contentEditable
     el.innerHTML = value.replace(/\n/g, "<br>");
     el.focus();
-    // Place cursor at end
     const range = document.createRange();
     range.selectNodeContents(el);
     range.collapse(false);
@@ -1869,44 +1985,112 @@ function EditOverlay({
     sel?.addRange(range);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const commit = useCallback(() => {
-    // Use innerText to preserve newlines from contentEditable
+  const btnBase: CSSProperties = {
+    fontSize: 11,
+    fontWeight: 600,
+    padding: "4px 10px",
+    borderRadius: 6,
+    border: "1px solid #d6d3d1",
+    cursor: "pointer",
+    fontFamily: "var(--font-poppins), sans-serif",
+  };
+
+  const committedRef = useRef(false);
+  const safeCommit = useCallback(() => {
+    if (committedRef.current) return;
+    committedRef.current = true;
     const text = ref.current?.innerText?.trim() ?? "";
     onCommit(text);
   }, [onCommit]);
 
   return (
     <div
-      ref={ref}
-      contentEditable
-      suppressContentEditableWarning
-      onBlur={commit}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        // Enter = new line. Cmd/Ctrl+Enter = commit. Escape = cancel.
-        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commit(); }
-        if (e.key === "Escape") { e.preventDefault(); onCancel(); }
-      }}
-      onMouseDown={(e) => e.stopPropagation()}
       style={{
         position: "absolute",
         inset: 0,
         display: "flex",
         flexDirection: "column",
-        alignItems: isNote ? "flex-start" : "center",
-        justifyContent: isNote ? "flex-start" : "center",
-        fontSize: isNote ? 12 : 13,
-        color: isNote ? "#1a1a1a" : "#333",
-        background: isNote ? "transparent" : "rgba(255,255,255,0.8)",
-        outline: "none",
-        padding: isNote ? 10 : 8,
-        textAlign: isNote ? "left" : "center",
-        wordBreak: "break-word",
-        whiteSpace: "pre-wrap",
-        cursor: "text",
-        lineHeight: 1.4,
+        zIndex: 20,
+        background: isNote ? "#fffdf9" : "rgba(255,255,255,0.97)",
+        borderRadius: isNote ? 8 : undefined,
+        overflow: "hidden",
       }}
-    />
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div
+        ref={ref}
+        contentEditable
+        suppressContentEditableWarning
+        onBlur={(e) => {
+          const related = e.relatedTarget as HTMLElement | null;
+          const staysInOverlay = related && e.currentTarget.parentElement?.contains(related);
+          if (!staysInOverlay) safeCommit();
+        }}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            safeCommit();
+          }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflow: "auto",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: isNote ? "flex-start" : "center",
+          justifyContent: isNote ? "flex-start" : "center",
+          fontSize: isNote ? 12 : 13,
+          color: isNote ? "#1c1917" : "#333",
+          outline: "none",
+          padding: isNote ? "10px 10px 6px" : 8,
+          textAlign: isNote ? "left" : "center",
+          wordBreak: "break-word",
+          whiteSpace: "pre-wrap",
+          cursor: "text",
+          lineHeight: 1.45,
+        }}
+      />
+      <div
+        style={{
+          flexShrink: 0,
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          padding: "6px 8px",
+          borderTop: isNote ? "1px solid #e8d5b5" : "1px solid #e7e5e4",
+          background: isNote ? "#fff4e0" : "#fafaf9",
+        }}
+      >
+        <button
+          type="button"
+          tabIndex={0}
+          style={{ ...btnBase, background: "#fff", color: "#57534e" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCancel();
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          tabIndex={0}
+          style={{ ...btnBase, background: "#d97706", borderColor: "#b45309", color: "#fff" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            safeCommit();
+          }}
+        >
+          Done
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -55,6 +55,8 @@ export function ViewportPane() {
     doLayer1();
 
     const handleChange = () => {
+      // Clear stale Layer 2 overrides — they're keyed to the old layout
+      l2OverridesRef.current = [];
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(doLayer1, 200);
     };
@@ -114,6 +116,8 @@ export function ViewportPane() {
     const doc = canvasEngine.getDocument();
     const globalNotes = resolved[0]?.globalNotes ?? [];
 
+    const figmaMeta = uiDesignStoreV2.getState().figmaMeta;
+
     try {
       const res = await fetch("/api/ui-render", {
         method: "POST",
@@ -128,6 +132,7 @@ export function ViewportPane() {
             height: doc.frame.height,
             name: doc.frame.id,
           },
+          referenceImageUrl: figmaMeta?.thumbnailUrl ?? null,
         }),
       });
 

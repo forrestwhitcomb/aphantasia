@@ -139,7 +139,9 @@ export type UIComponentType =
   | "profileHeader"
   | "messageBubble"
   | "feedItem"
-  | "settingsRow";
+  | "settingsRow"
+  // Text
+  | "header";
 
 // ── Variant Maps ────────────────────────────────────────────
 // Per-component variant options for the build plan's component inventory.
@@ -189,6 +191,7 @@ export interface UIVariantMap {
   messageBubble: "sent" | "received" | "with-avatar";
   feedItem: "social" | "news" | "minimal";
   settingsRow: "toggle" | "navigation" | "value" | "destructive";
+  header: "large" | "medium" | "small";
 }
 
 // ── Resolved Component ──────────────────────────────────────
@@ -216,6 +219,8 @@ export interface UIResolvedComponent {
   itemLabels?: string[];
   /** IDs of shapes consumed into this group */
   consumedIds?: string[];
+  /** Nested child components (e.g. toggle or text inside a card) */
+  children?: UIResolvedComponent[];
 }
 
 // ── Component Props Base ────────────────────────────────────

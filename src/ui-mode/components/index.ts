@@ -19,6 +19,7 @@ import { renderCardGrid } from "./content/Card";
 import { renderListItem } from "./content/ListItem";
 import { renderListGroup } from "./content/ListGroup";
 import { renderSectionHeader } from "./content/SectionHeader";
+import { renderHeader } from "./content/Header";
 
 // Inputs
 import { renderButton } from "./inputs/Button";
@@ -88,6 +89,8 @@ export function renderUIComponent(
       return renderListGroup(p);
     case "sectionHeader":
       return renderSectionHeader(p);
+    case "header":
+      return renderHeader(p);
 
     // Media & Visual
     case "divider":
@@ -174,6 +177,7 @@ export { renderCard, renderCardGrid } from "./content/Card";
 export { renderListItem } from "./content/ListItem";
 export { renderListGroup } from "./content/ListGroup";
 export { renderSectionHeader } from "./content/SectionHeader";
+export { renderHeader } from "./content/Header";
 export { renderDivider } from "./media/Divider";
 export { renderButton } from "./inputs/Button";
 export { renderTextInput } from "./inputs/TextInput";

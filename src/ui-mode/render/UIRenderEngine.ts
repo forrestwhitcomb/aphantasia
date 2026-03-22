@@ -12,7 +12,7 @@
 // Layer 2: async, AI-powered, merges overrides into Layer 1
 // ============================================================
 
-import type { UIDesignSystem, UIResolvedComponent, UILayer2Override } from "../types";
+import type { UIDesignSystem, UIResolvedComponent, UILayer2Override, UIComponentPropsBase } from "../types";
 import { renderUIComponent } from "../components";
 import { UI_COMPONENT_CSS } from "../components/styles";
 import { buildUIDocument } from "../themeInjector";
@@ -40,11 +40,12 @@ export function renderLayer1(
 
   // Build body HTML from resolved components
   const bodyParts: string[] = [];
+  const tabBarParts: string[] = [];
 
   // Auto-inject status bar at top
   bodyParts.push(renderStatusBar({ variant: "light" }));
 
-  // Render each resolved component
+  // Render each resolved component (tabBars collected separately for bottom placement)
   for (const comp of components) {
     // Parse notes for Layer 1 keywords
     const noteParsed = comp.notes.length > 0 ? parseNotes(comp.notes) : null;
@@ -58,13 +59,45 @@ export function renderLayer1(
     const itemLabels = (l2?.contentOverrides?.itemLabels as string[] | undefined) ?? noteParsed?.itemLabels ?? comp.itemLabels;
     const label = (l2?.contentOverrides?.title as string | undefined) ?? comp.label;
 
+    // Render nested children, split into top/bottom relative to card midpoint
+    let childrenHtmlTop = "";
+    let childrenHtmlBottom = "";
+    if (comp.children && comp.children.length > 0) {
+      const cardMidY = comp.bounds.y + comp.bounds.height / 2;
+
+      const renderChild = (child: UIResolvedComponent) => {
+        const childNoteParsed = child.notes.length > 0 ? parseNotes(child.notes) : null;
+        const childL2 = overrideMap.get(child.shapeId);
+        return renderUIComponent(child.type, {
+          label: (childL2?.contentOverrides?.title as string | undefined) ?? child.label,
+          variant: childL2?.variantOverride ?? childNoteParsed?.variant ?? child.variant,
+          noteOverrides: child.notes.join("\n"),
+        });
+      };
+
+      const topChildren: string[] = [];
+      const bottomChildren: string[] = [];
+      for (const child of comp.children) {
+        const childCenterY = child.bounds.y + child.bounds.height / 2;
+        if (childCenterY < cardMidY) {
+          topChildren.push(renderChild(child));
+        } else {
+          bottomChildren.push(renderChild(child));
+        }
+      }
+      childrenHtmlTop = topChildren.join("\n");
+      childrenHtmlBottom = bottomChildren.join("\n");
+    }
+
     const html = renderUIComponent(comp.type, {
       label,
       variant,
       itemCount,
       itemLabels,
       noteOverrides: comp.notes.join("\n"),
-    });
+      childrenHtmlTop,
+      childrenHtmlBottom,
+    } as Partial<UIComponentPropsBase> & { childrenHtmlTop?: string; childrenHtmlBottom?: string });
 
     // Collect inline style overrides from note flags + note state + Layer 2
     const inlineStyles: string[] = [];
@@ -106,18 +139,23 @@ export function renderLayer1(
       }
     }
 
+    // Route to the appropriate output array
+    const target = comp.type === "tabBar" ? tabBarParts : bodyParts;
+
     // Dark mode flag wraps component with inverted CSS variables
     if (noteParsed?.flags?.has("darkMode")) {
       const darkWrapper = `<div style="--color-background:var(--color-foreground);--color-foreground:var(--color-background);--color-card:rgba(255,255,255,0.08);--color-card-foreground:var(--color-background);--color-muted:rgba(255,255,255,0.12);--color-muted-foreground:rgba(255,255,255,0.6);--color-border:rgba(255,255,255,0.15);background:var(--color-foreground);color:var(--color-background);${inlineStyles.join(";")}">${html}</div>`;
-      bodyParts.push(darkWrapper);
+      target.push(darkWrapper);
     } else if (inlineStyles.length > 0) {
-      bodyParts.push(`<div style="${inlineStyles.join(";")}">${html}</div>`);
+      target.push(`<div style="${inlineStyles.join(";")}">${html}</div>`);
     } else {
-      bodyParts.push(html);
+      target.push(html);
     }
   }
 
-  // Auto-inject home indicator at bottom
+  // TabBar always renders at the bottom, then home indicator last
+  bodyParts.push(...tabBarParts);
+
   bodyParts.push(`
 <div class="ui-home-indicator">
   <div class="ui-home-indicator__bar"></div>

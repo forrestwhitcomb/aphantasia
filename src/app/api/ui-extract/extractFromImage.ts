@@ -70,20 +70,23 @@ You MUST return a JSON object matching this exact schema. Every value must be a 
 
 For colors: Extract EXACT hex values by sampling pixels. Map each to its semantic role:
 - background: dominant screen background
-- foreground: primary text color
+- foreground: primary text color — MUST contrast with background
 - primary: main brand/action color (buttons, links, active states)
-- primaryForeground: text color ON primary backgrounds (usually white)
+- primaryForeground: text color ON primary backgrounds — MUST contrast with primary (white on dark primary, dark on light primary)
 - secondary: supporting background color (chips, secondary buttons)
-- secondaryForeground: text on secondary backgrounds
+- secondaryForeground: text on secondary backgrounds — MUST contrast with secondary
 - muted: subdued backgrounds (disabled states, subtle containers)
-- mutedForeground: subdued text (placeholders, secondary labels)
+- mutedForeground: subdued text (placeholders, secondary labels) — MUST contrast with muted
 - accent: highlight color (badges, active tabs, pills) — often same as primary
+- accentForeground: text on accent backgrounds — MUST contrast with accent
 - destructive: red/error color
 - border: border and divider color
 - input: input field border color (often same as border)
 - ring: focus ring color (often same as primary)
 - card: card/container background (often slightly different from main bg, or same)
-- cardForeground: text on cards
+- cardForeground: text on cards — MUST contrast with card background
+
+CRITICAL CONTRAST RULE: Every "Foreground" color MUST be readable against its paired background. Dark backgrounds need light text (#FFFFFF or near-white). Light backgrounds need dark text (#000000 or near-black). Never pair similar luminance colors (e.g. white text on white card, or dark text on dark primary).
 
 For typography: Identify font family category and provide closest Google Font match:
 - Geometric sans: Inter, DM Sans, Geist, Circular
@@ -94,7 +97,13 @@ Extract approximate sizes for the T-shirt scale based on visible text hierarchy.
 
 For spacing: Measure pixel distances. Provide a consistent scale (typically 4/8/16/24/32/48).
 
-For radii: Measure actual border-radius on buttons, cards, inputs. Note if design is sharp, slightly rounded, or very rounded.
+For radii: Measure actual border-radius on buttons, cards, inputs carefully. This is critical for matching the design feel:
+- Sharp/angular designs: 0-4px
+- Slightly rounded: 6-10px
+- Modern rounded: 12-16px
+- Very rounded/pill-like: 20-28px
+- Full pill: 9999px
+Set button, card, and input radii to the EXACT values you observe, not generic defaults. The "feel" of the design depends heavily on getting this right.
 
 For shadows: Describe shadow style and provide CSS box-shadow values. Use "none" if the design is flat.
 

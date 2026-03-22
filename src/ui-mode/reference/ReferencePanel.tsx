@@ -1,32 +1,28 @@
 "use client";
 
 // ============================================================
-// APHANTASIA — Reference Panel
+// APHANTASIA — Design System Reference (tabbed)
 // ============================================================
-// Design system extraction from 3 sources:
-//   1. Screenshot upload (Claude Vision)
-//   2. Website URL (CSS extraction + Claude)
-//   3. Figma file (REST API + token mapping)
+// Three sources — Image, Website, Figma — merge with precedence:
+// Figma > Website > Screenshot (see UIDesignStore).
 // ============================================================
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { uiDesignStoreV2 } from "./UIDesignStore";
+import type { FigmaReferenceMeta } from "./UIDesignStore";
 import type { UIDesignSystem } from "../types";
+import { parseFigmaFileKey, extractFigmaUrl } from "@/lib/figmaUrl";
 
-type ExtractionSource = "screenshot" | "website" | "figma";
+type TabId = "screenshot" | "website" | "figma";
 
 export function ReferencePanel() {
   const [state, setState] = useState(uiDesignStoreV2.getState());
+  const [activeTab, setActiveTab] = useState<TabId>("figma");
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [source, setSource] = useState<ExtractionSource | null>(null);
-  const [sourceName, setSourceName] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // URL extraction state
   const [urlInput, setUrlInput] = useState("");
-
-  // Figma state
   const [figmaUrl, setFigmaUrl] = useState("");
   const [figmaToken, setFigmaToken] = useState(() => {
     if (typeof window !== "undefined") {
@@ -39,9 +35,15 @@ export function ReferencePanel() {
     return uiDesignStoreV2.subscribe(setState);
   }, []);
 
-  const ds = state.designSystem;
+  const layers = state.sourceLayers;
+  const filled = {
+    screenshot: !!layers.screenshot,
+    website: !!layers.website,
+    figma: !!layers.figma,
+  };
 
-  // ── Screenshot Upload ──
+  const ds = uiDesignStoreV2.getEffectiveDesignSystem();
+
   const handleUpload = useCallback(async (file: File) => {
     setError(null);
     setIsExtracting(true);
@@ -62,9 +64,7 @@ export function ReferencePanel() {
       }
 
       const { designSystem } = await res.json();
-      uiDesignStoreV2.setDesignSystem(designSystem);
-      setSource("screenshot");
-      setSourceName("");
+      uiDesignStoreV2.setSourceLayer("screenshot", designSystem as UIDesignSystem);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Extraction failed");
     } finally {
@@ -89,7 +89,6 @@ export function ReferencePanel() {
     [handleUpload]
   );
 
-  // ── URL Extraction ──
   const handleUrlExtract = useCallback(async () => {
     if (!urlInput.trim()) return;
     setError(null);
@@ -108,13 +107,7 @@ export function ReferencePanel() {
       }
 
       const { designSystem } = await res.json();
-      uiDesignStoreV2.setDesignSystem(designSystem);
-      setSource("website");
-      try {
-        setSourceName(new URL(urlInput.trim()).hostname);
-      } catch {
-        setSourceName(urlInput.trim());
-      }
+      uiDesignStoreV2.setSourceLayer("website", designSystem as UIDesignSystem);
     } catch (err) {
       setError(err instanceof Error ? err.message : "URL extraction failed");
     } finally {
@@ -122,13 +115,11 @@ export function ReferencePanel() {
     }
   }, [urlInput]);
 
-  // ── Figma Extraction ──
   const handleFigmaConnect = useCallback(async () => {
     if (!figmaUrl.trim() || !figmaToken.trim()) return;
     setError(null);
     setIsExtracting(true);
 
-    // Persist token for future sessions
     localStorage.setItem("aphantasia:figmaToken", figmaToken);
 
     try {
@@ -146,10 +137,30 @@ export function ReferencePanel() {
         throw new Error(err.error || "Figma extraction failed");
       }
 
-      const { designSystem, fileName } = await res.json();
-      uiDesignStoreV2.setDesignSystem(designSystem);
-      setSource("figma");
-      setSourceName(fileName || "Figma file");
+      const data = await res.json();
+      const { designSystem, fileName, nodeId, nodeName, thumbnailUrl, componentHints } =
+        data as {
+          designSystem: UIDesignSystem;
+          fileName?: string;
+          nodeId?: string | null;
+          nodeName?: string | null;
+          thumbnailUrl?: string | null;
+          componentHints?: string[];
+        };
+
+      uiDesignStoreV2.setSourceLayer("figma", designSystem);
+
+      const fk = parseFigmaFileKey(figmaUrl.trim()) || "";
+      const meta: FigmaReferenceMeta = {
+        fileKey: fk,
+        fileName: fileName || "Figma file",
+        nodeId: nodeId ?? null,
+        nodeName: nodeName ?? null,
+        thumbnailUrl: thumbnailUrl ?? null,
+        componentHints: Array.isArray(componentHints) ? componentHints : [],
+        syncedAt: Date.now(),
+      };
+      uiDesignStoreV2.setFigmaMeta(meta);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Figma extraction failed");
     } finally {
@@ -157,145 +168,235 @@ export function ReferencePanel() {
     }
   }, [figmaUrl, figmaToken]);
 
-  // ── Color override ──
   const handleColorChange = (key: string, value: string) => {
     uiDesignStoreV2.setOverride(`colors.${key}`, value);
   };
 
-  // ── Source label ──
-  const sourceLabel = source === "screenshot"
-    ? `Screenshot · Confidence: ${Math.round(ds.confidence * 100)}%`
-    : source === "website"
-      ? `Website (${sourceName}) · Confidence: ${Math.round(ds.confidence * 100)}%`
-      : source === "figma"
-        ? `Figma (${sourceName}) · Confidence: 100%`
-        : null;
+  const mergeSummary = [
+    filled.screenshot && "Image",
+    filled.website && "Website",
+    filled.figma && "Figma",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div style={styles.panel}>
-      {/* Upload area */}
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
           <span style={styles.sectionIcon}>◎</span>
-          <span style={styles.sectionTitle}>Design System</span>
+          <span style={styles.sectionTitle}>Design System Reference</span>
         </div>
+        <p style={styles.mergeHint}>
+          Merge order: <strong>Figma</strong> → Website → Image. Later sources override earlier for the same token.
+        </p>
 
-        <div
-          style={{
-            ...styles.uploadArea,
-            ...(isExtracting && !source ? styles.uploadAreaExtracting : {}),
-          }}
-          onDrop={onDrop}
-          onDragOver={(e) => e.preventDefault()}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {state.referenceImage ? (
-            <img
-              src={state.referenceImage}
-              alt="Reference"
-              style={styles.thumbnail}
-            />
-          ) : (
-            <>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-              <span style={styles.uploadText}>
-                {isExtracting ? "Extracting..." : "Drop a screenshot of your app"}
-              </span>
-            </>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={onFileSelect}
+        {/* Tabs */}
+        <div style={styles.tabRow}>
+          <TabButton
+            label="Image"
+            icon="🖼"
+            active={activeTab === "screenshot"}
+            filled={filled.screenshot}
+            onClick={() => setActiveTab("screenshot")}
+          />
+          <TabButton
+            label="Website"
+            icon="🔗"
+            active={activeTab === "website"}
+            filled={filled.website}
+            onClick={() => setActiveTab("website")}
+          />
+          <TabButton
+            label="Figma"
+            icon="✦"
+            active={activeTab === "figma"}
+            filled={filled.figma}
+            onClick={() => setActiveTab("figma")}
           />
         </div>
 
-        {/* Website URL input */}
-        <div style={{ marginTop: 8 }}>
-          <div style={styles.inputRow}>
-            <input
-              type="url"
-              placeholder="https://your-app.com"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleUrlExtract()}
-              disabled={isExtracting}
-              style={styles.textInput}
-            />
-            <button
-              onClick={handleUrlExtract}
-              disabled={isExtracting || !urlInput.trim()}
+        {activeTab === "screenshot" && (
+          <div style={styles.tabBody}>
+            <div
               style={{
-                ...styles.extractBtn,
-                opacity: isExtracting || !urlInput.trim() ? 0.5 : 1,
+                ...styles.uploadArea,
+                ...(isExtracting ? styles.uploadAreaExtracting : {}),
               }}
+              onDrop={onDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => fileInputRef.current?.click()}
             >
-              {isExtracting && source === null ? "..." : "URL"}
-            </button>
+              {state.referenceImage ? (
+                <img src={state.referenceImage} alt="Reference" style={styles.thumbnail} />
+              ) : (
+                <>
+                  <span style={{ fontSize: 20 }}>🖼</span>
+                  <span style={styles.uploadText}>
+                    {isExtracting ? "Extracting…" : "Drop a screenshot of your app"}
+                  </span>
+                </>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={onFileSelect}
+              />
+            </div>
+            {filled.screenshot && (
+              <button
+                type="button"
+                style={styles.clearSource}
+                onClick={() => uiDesignStoreV2.clearSourceLayer("screenshot")}
+              >
+                Remove image source from merge
+              </button>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* Figma connection */}
-        <div style={{ marginTop: 6 }}>
-          <div style={styles.inputRow}>
+        {activeTab === "website" && (
+          <div style={styles.tabBody}>
+            <div style={styles.inputRow}>
+              <input
+                type="url"
+                placeholder="https://your-app.com"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleUrlExtract()}
+                disabled={isExtracting}
+                style={styles.textInput}
+              />
+              <button
+                type="button"
+                onClick={handleUrlExtract}
+                disabled={isExtracting || !urlInput.trim()}
+                style={{
+                  ...styles.extractBtn,
+                  opacity: isExtracting || !urlInput.trim() ? 0.5 : 1,
+                }}
+              >
+                Extract
+              </button>
+            </div>
+            {filled.website && (
+              <button
+                type="button"
+                style={styles.clearSource}
+                onClick={() => uiDesignStoreV2.clearSourceLayer("website")}
+              >
+                Remove website source from merge
+              </button>
+            )}
+          </div>
+        )}
+
+        {activeTab === "figma" && (
+          <div style={styles.tabBody}>
+            <p style={styles.figmaHelp}>
+              Paste a file or <strong>frame</strong> link (include <code style={styles.code}>node-id</code> for a
+              thumbnail + frame-scoped tokens).
+            </p>
             <input
-              type="url"
-              placeholder="Figma file URL"
+              type="text"
+              placeholder="https://www.figma.com/design/… or paste copied Figma link"
               value={figmaUrl}
-              onChange={(e) => setFigmaUrl(e.target.value)}
-              disabled={isExtracting}
-              style={{ ...styles.textInput, flex: 1 }}
-            />
-          </div>
-          <div style={{ ...styles.inputRow, marginTop: 4 }}>
-            <input
-              type="password"
-              placeholder="Figma access token"
-              value={figmaToken}
-              onChange={(e) => setFigmaToken(e.target.value)}
-              disabled={isExtracting}
-              style={styles.textInput}
-            />
-            <button
-              onClick={handleFigmaConnect}
-              disabled={isExtracting || !figmaUrl.trim() || !figmaToken.trim()}
-              style={{
-                ...styles.extractBtn,
-                opacity: isExtracting || !figmaUrl.trim() || !figmaToken.trim() ? 0.5 : 1,
-                background: "#1e1e1e",
+              onChange={(e) => {
+                const raw = e.target.value;
+                const extracted = extractFigmaUrl(raw);
+                setFigmaUrl(extracted ?? raw);
               }}
-            >
-              {isExtracting ? "..." : "Figma"}
-            </button>
+              onPaste={(e) => {
+                const pasted = e.clipboardData.getData("text");
+                const extracted = extractFigmaUrl(pasted);
+                if (extracted && extracted !== pasted) {
+                  e.preventDefault();
+                  setFigmaUrl(extracted);
+                }
+              }}
+              disabled={isExtracting}
+              style={{ ...styles.textInput, width: "100%", marginBottom: 6 }}
+            />
+            <div style={styles.inputRow}>
+              <input
+                type="password"
+                placeholder="Figma personal access token"
+                value={figmaToken}
+                onChange={(e) => setFigmaToken(e.target.value)}
+                disabled={isExtracting}
+                style={styles.textInput}
+              />
+              <button
+                type="button"
+                onClick={handleFigmaConnect}
+                disabled={isExtracting || !figmaUrl.trim() || !figmaToken.trim()}
+                style={{
+                  ...styles.extractBtn,
+                  background: "#1e1e1e",
+                  opacity: isExtracting || !figmaUrl.trim() || !figmaToken.trim() ? 0.5 : 1,
+                }}
+              >
+                {isExtracting ? "…" : "Connect"}
+              </button>
+            </div>
+            {state.figmaMeta?.thumbnailUrl && (
+              <div style={styles.figmaPreview}>
+                <img
+                  src={state.figmaMeta.thumbnailUrl}
+                  alt="Frame"
+                  style={styles.figmaThumb}
+                />
+                <div>
+                  <div style={styles.figmaName}>{state.figmaMeta.nodeName || state.figmaMeta.fileName}</div>
+                  <div style={styles.figmaSub}>
+                    {state.figmaMeta.componentHints?.length
+                      ? `${state.figmaMeta.componentHints.length} components detected`
+                      : "Synced"}
+                  </div>
+                </div>
+              </div>
+            )}
+            {filled.figma && (
+              <button
+                type="button"
+                style={styles.clearSource}
+                onClick={() => {
+                  uiDesignStoreV2.clearSourceLayer("figma");
+                  uiDesignStoreV2.setFigmaMeta(null);
+                }}
+              >
+                Remove Figma source from merge
+              </button>
+            )}
           </div>
-        </div>
+        )}
 
         {error && <p style={styles.error}>{error}</p>}
 
-        {(state.isExtracted || source) && sourceLabel && (
+        {(state.isExtracted || mergeSummary) && (
           <div style={styles.sourceTag}>
-            <span style={styles.sourceLabel}>Source: {sourceLabel}</span>
+            <span style={styles.sourceLabel}>
+              Active layers: {mergeSummary || "None"} · {ds.name}
+              {typeof ds.confidence === "number" && (
+                <span style={{ color: "#888" }}>
+                  {" "}
+                  · Confidence {Math.round(ds.confidence * 100)}%
+                </span>
+              )}
+            </span>
             <button
+              type="button"
               style={styles.resetBtn}
-              onClick={() => {
-                uiDesignStoreV2.reset();
-                setSource(null);
-                setSourceName("");
-              }}
+              onClick={() => uiDesignStoreV2.reset()}
             >
-              Reset
+              Reset all
             </button>
           </div>
         )}
       </div>
 
-      {/* Color swatches */}
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
           <span style={styles.sectionTitle}>Colors</span>
@@ -315,7 +416,6 @@ export function ReferencePanel() {
         </div>
       </div>
 
-      {/* Typography */}
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
           <span style={styles.sectionTitle}>Typography</span>
@@ -328,7 +428,6 @@ export function ReferencePanel() {
         </div>
       </div>
 
-      {/* Spacing & Radii */}
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
           <span style={styles.sectionTitle}>Shape</span>
@@ -351,7 +450,62 @@ export function ReferencePanel() {
   );
 }
 
-// ── Constants ────────────────────────────────────────────────
+function TabButton({
+  label,
+  icon,
+  active,
+  filled,
+  onClick,
+}: {
+  label: string;
+  icon: string;
+  active: boolean;
+  filled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
+        padding: "8px 4px",
+        border: "none",
+        borderBottom: active ? "2px solid #d97706" : "2px solid transparent",
+        background: active ? "#fffbeb" : "transparent",
+        cursor: "pointer",
+        position: "relative",
+      }}
+    >
+      <span style={{ fontSize: 13 }}>{icon}</span>
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: active ? 600 : 500,
+          color: active ? "#b45309" : "#78716c",
+          letterSpacing: "0.04em",
+        }}
+      >
+        {label}
+      </span>
+      {filled && !active && (
+        <span
+          style={{
+            width: 5,
+            height: 5,
+            borderRadius: "50%",
+            background: "#d97706",
+            marginTop: 2,
+          }}
+        />
+      )}
+    </button>
+  );
+}
 
 const COLOR_ROLES = [
   { key: "background", label: "Bg" },
@@ -364,8 +518,6 @@ const COLOR_ROLES = [
   { key: "border", label: "Border" },
   { key: "card", label: "Card" },
 ];
-
-// ── Helpers ──────────────────────────────────────────────────
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -380,8 +532,6 @@ function extractFontName(stack: string): string {
   const first = stack.split(",")[0].trim().replace(/^['"]|['"]$/g, "");
   return first;
 }
-
-// ── Styles ───────────────────────────────────────────────────
 
 const styles: Record<string, React.CSSProperties> = {
   panel: {
@@ -409,6 +559,61 @@ const styles: Record<string, React.CSSProperties> = {
   },
   sectionIcon: { fontSize: 14, color: "#999" },
   sectionTitle: { fontWeight: 600, fontSize: 13 },
+  mergeHint: {
+    fontSize: 11,
+    color: "#666",
+    lineHeight: 1.5,
+    marginBottom: 10,
+  },
+  tabRow: {
+    display: "flex",
+    borderBottom: "1px solid #eee",
+    marginBottom: 10,
+  },
+  tabBody: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 8,
+  },
+  figmaHelp: {
+    fontSize: 11,
+    color: "#666",
+    margin: 0,
+    lineHeight: 1.45,
+  },
+  code: {
+    background: "#f4f4f5",
+    padding: "1px 4px",
+    borderRadius: 4,
+    fontSize: 10,
+  },
+  figmaPreview: {
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    padding: 8,
+    background: "#fafafa",
+    borderRadius: 8,
+    border: "1px solid #eee",
+  },
+  figmaThumb: {
+    width: 72,
+    height: 48,
+    objectFit: "cover" as const,
+    borderRadius: 6,
+    border: "1px solid #e5e5e5",
+  },
+  figmaName: { fontSize: 12, fontWeight: 600, color: "#1c1917" },
+  figmaSub: { fontSize: 10, color: "#78716c", marginTop: 2 },
+  clearSource: {
+    fontSize: 11,
+    color: "#6366f1",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    textAlign: "left" as const,
+    padding: 0,
+  },
   uploadArea: {
     display: "flex",
     flexDirection: "column" as const,
@@ -443,8 +648,10 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 8,
     fontSize: 11,
     color: "#666",
+    gap: 8,
+    flexWrap: "wrap" as const,
   },
-  sourceLabel: {},
+  sourceLabel: { flex: 1, minWidth: 0 },
   resetBtn: {
     fontSize: 11,
     color: "#6366F1",
@@ -452,6 +659,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     cursor: "pointer",
     fontWeight: 500,
+    flexShrink: 0,
   },
   inputRow: {
     display: "flex",

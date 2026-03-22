@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getAnthropicClient } from "@/lib/anthropic";
 import type { UIDesignSystem, UIResolvedComponent, UILayer2Override } from "@/ui-mode/types";
+import { serializeDesignSystemForPrompt } from "@/ui-mode/reference/serializeDesignSystemForPrompt";
 
 // POST /api/ui-render — Layer 2 AI render for UI mode (streaming SSE)
 //
@@ -13,6 +14,7 @@ interface RequestBody {
   designSystem: UIDesignSystem;
   globalNotes: string[];
   frameContext: { width: number; height: number; name?: string };
+  referenceImageUrl?: string | null;
 }
 
 const SYSTEM_PROMPT = `You are a mobile UI content and styling engine for Aphantasia, a wireframing tool.
@@ -45,7 +47,9 @@ Your job is to return a JSON array of overrides that make each component look re
    - "primary, full width" → variantOverride: "primary", styleOverrides with width: 100%
    - "show user avatar and name" → contentOverrides with appropriate content
 
-5. Return ONLY a JSON array of UILayer2Override objects. No markdown, no explanation.
+5. **Design fidelity is paramount.** The design system JSON was extracted from the user's reference design (Figma, screenshot, or website). Every color, font, radius, and shadow in the JSON is authoritative. Use ONLY these tokens — do not invent hex values, font families, or spacing that contradict them. If a reference image is attached, match its visual style exactly: same color palette, same typography weight, same border radius feel, same shadow depth. The viewport output should look like it came from the same designer who created the reference.
+
+6. Return ONLY a JSON array of UILayer2Override objects. No markdown, no explanation.
 
 ## UILayer2Override Schema
 
@@ -73,7 +77,7 @@ Return an empty array [] if no overrides are needed.`;
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as RequestBody;
-    const { components, designSystem, globalNotes, frameContext } = body;
+    const { components, designSystem, globalNotes, frameContext, referenceImageUrl } = body;
 
     if (!components || !designSystem) {
       return new Response(JSON.stringify({ error: "Missing components or designSystem" }), {
@@ -82,7 +86,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Build user message with component context
     const componentDescriptions = components.map((c) => ({
       id: c.shapeId,
       type: c.type,
@@ -97,14 +100,30 @@ export async function POST(req: NextRequest) {
       },
     }));
 
-    const userMessage = `Frame: ${frameContext.width}×${frameContext.height}px${frameContext.name ? ` (${frameContext.name})` : ""}
-Design system: "${designSystem.name}" — primary: ${designSystem.colors.primary}, font: ${designSystem.fonts.heading.family}
-${globalNotes.length > 0 ? `\nGlobal context:\n${globalNotes.map((n) => `- ${n}`).join("\n")}` : ""}
+    const dsBlock = serializeDesignSystemForPrompt(designSystem);
 
-Components to enhance:
+    const refSection = referenceImageUrl
+      ? `\n## Reference design\nA Figma reference image is attached. Match its visual style, layout density, and color usage as closely as possible. The design system tokens below were extracted from this reference — use them faithfully.\n`
+      : "";
+
+    const userMessage = `Frame: ${frameContext.width}×${frameContext.height}px${frameContext.name ? ` (${frameContext.name})` : ""}
+${refSection}
+## Design system (authoritative — use these tokens)
+${dsBlock}
+${globalNotes.length > 0 ? `\n## Global context\n${globalNotes.map((n) => `- ${n}`).join("\n")}` : ""}
+
+## Components to enhance
 ${JSON.stringify(componentDescriptions, null, 2)}
 
 Return a JSON array of UILayer2Override objects for components that need content, style, or variant overrides.`;
+
+    // Build message content — include reference image if available
+    const userContent: Array<{ type: "text"; text: string } | { type: "image"; source: { type: "url"; url: string } }> = [];
+
+    if (referenceImageUrl) {
+      userContent.push({ type: "image", source: { type: "url", url: referenceImageUrl } });
+    }
+    userContent.push({ type: "text", text: userMessage });
 
     const client = getAnthropicClient();
 
@@ -112,7 +131,7 @@ Return a JSON array of UILayer2Override objects for components that need content
       model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [{ role: "user", content: userContent }],
     });
 
     const encoder = new TextEncoder();
