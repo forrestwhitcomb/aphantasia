@@ -1,0 +1,44 @@
+/* ============================================================
+   /internal page — dark-mode overrides
+   Applied via [data-internal-dark] on the page root.
+   ============================================================ */
+
+/* Canvas view root: transparent so the #1a1a1a panel background shows through */
+[data-internal-dark] .w-full.h-full.relative.overflow-hidden.outline-none {
+  background: transparent !important;
+}
+
+/* ── Render button + its preceding separator — hidden on /internal ── */
+[data-internal-dark] button[style*="rgb(99, 102, 241)"] {
+  display: none !important;
+}
+[data-internal-dark] div:has(+ button[style*="rgb(99, 102, 241)"]) {
+  display: none !important;
+}
+
+/* ── Reference Panel — toolbar-style dark treatment ─────────────────
+   Container gets the same glass treatment as the toolbar.
+   Inner content is inverted for dark mode.
+   Images are counter-inverted so thumbnails stay true colour.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* Outer container: match toolbar aesthetic */
+[data-internal-dark] [style*="width: 280px"][style*="top: 56px"][style*="position: absolute"] {
+  background: rgba(26, 26, 26, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+}
+
+/* Inner panel div: invert light-mode colours to dark */
+[data-internal-dark] [style*="width: 280px"][style*="top: 56px"][style*="position: absolute"] > div {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Counter-invert images so thumbnails show true colour */
+[data-internal-dark] [style*="width: 280px"][style*="top: 56px"][style*="position: absolute"] > div img {
+  filter: invert(1) hue-rotate(180deg);
+}
