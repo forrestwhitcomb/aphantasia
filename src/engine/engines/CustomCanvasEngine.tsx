@@ -22,9 +22,11 @@ import type {
 } from "../CanvasEngine";
 import { CanvasContextWidget } from "@/components/CanvasContextWidget";
 import { CanvasReferenceWidget } from "@/components/CanvasReferenceWidget";
-import { UIContextPanel } from "@/components/UIContextPanel";
+import { ReferencePanel } from "@/ui-mode/reference/ReferencePanel";
 import { ShapeTagDropdown } from "@/components/ShapeTagDropdown";
+import { UIShapeTagDropdown } from "@/ui-mode/canvas/UIShapeTagDropdown";
 import type { ComponentCatalogEntry } from "@/lib/componentCatalogData";
+import type { UIComponentType } from "@/ui-mode/types";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1217,9 +1219,9 @@ export function CustomCanvasView() {
           willChange: "transform",
         }}
       >
-        {/* UI mode context panel (replaces context/reference widgets in UI mode) */}
+        {/* UI mode: reference panel is rendered OUTSIDE the world layer (see below) */}
         {engine.getDocument().outputType === "ui" ? (
-          <UIContextPanel zoom={cam.zoom} />
+          <></>
         ) : (
           <>
             {/* Context widget — draggable, lives in world space */}
@@ -1335,7 +1337,7 @@ export function CustomCanvasView() {
               )}
 
               {/* Tag as section/component — in-frame rectangles and roundedRects, visible on hover or selected */}
-              {(s.type === "rectangle" || s.type === "roundedRect") && engine.isInFrame(s) && (
+              {(s.type === "rectangle" || s.type === "roundedRect") && engine.isInFrame(s) ? (
                 <div
                   data-tag-trigger
                   role="button"
@@ -1373,7 +1375,32 @@ export function CustomCanvasView() {
                     <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
                   </svg>
                 </div>
-              )}
+              ) : null}
+
+              {/* UI component type badge */}
+              {engine.getDocument().outputType === "ui" && s.meta?.uiComponentType ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: -10,
+                    left: 4,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    background: "rgba(99,102,241,0.9)",
+                    color: "#fff",
+                    fontSize: 9,
+                    fontWeight: 600,
+                    fontFamily: "var(--font-poppins), system-ui, sans-serif",
+                    letterSpacing: "0.02em",
+                    pointerEvents: "none",
+                    zIndex: 6,
+                    whiteSpace: "nowrap",
+                    lineHeight: "16px",
+                  }}
+                >
+                  {s.meta.uiComponentType as string}
+                </div>
+              ) : null}
 
               {/* Connection handle on notes and images */}
               {(s.type === "note" || s.type === "image") && (
@@ -1606,6 +1633,22 @@ export function CustomCanvasView() {
         })()}
       </div>
 
+      {/* UI mode: Reference panel — fixed sidebar, outside world transform */}
+      {engine.getDocument().outputType === "ui" && (
+        <div style={{
+          position: "absolute",
+          top: 56,
+          left: 12,
+          width: 280,
+          maxHeight: "calc(100% - 120px)",
+          overflowY: "auto",
+          zIndex: 40,
+          pointerEvents: "auto",
+        }}>
+          <ReferencePanel />
+        </div>
+      )}
+
       {/* Zoom indicator */}
       <div style={{
         position: "absolute",
@@ -1622,35 +1665,62 @@ export function CustomCanvasView() {
       {/* Per-shape tag dropdown (portal to body) */}
       {typeof document !== "undefined" &&
         createPortal(
-          <ShapeTagDropdown
-            open={!!tagDropdownShapeId}
-            onClose={() => {
-              setTagDropdownShapeId(null);
-              setTagDropdownAnchor(null);
-            }}
-            anchorRect={tagDropdownAnchor}
-            onSelect={(entry: ComponentCatalogEntry) => {
-              if (!tagDropdownShapeId) return;
-              const shape = engine.getShape(tagDropdownShapeId);
-              if (!shape) return;
-              const nextMeta = { ...(shape.meta || {}) };
-              if (entry.kind === "primitive") {
-                nextMeta.componentId = entry.id;
-                delete nextMeta.placementVariant;
-              } else {
-                delete nextMeta.componentId;
-                if (entry.variant) nextMeta.placementVariant = entry.variant;
-                else delete nextMeta.placementVariant;
+          <>{engine.getDocument().outputType === "ui" ? (
+            <UIShapeTagDropdown
+              open={!!tagDropdownShapeId}
+              onClose={() => {
+                setTagDropdownShapeId(null);
+                setTagDropdownAnchor(null);
+              }}
+              anchorRect={tagDropdownAnchor}
+              currentType={
+                tagDropdownShapeId
+                  ? (engine.getShape(tagDropdownShapeId)?.meta?.uiComponentType as string | undefined)
+                  : undefined
               }
-              engine.updateShape(tagDropdownShapeId, {
-                semanticTag: entry.semanticTag,
-                label: entry.label,
-                meta: nextMeta,
-              });
-              setTagDropdownShapeId(null);
-              setTagDropdownAnchor(null);
-            }}
-          />,
+              onSelect={(type: UIComponentType, label: string) => {
+                if (!tagDropdownShapeId) return;
+                const shape = engine.getShape(tagDropdownShapeId);
+                if (!shape) return;
+                engine.updateShape(tagDropdownShapeId, {
+                  label,
+                  meta: { ...(shape.meta || {}), uiComponentType: type },
+                });
+                setTagDropdownShapeId(null);
+                setTagDropdownAnchor(null);
+              }}
+            />
+          ) : (
+            <ShapeTagDropdown
+              open={!!tagDropdownShapeId}
+              onClose={() => {
+                setTagDropdownShapeId(null);
+                setTagDropdownAnchor(null);
+              }}
+              anchorRect={tagDropdownAnchor}
+              onSelect={(entry: ComponentCatalogEntry) => {
+                if (!tagDropdownShapeId) return;
+                const shape = engine.getShape(tagDropdownShapeId);
+                if (!shape) return;
+                const nextMeta = { ...(shape.meta || {}) };
+                if (entry.kind === "primitive") {
+                  nextMeta.componentId = entry.id;
+                  delete nextMeta.placementVariant;
+                } else {
+                  delete nextMeta.componentId;
+                  if (entry.variant) nextMeta.placementVariant = entry.variant;
+                  else delete nextMeta.placementVariant;
+                }
+                engine.updateShape(tagDropdownShapeId, {
+                  semanticTag: entry.semanticTag,
+                  label: entry.label,
+                  meta: nextMeta,
+                });
+                setTagDropdownShapeId(null);
+                setTagDropdownAnchor(null);
+              }}
+            />
+          )}</>,
           document.body
         )}
     </div>

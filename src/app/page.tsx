@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SplashHero } from "@/components/SplashHero";
 import { GradientBackground } from "@/components/GradientBackground";
 import { CanvasView } from "@/engine";
 import { PreviewPane } from "@/components/PreviewPane";
-import { UIPreviewPane } from "@/components/UIPreviewPane";
+import { ViewportPane } from "@/ui-mode/viewport/ViewportPane";
 import { Toolbar } from "@/components/Toolbar";
 import { OutputToggle } from "@/components/OutputToggle";
 import type { OutputType } from "@/components/OutputToggle";
@@ -16,6 +16,18 @@ import { getCustomEngine } from "@/engine/engines/CustomCanvasEngine";
 
 export default function Home() {
   const [outputType, setOutputType] = useState<OutputType>("site");
+
+  // Sync output type from engine on mount (engine may restore from localStorage)
+  useEffect(() => {
+    try {
+      const engine = getCustomEngine();
+      const doc = engine.getDocument();
+      const restored = doc.outputType as OutputType;
+      if (restored && restored !== "site") {
+        setOutputType(restored);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   function handleOutputChange(type: OutputType) {
     const engine = getCustomEngine();
@@ -96,9 +108,9 @@ export default function Home() {
           >
             {/* Canvas panel */}
             <div
-              className="relative overflow-hidden"
+              className={`relative ${outputType === "ui" ? "" : "overflow-hidden"}`}
               style={{
-                flex: 2,
+                flex: outputType === "ui" ? 3 : 2,
                 borderRadius: 16,
                 background: "#F5F5F5",
                 boxShadow: "0 4px 22.4px rgba(155,155,155,0.25)",
@@ -120,21 +132,24 @@ export default function Home() {
               <CanvasView />
               <Toolbar outputType={outputType} />
               <AICallCounter />
-              <ComponentBrowser />
+              {outputType !== "ui" && <ComponentBrowser />}
               <DeployModal />
             </div>
 
-            {/* Preview panel */}
+            {/* Preview panel — transparent in UI mode, phone floats by itself */}
             <div
               className="overflow-hidden"
               style={{
                 flex: 1,
-                borderRadius: 16,
-                background: outputType === "ui" ? "#F0F0F0" : "#FFFFFF",
-                boxShadow: "0 4px 22.4px rgba(155,155,155,0.25)",
+                borderRadius: outputType === "ui" ? 0 : 16,
+                background: outputType === "ui" ? "transparent" : "#FFFFFF",
+                boxShadow: outputType === "ui" ? "none" : "0 4px 22.4px rgba(155,155,155,0.25)",
+                display: "flex",
+                justifyContent: outputType === "ui" ? "flex-end" : "stretch",
+                alignItems: outputType === "ui" ? "center" : "stretch",
               }}
             >
-              {outputType === "ui" ? <UIPreviewPane /> : <PreviewPane />}
+              {outputType === "ui" ? <ViewportPane /> : <PreviewPane />}
             </div>
           </div>
         </div>

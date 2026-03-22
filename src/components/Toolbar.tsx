@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { canvasEngine } from "@/engine";
 import type { CanvasTool } from "@/engine";
 import { SparkleIcon } from "@/components/SparkleIcon";
 import { DNAToolbarPill } from "@/dna/DNAToolbarPill";
 import { DNAEditor } from "@/dna/DNAEditor";
+import { ComponentPicker } from "@/ui-mode/canvas/ComponentPicker";
 
 type ToolDef = {
   id: CanvasTool;
@@ -71,6 +72,8 @@ function ToolIcon({ tool }: { tool: CanvasTool }) {
 
 export function Toolbar({ outputType }: { outputType?: string }) {
   const [activeTool, setActiveTool] = useState<CanvasTool>(canvasEngine.getTool());
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
 
   // Poll tool state from engine (syncs with keyboard shortcuts)
   useEffect(() => {
@@ -132,33 +135,49 @@ export function Toolbar({ outputType }: { outputType?: string }) {
         </button>
       ))}
 
-      {/* Add Component button */}
-      <button
-        onClick={() =>
-          window.dispatchEvent(
-            new CustomEvent("aphantasia:open-component-browser")
-          )
-        }
-        title="Add Component (/)"
-        style={{
-          width: 40,
-          height: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 12,
-          border: "none",
-          cursor: "pointer",
-          transition: "background 0.15s, color 0.15s",
-          background: "transparent",
-          color: "rgba(255,255,255,0.5)",
-        }}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
+      {/* Add Component button + picker wrapper */}
+      <div style={{ position: "relative", overflow: "visible" }}>
+        <button
+          ref={addBtnRef}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (outputType === "ui") {
+              setPickerOpen((prev) => !prev);
+            } else {
+              window.dispatchEvent(
+                new CustomEvent("aphantasia:open-component-browser")
+              );
+            }
+          }}
+          title="Add Component (/)"
+          style={{
+            width: 40,
+            height: 40,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 12,
+            border: "none",
+            cursor: "pointer",
+            transition: "background 0.15s, color 0.15s",
+            background: pickerOpen ? "rgba(255,255,255,0.15)" : "transparent",
+            color: pickerOpen ? "#fff" : "rgba(255,255,255,0.5)",
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+
+        {/* Component Picker renders inline above the button */}
+        {outputType === "ui" && (
+          <ComponentPicker
+            isOpen={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+          />
+        )}
+      </div>
 
       {/* AI button — grayed out, coming soon */}
       <button
@@ -182,6 +201,33 @@ export function Toolbar({ outputType }: { outputType?: string }) {
           <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z" />
         </svg>
       </button>
+
+      {/* UI mode: Render button (Layer 2) */}
+      {outputType === "ui" && (
+        <>
+          <div style={{ width: 1, height: 24, background: "#333", margin: "0 8px" }} />
+          <button
+            onClick={() => canvasEngine.requestRender()}
+            style={{
+              padding: "8px 20px",
+              background: "#6366F1",
+              color: "#fff",
+              borderRadius: "0.75rem",
+              border: "none",
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "var(--font-poppins)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <SparkleIcon size={16} />
+            Render
+          </button>
+        </>
+      )}
 
       {outputType !== "ui" && (
         <>
@@ -274,6 +320,7 @@ export function Toolbar({ outputType }: { outputType?: string }) {
       )}
       {/* DNA Editor panel (slides out on demand) */}
       <DNAEditor />
+
     </div>
   );
 }
