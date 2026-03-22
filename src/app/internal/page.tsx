@@ -143,7 +143,7 @@ export default function InternalPage() {
             zIndex: 1,
             width: "100%",
             height: "100%",
-            padding: "5% 8%",
+            padding: "5% 0",
             boxSizing: "border-box",
           }}
         >
