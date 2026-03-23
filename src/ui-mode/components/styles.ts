@@ -292,6 +292,27 @@ body > .ui-home-indicator { margin-top: auto; }
 .ui-header--medium .ui-header__text { font-size: var(--font-size-xl); }
 .ui-header--small .ui-header__text { font-size: var(--font-size-lg); font-weight: 600; }
 
+/* Multi-line canvas text: headline + subheader + paragraphs */
+.ui-text-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  align-items: stretch;
+}
+.ui-text-stack > .ui-header--large,
+.ui-text-stack > .ui-header--medium {
+  padding: 0;
+}
+.ui-text-block__p {
+  font-family: var(--font-body-family);
+  font-size: var(--font-size-base);
+  font-weight: 400;
+  color: var(--color-muted-foreground);
+  line-height: 1.55;
+  margin: 0;
+  padding: 0;
+}
+
 /* ── ListItem ─────────────────────────────────────────────── */
 .ui-list-item {
   display: flex;

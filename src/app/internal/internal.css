@@ -9,10 +9,10 @@
 }
 
 /* ── Render button + its preceding separator — hidden on /internal ── */
-[data-internal-dark] button[style*="rgb(99, 102, 241)"] {
+[data-internal-dark] button[style*="background: rgb(99, 102, 241)"] {
   display: none !important;
 }
-[data-internal-dark] div:has(+ button[style*="rgb(99, 102, 241)"]) {
+[data-internal-dark] div:has(+ button[style*="background: rgb(99, 102, 241)"]) {
   display: none !important;
 }
 
@@ -30,7 +30,8 @@
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   border-radius: 14px !important;
-  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 /* Inner panel div: invert light-mode colours to dark */

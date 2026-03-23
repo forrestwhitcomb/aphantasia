@@ -100,7 +100,6 @@ export function renderCardGrid(props: Partial<CardProps & { itemCount?: number; 
 
   return `
 <section class="ui-cards" data-component="card">
-  ${props.label && count <= 1 ? `<h2 class="ui-cards__title">${props.label}</h2>` : ""}
   <div class="${gridClass}">${cards}</div>
 </section>`;
 }

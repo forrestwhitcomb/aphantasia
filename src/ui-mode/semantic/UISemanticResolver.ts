@@ -106,6 +106,22 @@ export function resolveUIComponents(
       continue;
     }
 
+    // Text tool → typography stack in the viewport (headline / subheader / body),
+    // not a card from spatial rules.
+    if (shape.type === "text") {
+      resolved.push({
+        shapeId: shape.id,
+        type: "header",
+        variant: "large",
+        label: label || undefined,
+        notes,
+        globalNotes,
+        bounds: { x: shape.x, y: shape.y, width: shape.width, height: shape.height },
+      });
+      resolvedIds.add(shape.id);
+      continue;
+    }
+
     // Pass 1: Label override
     const labelResult = resolveFromLabel(label);
     if (labelResult) {
@@ -170,7 +186,7 @@ const CONTAINER_TYPES = new Set<UIComponentType>(["card", "bottomSheet", "modal"
 const NESTABLE_TYPES = new Set<UIComponentType>([
   "toggle", "checkbox", "button", "textInput", "slider", "stepper",
   "segmentedControl", "divider", "badge", "tag", "progressBar",
-  "listItem", "settingsRow",
+  "listItem", "settingsRow", "header",
 ]);
 
 function resolveContainment(components: UIResolvedComponent[]): UIResolvedComponent[] {

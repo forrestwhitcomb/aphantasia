@@ -28,12 +28,7 @@ export function ReferencePanel() {
 
   const [urlInput, setUrlInput] = useState("");
   const [figmaUrl, setFigmaUrl] = useState("");
-  const [figmaToken, setFigmaToken] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("aphantasia:figmaToken") || "";
-    }
-    return "";
-  });
+  const [figmaToken, setFigmaToken] = useState("");
 
   // Restore Figma URL field from persisted metadata so Connect isn't stuck disabled
   // (token is in localStorage; URL was only in ephemeral React state before).
@@ -201,6 +196,12 @@ export function ReferencePanel() {
     uiDesignStoreV2.setOverride(`colors.${key}`, value);
   };
 
+  const clearFigmaConnection = () => {
+    uiDesignStoreV2.clearSourceLayer("figma");
+    uiDesignStoreV2.setFigmaMeta(null);
+    setFigmaUrl("");
+  };
+
   const mergeSummary = [
     filled.screenshot && "Image",
     filled.website && "Website",
@@ -351,7 +352,7 @@ export function ReferencePanel() {
             <div style={styles.inputRow}>
               <input
                 type="password"
-                placeholder="Figma personal access token"
+                placeholder="Enter figma access token"
                 value={figmaToken}
                 onChange={(e) => setFigmaToken(e.target.value)}
                 disabled={isExtracting}
@@ -370,34 +371,39 @@ export function ReferencePanel() {
                 {isExtracting ? "…" : "Connect"}
               </button>
             </div>
-            {state.figmaMeta?.thumbnailUrl && (
+            {(filled.figma || state.figmaMeta || figmaUrl.trim()) && (
               <div style={styles.figmaPreview}>
-                <img
-                  src={state.figmaMeta.thumbnailUrl}
-                  alt="Frame"
-                  style={styles.figmaThumb}
-                />
+                {state.figmaMeta?.thumbnailUrl ? (
+                  <img
+                    src={state.figmaMeta.thumbnailUrl}
+                    alt="Frame"
+                    style={styles.figmaThumb}
+                  />
+                ) : (
+                  <div style={styles.figmaThumbPlaceholder}>Figma</div>
+                )}
                 <div>
-                  <div style={styles.figmaName}>{state.figmaMeta.nodeName || state.figmaMeta.fileName}</div>
-                  <div style={styles.figmaSub}>
-                    {state.figmaMeta.componentHints?.length
-                      ? `${state.figmaMeta.componentHints.length} components detected`
-                      : "Synced"}
+                  <div style={styles.figmaName}>
+                    {state.figmaMeta?.nodeName || state.figmaMeta?.fileName || ds.name || "Captured Figma link"}
                   </div>
+                  <div style={styles.figmaSub}>
+                    {state.figmaMeta?.componentHints?.length
+                      ? `${state.figmaMeta.componentHints.length} components detected`
+                      : filled.figma
+                        ? "Design system synced"
+                        : "Synced"}
+                  </div>
+                  {figmaUrl.trim() && <div style={styles.figmaUrlLine}>{figmaUrl.trim()}</div>}
                 </div>
               </div>
             )}
-            {filled.figma && (
+            {(filled.figma || figmaUrl.trim()) && (
               <button
                 type="button"
                 style={styles.clearSource}
-                onClick={() => {
-                  uiDesignStoreV2.clearSourceLayer("figma");
-                  uiDesignStoreV2.setFigmaMeta(null);
-                  setFigmaUrl("");
-                }}
+                onClick={clearFigmaConnection}
               >
-                Remove Figma source from merge
+                Remove Figma link and source
               </button>
             )}
           </div>
@@ -637,8 +643,32 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     border: "1px solid #e5e5e5",
   },
+  figmaThumbPlaceholder: {
+    width: 72,
+    height: 48,
+    borderRadius: 6,
+    border: "1px dashed #d6d3d1",
+    background: "#f5f5f4",
+    color: "#78716c",
+    fontSize: 10,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 600,
+    letterSpacing: "0.03em",
+    textTransform: "uppercase",
+  },
   figmaName: { fontSize: 12, fontWeight: 600, color: "#1c1917" },
   figmaSub: { fontSize: 10, color: "#78716c", marginTop: 2 },
+  figmaUrlLine: {
+    fontSize: 10,
+    color: "#57534e",
+    marginTop: 4,
+    maxWidth: 150,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
   clearSource: {
     fontSize: 11,
     color: "#6366f1",
