@@ -13,6 +13,13 @@
 //
 // Subscribes to canvas changes and design store for live updates.
 // Layer 2 triggered by "render:requested" event from the Render button.
+//
+// In-Viewport Editing:
+//   - Listens for postMessage from iframe for text edits and
+//     component selection.
+//   - Stores user overrides (text, variant, darkMode) that merge
+//     into the render pipeline alongside Layer 2 overrides.
+//   - Shows a VariantPicker popover when a component is clicked.
 // ============================================================
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -24,13 +31,23 @@ import {
 import { resolveUIComponents } from "../semantic/UISemanticResolver";
 import { renderLayer1 } from "../render/UIRenderEngine";
 import { uiDesignStoreV2 } from "../reference/UIDesignStore";
-import type { UIResolvedComponent, UILayer2Override } from "../types";
+import type { UIResolvedComponent, UILayer2Override, UIUserOverride } from "../types";
 import { PhoneChrome } from "./PhoneChrome";
+import { VariantPicker } from "./VariantPicker";
+import { CopyToFigmaButton } from "./CopyToFigmaButton";
 
 type RenderPhase = "idle" | "layer1" | "layer2" | "complete";
 
+interface ComponentSelection {
+  shapeId: string;
+  componentType: string;
+  currentVariant: string;
+  bounds: { x: number; y: number; width: number; height: number };
+}
+
 export function ViewportPane() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [srcDoc, setSrcDoc] = useState<string>("");
   const [scale, setScale] = useState(1);
   const [phase, setPhase] = useState<RenderPhase>("idle");
@@ -39,15 +56,53 @@ export function ViewportPane() {
   const l2OverridesRef = useRef<UILayer2Override[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Scale to fit pane height
+  // User overrides from in-viewport editing (text edits, variant switches)
+  const userOverridesRef = useRef<Map<string, UIUserOverride>>(new Map());
+  const [selectedComponent, setSelectedComponent] = useState<ComponentSelection | null>(null);
+
+  // Scale to fit pane height (reserve 40px for the Copy to Figma button below)
+  const BUTTON_AREA_HEIGHT = 40;
   useEffect(() => {
     if (!containerRef.current) return;
     const obs = new ResizeObserver(([entry]) => {
-      const h = entry.contentRect.height;
+      const h = entry.contentRect.height - BUTTON_AREA_HEIGHT;
       if (h > 0) setScale(h / MOBILE_FRAME_HEIGHT);
     });
     obs.observe(containerRef.current);
     return () => obs.disconnect();
+  }, []);
+
+  // ── postMessage listener for iframe interaction ───────────
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (!e.data?.type?.startsWith("aphantasia:")) return;
+
+      switch (e.data.type) {
+        case "aphantasia:text-edit": {
+          const { shapeId, newText } = e.data;
+          if (!shapeId || !newText) return;
+          const existing: UIUserOverride = userOverridesRef.current.get(shapeId) ?? { shapeId };
+          existing.textOverride = newText;
+          userOverridesRef.current.set(shapeId, existing);
+          // Don't re-render immediately — text is already visually updated
+          // in-place via contentEditable. Override will apply on next canvas change.
+          break;
+        }
+        case "aphantasia:component-select": {
+          const { shapeId, componentType, currentVariant, bounds } = e.data;
+          if (!shapeId) return;
+          setSelectedComponent({ shapeId, componentType, currentVariant, bounds });
+          // Highlight the selected component in the iframe
+          iframeRef.current?.contentWindow?.postMessage(
+            { type: "aphantasia:highlight", shapeId },
+            "*"
+          );
+          break;
+        }
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
   // Subscribe to canvas changes + design store — Layer 1 render
@@ -94,8 +149,23 @@ export function ViewportPane() {
     const resolved = resolveUIComponents(doc.shapes, fw, fh);
     resolvedRef.current = resolved;
 
-    // Render with any existing Layer 2 overrides
-    const html = renderLayer1(resolved, ds, l2OverridesRef.current.length > 0 ? l2OverridesRef.current : undefined);
+    // Apply user overrides to resolved components
+    for (const comp of resolved) {
+      const userOv = userOverridesRef.current.get(comp.shapeId);
+      if (userOv) {
+        if (userOv.textOverride !== undefined) comp.label = userOv.textOverride;
+        if (userOv.variantOverride !== undefined) comp.variant = userOv.variantOverride;
+        if (userOv.darkMode) comp._userDarkMode = true;
+      }
+    }
+
+    // Render with any existing Layer 2 overrides + frame height for scrollability
+    const html = renderLayer1(
+      resolved,
+      ds,
+      l2OverridesRef.current.length > 0 ? l2OverridesRef.current : undefined,
+      fh
+    );
     setSrcDoc(html);
     setPhase("layer1");
   }, []);
@@ -160,7 +230,8 @@ export function ViewportPane() {
             if (data.done && data.overrides) {
               // Final: merge overrides and re-render
               l2OverridesRef.current = data.overrides;
-              const html = renderLayer1(resolvedRef.current, ds, data.overrides);
+              const fh = doc.frame.height;
+              const html = renderLayer1(resolvedRef.current, ds, data.overrides, fh);
               setSrcDoc(html);
               setPhase("complete");
             }
@@ -176,6 +247,37 @@ export function ViewportPane() {
       setPhase("layer1");
     }
   }, []);
+
+  // ── Variant picker callbacks ────────────────────────────────
+  const handleVariantChange = useCallback((shapeId: string, variant: string) => {
+    const existing: UIUserOverride = userOverridesRef.current.get(shapeId) ?? { shapeId };
+    existing.variantOverride = variant;
+    userOverridesRef.current.set(shapeId, existing);
+    setSelectedComponent(null);
+    // Clear iframe highlight
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: "aphantasia:highlight", shapeId: null },
+      "*"
+    );
+    doLayer1();
+  }, [doLayer1]);
+
+  const handleDarkModeToggle = useCallback((shapeId: string, darkMode: boolean) => {
+    const existing: UIUserOverride = userOverridesRef.current.get(shapeId) ?? { shapeId };
+    existing.darkMode = darkMode;
+    userOverridesRef.current.set(shapeId, existing);
+    doLayer1();
+  }, [doLayer1]);
+
+  const handlePickerDismiss = useCallback(() => {
+    if (selectedComponent) {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "aphantasia:highlight", shapeId: null },
+        "*"
+      );
+    }
+    setSelectedComponent(null);
+  }, [selectedComponent]);
 
   const scaledWidth = MOBILE_FRAME_WIDTH * scale;
   const scaledHeight = MOBILE_FRAME_HEIGHT * scale;
@@ -218,61 +320,85 @@ export function ViewportPane() {
         </div>
       )}
 
-      <PhoneChrome width={scaledWidth} height={scaledHeight} scale={scale}>
-        {srcDoc ? (
-          <iframe
-            key="ui-viewport"
-            srcDoc={srcDoc}
-            title="UI Viewport"
-            sandbox="allow-scripts"
-            style={{
-              width: MOBILE_FRAME_WIDTH,
-              height: MOBILE_FRAME_HEIGHT,
-              border: "none",
-              display: "block",
-              transform: `scale(${scale})`,
-              transformOrigin: "top left",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#fff",
-              gap: 10,
-            }}
-          >
-            <svg
-              width="36"
-              height="36"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#ccc"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="5" y="2" width="14" height="20" rx="2" />
-              <path d="M12 18h.01" />
-            </svg>
-            <p
+      {/* Wrapper for phone + popover — popover positions relative to this */}
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        <PhoneChrome width={scaledWidth} height={scaledHeight} scale={scale}>
+          {srcDoc ? (
+            <iframe
+              ref={iframeRef}
+              key="ui-viewport"
+              srcDoc={srcDoc}
+              title="UI Viewport"
+              sandbox="allow-scripts"
               style={{
-                fontSize: 12,
-                color: "#bbb",
-                fontFamily: "var(--font-poppins), sans-serif",
-                margin: 0,
+                width: MOBILE_FRAME_WIDTH,
+                height: MOBILE_FRAME_HEIGHT,
+                border: "none",
+                display: "block",
+                transform: `scale(${scale})`,
+                transformOrigin: "top left",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#fff",
+                gap: 10,
               }}
             >
-              Draw shapes inside the frame
-            </p>
-          </div>
-        )}
-      </PhoneChrome>
+              <svg
+                width="36"
+                height="36"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#ccc"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="5" y="2" width="14" height="20" rx="2" />
+                <path d="M12 18h.01" />
+              </svg>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "#bbb",
+                  fontFamily: "var(--font-poppins), sans-serif",
+                  margin: 0,
+                }}
+              >
+                Draw shapes inside the frame
+              </p>
+            </div>
+          )}
+        </PhoneChrome>
+
+        {/* Copy to Figma — below phone bezel */}
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+          <CopyToFigmaButton getSrcDoc={() => srcDoc} />
+        </div>
+      </div>
+
+      {/* Variant picker popover — rendered via portal to document.body */}
+      {selectedComponent && (
+        <VariantPicker
+          shapeId={selectedComponent.shapeId}
+          componentType={selectedComponent.componentType}
+          currentVariant={selectedComponent.currentVariant}
+          bounds={selectedComponent.bounds}
+          scale={scale}
+          iframeEl={iframeRef.current}
+          onVariantChange={handleVariantChange}
+          onDarkModeToggle={handleDarkModeToggle}
+          onDismiss={handlePickerDismiss}
+        />
+      )}
     </div>
   );
 }

@@ -26,7 +26,7 @@ export function renderNavBar(props: Partial<NavBarProps> = {}): string {
       <div class="ui-navbar__icon">${ICONS.bell}</div>
     </div>
   </div>
-  <h1 class="ui-navbar__large-heading">${title}</h1>
+  <h1 class="ui-navbar__large-heading" data-text-editable>${title}</h1>
 </nav>`;
 
     case "search":
@@ -34,7 +34,7 @@ export function renderNavBar(props: Partial<NavBarProps> = {}): string {
 <nav class="ui-navbar ui-navbar--search" data-component="navBar">
   <div class="ui-navbar__row" style="display:flex;align-items:center;justify-content:space-between;height:var(--comp-navbar-height)">
     <span class="ui-navbar__back">${ICONS.back}</span>
-    <span class="ui-navbar__title" style="font-family:var(--font-heading-family);font-size:var(--font-size-lg);font-weight:var(--font-heading-weight);letter-spacing:var(--font-heading-ls);color:var(--color-foreground)">${title}</span>
+    <span class="ui-navbar__title" data-text-editable style="font-family:var(--font-heading-family);font-size:var(--font-size-lg);font-weight:var(--font-heading-weight);letter-spacing:var(--font-heading-ls);color:var(--color-foreground)">${title}</span>
     <div class="ui-navbar__actions">
       <div class="ui-navbar__icon">${ICONS.bell}</div>
     </div>
@@ -51,7 +51,7 @@ export function renderNavBar(props: Partial<NavBarProps> = {}): string {
 <nav class="ui-navbar ui-navbar--segmented" data-component="navBar">
   <div class="ui-navbar__row" style="display:flex;align-items:center;justify-content:space-between;height:var(--comp-navbar-height)">
     <span class="ui-navbar__back">${ICONS.back}</span>
-    <span class="ui-navbar__title" style="font-family:var(--font-heading-family);font-size:var(--font-size-lg);font-weight:var(--font-heading-weight);letter-spacing:var(--font-heading-ls);color:var(--color-foreground)">${title}</span>
+    <span class="ui-navbar__title" data-text-editable style="font-family:var(--font-heading-family);font-size:var(--font-size-lg);font-weight:var(--font-heading-weight);letter-spacing:var(--font-heading-ls);color:var(--color-foreground)">${title}</span>
     <div class="ui-navbar__actions">
       <div class="ui-navbar__icon">${ICONS.more}</div>
     </div>
@@ -68,7 +68,7 @@ export function renderNavBar(props: Partial<NavBarProps> = {}): string {
   ${props.backLabel !== undefined
     ? `<span class="ui-navbar__back">${ICONS.back}</span>`
     : `<div style="width:var(--spacing-xl)"></div>`}
-  <span class="ui-navbar__title">${title}</span>
+  <span class="ui-navbar__title" data-text-editable>${title}</span>
   <div class="ui-navbar__actions">
     <div class="ui-navbar__icon">${ICONS.bell}</div>
   </div>

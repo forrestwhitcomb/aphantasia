@@ -24,6 +24,6 @@ export function renderButton(props: Partial<ButtonProps> = {}): string {
 
   return `
 <div class="ui-btn-wrap" data-component="button">
-  <button class="ui-btn ui-btn--${variant}" style="${widthStyle}">${label}</button>
+  <button class="ui-btn ui-btn--${variant}" style="${widthStyle}"><span data-text-editable>${label}</span></button>
 </div>`;
 }

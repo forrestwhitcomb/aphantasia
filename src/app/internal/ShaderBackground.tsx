@@ -1,155 +1,184 @@
 "use client";
 
-import { useRef, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import * as THREE from "three";
+// ============================================================
+// ASCII Matrix Animated Background
+// ============================================================
+// Renders a grid of animated characters (0-9, A-Z, symbols)
+// on a dark background. Characters change over time and are
+// colored by flowing noise patterns — amber, green, blue, red
+// accents on a mostly dim grey field.
+//
+// Uses Canvas 2D fillText for reliable character rendering.
+// ============================================================
 
-const VERTEX_SHADER = `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = vec4(position, 1.0);
-}
-`;
+import { useRef, useEffect } from "react";
 
-// Two-pass-style simplex noise shader with character dither overlay
-const FRAGMENT_SHADER = `
-precision highp float;
-uniform float uTime;
-uniform vec2 uResolution;
-varying vec2 vUv;
+const CHARS = "0123456789ABCDEFGHKLMOPRSTUVXYZ#=!:.;?";
+const CELL_W = 11;
+const CELL_H = 15;
+const FONT = `${CELL_H - 3}px monospace`;
+const FPS = 24;
 
-// Simplex 3D noise (Ashima Arts)
-vec4 permute(vec4 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
-vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-
-float snoise(vec3 v) {
-  const vec2 C = vec2(1.0/6.0, 1.0/3.0);
-  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-  vec3 i = floor(v + dot(v, C.yyy));
-  vec3 x0 = v - i + dot(i, C.xxx);
-  vec3 g = step(x0.yzx, x0.xyz);
-  vec3 l = 1.0 - g;
-  vec3 i1 = min(g.xyz, l.zxy);
-  vec3 i2 = max(g.xyz, l.zxy);
-  vec3 x1 = x0 - i1 + C.xxx;
-  vec3 x2 = x0 - i2 + C.yyy;
-  vec3 x3 = x0 - D.yyy;
-  i = mod(i, 289.0);
-  vec4 p = permute(permute(permute(
-    i.z + vec4(0.0, i1.z, i2.z, 1.0))
-    + i.y + vec4(0.0, i1.y, i2.y, 1.0))
-    + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-  float n_ = 1.0/7.0;
-  vec3 ns = n_ * D.wyz - D.xzx;
-  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-  vec4 x_ = floor(j * ns.z);
-  vec4 y_ = floor(j - 7.0 * x_);
-  vec4 x = x_ * ns.x + ns.yyyy;
-  vec4 y = y_ * ns.x + ns.yyyy;
-  vec4 h = 1.0 - abs(x) - abs(y);
-  vec4 b0 = vec4(x.xy, y.xy);
-  vec4 b1 = vec4(x.zw, y.zw);
-  vec4 s0 = floor(b0)*2.0 + 1.0;
-  vec4 s1 = floor(b1)*2.0 + 1.0;
-  vec4 sh = -step(h, vec4(0.0));
-  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
-  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-  vec3 p0 = vec3(a0.xy, h.x);
-  vec3 p1 = vec3(a0.zw, h.y);
-  vec3 p2 = vec3(a1.xy, h.z);
-  vec3 p3 = vec3(a1.zw, h.w);
-  vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
-  p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-  vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-  m = m * m;
-  return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+// Fast hash functions (sine-based, always returns 0..1)
+function hash2(x: number, y: number): number {
+  const v = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return v - Math.floor(v);
 }
 
-void main() {
-  vec2 uv = vUv;
-  vec2 aspect = vec2(uResolution.x / uResolution.y, 1.0);
-
-  // Distort UVs with noise for organic flow
-  float t = uTime * 0.15;
-  vec2 distortedUv = uv * aspect;
-  distortedUv.x += snoise(vec3(uv * 2.0, t)) * 0.12;
-  distortedUv.y += snoise(vec3(uv * 2.0 + 5.0, t + 3.0)) * 0.12;
-
-  // Primary noise pattern
-  float n1 = snoise(vec3(distortedUv * 3.0, t * 0.8));
-  float n2 = snoise(vec3(distortedUv * 6.0, t * 1.2 + 10.0));
-  float n3 = snoise(vec3(distortedUv * 12.0, t * 0.5 + 20.0));
-
-  float pattern = n1 * 0.5 + n2 * 0.3 + n3 * 0.2;
-  pattern = pattern * 0.5 + 0.5; // normalize to 0..1
-
-  // Bright points
-  float bright = smoothstep(0.72, 0.85, pattern);
-
-  // Base dark color with subtle purple/blue tint
-  vec3 bgColor = vec3(0.04, 0.03, 0.06);
-  vec3 patternColor = vec3(0.15, 0.08, 0.22);
-  vec3 brightColor = vec3(0.5, 0.3, 0.7);
-
-  vec3 color = mix(bgColor, patternColor, pattern * 0.6);
-  color += brightColor * bright * 0.4;
-
-  // Character dither pass: quantize into blocks
-  float blockSize = 6.0;
-  vec2 pixelUv = floor(gl_FragCoord.xy / blockSize) * blockSize;
-  vec2 blockUv = pixelUv / uResolution;
-
-  float blockNoise = snoise(vec3(blockUv * aspect * 3.0, t * 0.8));
-  float blockN2 = snoise(vec3(blockUv * aspect * 6.0, t * 1.2 + 10.0));
-  float blockPattern = blockNoise * 0.5 + blockN2 * 0.3;
-  blockPattern = blockPattern * 0.5 + 0.5;
-
-  // Dither threshold
-  vec2 inBlock = mod(gl_FragCoord.xy, blockSize) / blockSize;
-  float dither = step(0.35, blockPattern) * smoothstep(0.1, 0.5, 1.0 - length(inBlock - 0.5));
-
-  vec3 ditherColor = mix(bgColor, vec3(0.12, 0.07, 0.18), dither * 0.8);
-  color = mix(color, ditherColor, 0.35);
-
-  // Vignette
-  float vignette = 1.0 - length((vUv - 0.5) * 1.4);
-  vignette = smoothstep(0.0, 0.7, vignette);
-  color *= vignette * 0.9 + 0.1;
-
-  gl_FragColor = vec4(color, 1.0);
+function hash3(x: number, y: number, z: number): number {
+  const v = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
+  return v - Math.floor(v);
 }
-`;
 
-function ShaderPlane() {
-  const meshRef = useRef<THREE.Mesh>(null);
+// Simple 3D value noise with smooth interpolation
+function noise3(x: number, y: number, z: number): number {
+  const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
+  const fx = x - ix, fy = y - iy, fz = z - iz;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const sz = fz * fz * (3 - 2 * fz);
 
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uResolution: { value: new THREE.Vector2(1, 1) },
-    }),
-    []
-  );
+  const n000 = hash3(ix, iy, iz);
+  const n100 = hash3(ix + 1, iy, iz);
+  const n010 = hash3(ix, iy + 1, iz);
+  const n110 = hash3(ix + 1, iy + 1, iz);
+  const n001 = hash3(ix, iy, iz + 1);
+  const n101 = hash3(ix + 1, iy, iz + 1);
+  const n011 = hash3(ix, iy + 1, iz + 1);
+  const n111 = hash3(ix + 1, iy + 1, iz + 1);
 
-  useFrame(({ clock, size }) => {
-    uniforms.uTime.value = clock.getElapsedTime();
-    uniforms.uResolution.value.set(size.width, size.height);
-  });
+  const nx00 = n000 + (n100 - n000) * sx;
+  const nx10 = n010 + (n110 - n010) * sx;
+  const nx01 = n001 + (n101 - n001) * sx;
+  const nx11 = n011 + (n111 - n011) * sx;
 
-  return (
-    <mesh ref={meshRef}>
-      <planeGeometry args={[2, 2]} />
-      <shaderMaterial
-        vertexShader={VERTEX_SHADER}
-        fragmentShader={FRAGMENT_SHADER}
-        uniforms={uniforms}
-      />
-    </mesh>
-  );
+  const nxy0 = nx00 + (nx10 - nx00) * sy;
+  const nxy1 = nx01 + (nx11 - nx01) * sy;
+
+  return nxy0 + (nxy1 - nxy0) * sz;
+}
+
+// Multi-octave noise
+function fbm(x: number, y: number, z: number): number {
+  return noise3(x, y, z) * 0.6 + noise3(x * 2, y * 2, z * 2) * 0.3 + noise3(x * 4, y * 4, z * 4) * 0.1;
+}
+
+// Color palettes: [dimR, dimG, dimB, brightR, brightG, brightB]
+const PALETTES = [
+  [0.22, 0.20, 0.28, 0.55, 0.50, 0.65],    // grey (most common)
+  [0.20, 0.18, 0.25, 0.50, 0.45, 0.60],    // grey variant
+  [0.40, 0.25, 0.08, 0.95, 0.65, 0.15],    // amber
+  [0.10, 0.35, 0.20, 0.25, 0.90, 0.50],    // green
+  [0.40, 0.15, 0.08, 0.95, 0.35, 0.18],    // red/orange
+  [0.10, 0.18, 0.40, 0.30, 0.55, 0.95],    // blue
+];
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
+function smoothstep(edge0: number, edge1: number, x: number) {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 }
 
 export function ShaderBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    let lastTime = 0;
+    const interval = 1000 / FPS;
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas!.getBoundingClientRect();
+      canvas!.width = rect.width * dpr;
+      canvas!.height = rect.height * dpr;
+      ctx!.scale(dpr, dpr);
+    }
+
+    resize();
+    window.addEventListener("resize", resize);
+
+    function draw(timestamp: number) {
+      animId = requestAnimationFrame(draw);
+
+      if (timestamp - lastTime < interval) return;
+      lastTime = timestamp;
+
+      const rect = canvas!.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      const cols = Math.ceil(w / CELL_W);
+      const rows = Math.ceil(h / CELL_H);
+      const t = timestamp * 0.001; // seconds
+
+      // Clear
+      ctx!.fillStyle = "#06050b";
+      ctx!.fillRect(0, 0, w, h);
+
+      ctx!.font = FONT;
+      ctx!.textBaseline = "top";
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const x = col * CELL_W;
+          const y = row * CELL_H;
+
+          // Character selection — changes every ~0.7s per cell, staggered
+          const timeBucket = Math.floor(t * 1.4 + hash2(col, row) * 5);
+          const charIdx = Math.floor(hash3(col, row, timeBucket) * CHARS.length);
+          const ch = CHARS[charIdx];
+
+          // Flow noise — drives brightness and color waves
+          const noiseX = col * 0.12;
+          const noiseY = row * 0.12;
+          const flow = fbm(noiseX, noiseY, t * 0.18);
+
+          const isBright = smoothstep(0.35, 0.6, flow);
+
+          // Color selection — per cell, shifts slowly
+          const colorBucket = Math.floor(t * 0.3 + hash2(col + 999, row + 777) * 8);
+          const colorSeed = hash3(col, row, colorBucket);
+          let palIdx: number;
+          if (colorSeed < 0.45) palIdx = 0;       // grey
+          else if (colorSeed < 0.55) palIdx = 1;   // grey variant
+          else if (colorSeed < 0.65) palIdx = 2;   // amber
+          else if (colorSeed < 0.75) palIdx = 3;   // green
+          else if (colorSeed < 0.85) palIdx = 4;   // red
+          else palIdx = 5;                          // blue
+
+          const pal = PALETTES[palIdx];
+          // Interpolate color between dim and bright based on flow
+          const r = lerp(pal[0], pal[3], isBright);
+          const g = lerp(pal[1], pal[4], isBright);
+          const b = lerp(pal[2], pal[5], isBright);
+
+          // Final color — direct RGB values, pal already in 0..1 range
+          const fr = Math.round(Math.min(255, r * 255));
+          const fg = Math.round(Math.min(255, g * 255));
+          const fb = Math.round(Math.min(255, b * 255));
+
+          ctx!.fillStyle = `rgb(${fr},${fg},${fb})`;
+          ctx!.fillText(ch, x + 1, y + 2);
+        }
+      }
+    }
+
+    animId = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
   return (
     <div
       style={{
@@ -160,13 +189,10 @@ export function ShaderBackground() {
         borderRadius: "inherit",
       }}
     >
-      <Canvas
-        style={{ width: "100%", height: "100%" }}
-        gl={{ antialias: false, alpha: false }}
-        camera={{ position: [0, 0, 1] }}
-      >
-        <ShaderPlane />
-      </Canvas>
+      <canvas
+        ref={canvasRef}
+        style={{ width: "100%", height: "100%", display: "block" }}
+      />
     </div>
   );
 }

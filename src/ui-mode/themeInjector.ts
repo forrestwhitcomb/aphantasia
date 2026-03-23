@@ -263,18 +263,25 @@ function parseHex(hex: string): { r: number; g: number; b: number } | null {
 
 // ── Full Document Builder ───────────────────────────────────
 
+export interface BuildUIDocumentOptions {
+  /** When true, adds scrollable body class for tall frames */
+  isScrollable?: boolean;
+}
+
 /**
  * Build a complete HTML document string for the viewport iframe.
- * Includes the design system CSS, Google Fonts, base reset, and
- * the provided body HTML.
+ * Includes the design system CSS, Google Fonts, base reset,
+ * interaction scripts, and the provided body HTML.
  */
 export function buildUIDocument(
   bodyHtml: string,
   ds: UIDesignSystem,
-  baseCSS: string
+  baseCSS: string,
+  options?: BuildUIDocumentOptions
 ): string {
   const themeCSS = designSystemToCSS(ds);
   const fontLinks = googleFontImport(ds);
+  const bodyClass = options?.isScrollable ? ' class="ui-scrollable"' : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -287,8 +294,117 @@ ${themeCSS}
 ${baseCSS}
 </style>
 </head>
-<body>
+<body${bodyClass}>
 ${bodyHtml}
+${buildInteractionScript()}
 </body>
 </html>`;
+}
+
+// ── Interaction Script ──────────────────────────────────────
+// Injected into the iframe for in-viewport editing:
+//   - Double-click text → contentEditable inline editing
+//   - Single click component → postMessage to parent for variant picker
+//   - Selection highlight via postMessage from parent
+
+function buildInteractionScript(): string {
+  return `<script>
+(function() {
+  var selectedEl = null;
+
+  // ── Double-click: inline text editing ──
+  document.addEventListener('dblclick', function(e) {
+    var el = e.target.closest('[data-text-editable]');
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    el.contentEditable = 'true';
+    el.style.outline = '2px solid #6366f1';
+    el.style.outlineOffset = '1px';
+    el.style.borderRadius = '2px';
+    el.focus();
+
+    // Select all text
+    var range = document.createRange();
+    range.selectNodeContents(el);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    var shapeId = (el.closest('[data-shape-id]') || {}).dataset?.shapeId || '';
+    var originalText = el.textContent;
+
+    function commit() {
+      el.contentEditable = 'false';
+      el.style.outline = '';
+      el.style.outlineOffset = '';
+      el.style.borderRadius = '';
+      el.removeEventListener('blur', commit);
+      el.removeEventListener('keydown', onKey);
+      var newText = el.textContent.trim();
+      if (newText && newText !== originalText) {
+        parent.postMessage({
+          type: 'aphantasia:text-edit',
+          shapeId: shapeId,
+          newText: newText
+        }, '*');
+      }
+    }
+
+    function onKey(e) {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') {
+        el.textContent = originalText;
+        el.contentEditable = 'false';
+        el.style.outline = '';
+        el.style.outlineOffset = '';
+        el.style.borderRadius = '';
+        el.removeEventListener('blur', commit);
+        el.removeEventListener('keydown', onKey);
+      }
+    }
+
+    el.addEventListener('blur', commit);
+    el.addEventListener('keydown', onKey);
+  });
+
+  // ── Single click: component selection ──
+  document.addEventListener('click', function(e) {
+    // Don't trigger selection when text is being edited
+    if (e.target.closest('[contenteditable="true"]')) return;
+
+    var wrapper = e.target.closest('[data-shape-id]');
+    if (!wrapper) return;
+
+    var rect = wrapper.getBoundingClientRect();
+    parent.postMessage({
+      type: 'aphantasia:component-select',
+      shapeId: wrapper.dataset.shapeId,
+      componentType: wrapper.dataset.componentType,
+      currentVariant: wrapper.dataset.variant,
+      bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+    }, '*');
+  });
+
+  // ── Highlight from parent ──
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'aphantasia:highlight') return;
+    if (selectedEl) {
+      selectedEl.style.outline = '';
+      selectedEl.style.outlineOffset = '';
+    }
+    if (e.data.shapeId) {
+      var el = document.querySelector('[data-shape-id="' + e.data.shapeId + '"]');
+      if (el) {
+        el.style.outline = '2px solid #6366f1';
+        el.style.outlineOffset = '2px';
+        selectedEl = el;
+      }
+    } else {
+      selectedEl = null;
+    }
+  });
+})();
+<\/script>`;
 }

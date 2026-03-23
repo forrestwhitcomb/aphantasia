@@ -10,6 +10,13 @@
 //
 // Layer 1: synchronous, rules-based, <50ms
 // Layer 2: async, AI-powered, merges overrides into Layer 1
+//
+// Scrollable: when frameHeight > VIEWPORT_HEIGHT, wraps body
+// in three zones (top/scroll/bottom) with sticky nav + tab bar.
+//
+// Interactivity: injects data-shape-id / data-component-type /
+// data-variant on each component wrapper, and data-text-editable
+// on text elements for inline editing.
 // ============================================================
 
 import type { UIDesignSystem, UIResolvedComponent, UILayer2Override, UIComponentPropsBase } from "../types";
@@ -20,6 +27,7 @@ import { renderStatusBar } from "../components/navigation/StatusBar";
 import { parseNotes } from "../notes/NoteParser";
 
 const MOBILE_UI_FRAME_WIDTH = 393;
+const VIEWPORT_HEIGHT = 852;
 const BADGE_FULL_WIDTH_MIN_PX = 140;
 
 /**
@@ -27,11 +35,14 @@ const BADGE_FULL_WIDTH_MIN_PX = 140;
  * suitable for the viewport iframe's srcDoc.
  *
  * Layer 1: synchronous, no AI. Applies note keyword parsing.
+ *
+ * @param frameHeight — canvas frame height; when > 852 the viewport becomes scrollable
  */
 export function renderLayer1(
   components: UIResolvedComponent[],
   designSystem: UIDesignSystem,
-  layer2Overrides?: UILayer2Override[]
+  layer2Overrides?: UILayer2Override[],
+  frameHeight?: number
 ): string {
   // Index Layer 2 overrides by component ID for quick lookup
   const overrideMap = new Map<string, UILayer2Override>();
@@ -41,14 +52,17 @@ export function renderLayer1(
     }
   }
 
-  // Build body HTML from resolved components
-  const bodyParts: string[] = [];
+  const isScrollable = (frameHeight ?? VIEWPORT_HEIGHT) > VIEWPORT_HEIGHT;
+
+  // Collect parts into zones: top (status+nav), middle (content), bottom (tab+home)
+  const topParts: string[] = [];
+  const middleParts: string[] = [];
   const tabBarParts: string[] = [];
 
   // Auto-inject status bar at top
-  bodyParts.push(renderStatusBar({ variant: "light" }));
+  topParts.push(renderStatusBar({ variant: "light" }));
 
-  // Render each resolved component (tabBars collected separately for bottom placement)
+  // Render each resolved component
   for (const comp of components) {
     // Parse notes for Layer 1 keywords
     const noteParsed = comp.notes.length > 0 ? parseNotes(comp.notes) : null;
@@ -150,15 +164,16 @@ export function renderLayer1(
       }
     }
 
-    // Route to the appropriate output array
-    const target = comp.type === "tabBar" ? tabBarParts : bodyParts;
-
     // Dark mode flag wraps component with inverted CSS variables
     let rendered = html;
-    if (noteParsed?.flags?.has("darkMode")) {
-      rendered = `<div style="--color-background:var(--color-foreground);--color-foreground:var(--color-background);--color-card:rgba(255,255,255,0.08);--color-card-foreground:var(--color-background);--color-muted:rgba(255,255,255,0.12);--color-muted-foreground:rgba(255,255,255,0.6);--color-border:rgba(255,255,255,0.15);background:var(--color-foreground);color:var(--color-background);${inlineStyles.join(";")}">${rendered}</div>`;
+    const isDarkMode = noteParsed?.flags?.has("darkMode") || comp._userDarkMode;
+    if (isDarkMode) {
+      rendered = `<div data-shape-id="${comp.shapeId}" data-component-type="${comp.type}" data-variant="${variant ?? ""}" style="--color-background:var(--color-foreground);--color-foreground:var(--color-background);--color-card:rgba(255,255,255,0.08);--color-card-foreground:var(--color-background);--color-muted:rgba(255,255,255,0.12);--color-muted-foreground:rgba(255,255,255,0.6);--color-border:rgba(255,255,255,0.15);background:var(--color-foreground);color:var(--color-background);${inlineStyles.join(";")}">${rendered}</div>`;
     } else if (inlineStyles.length > 0) {
-      rendered = `<div style="${inlineStyles.join(";")}">${rendered}</div>`;
+      rendered = `<div data-shape-id="${comp.shapeId}" data-component-type="${comp.type}" data-variant="${variant ?? ""}" style="${inlineStyles.join(";")}">${rendered}</div>`;
+    } else {
+      // Always wrap with data attributes for interactivity
+      rendered = `<div data-shape-id="${comp.shapeId}" data-component-type="${comp.type}" data-variant="${variant ?? ""}">${rendered}</div>`;
     }
 
     // Top-level badges: always respect viewport margins.
@@ -170,21 +185,40 @@ export function renderLayer1(
       rendered = `<div class="ui-badge-wrap ${isWide ? "ui-badge-wrap--full" : "ui-badge-wrap--fit"}">${rendered}</div>`;
     }
 
-    target.push(rendered);
+    // Route to the appropriate zone
+    if (comp.type === "tabBar") {
+      tabBarParts.push(rendered);
+    } else if (isScrollable && comp.type === "navBar") {
+      topParts.push(rendered);
+    } else {
+      middleParts.push(rendered);
+    }
   }
 
-  // TabBar always renders at the bottom, then home indicator last
-  bodyParts.push(...tabBarParts);
-
-  bodyParts.push(`
+  // Home indicator HTML
+  const homeIndicatorHtml = `
 <div class="ui-home-indicator">
   <div class="ui-home-indicator__bar"></div>
-</div>`);
+</div>`;
 
-  const bodyHtml = bodyParts.join("\n");
+  let bodyHtml: string;
+
+  if (isScrollable) {
+    // Scrollable layout: top (sticky) → scroll → bottom (sticky)
+    const topHtml = topParts.join("\n");
+    const scrollHtml = middleParts.join("\n");
+    const bottomHtml = [...tabBarParts, homeIndicatorHtml].join("\n");
+    bodyHtml = `<div class="ui-viewport-top">${topHtml}</div>
+<div class="ui-viewport-scroll">${scrollHtml}</div>
+<div class="ui-viewport-bottom">${bottomHtml}</div>`;
+  } else {
+    // Flat layout (backward compatible): status bar + content + tabbar + home
+    const bodyParts = [...topParts, ...middleParts, ...tabBarParts, homeIndicatorHtml];
+    bodyHtml = bodyParts.join("\n");
+  }
 
   // Wrap in full document with theme CSS
-  return buildUIDocument(bodyHtml, designSystem, UI_COMPONENT_CSS);
+  return buildUIDocument(bodyHtml, designSystem, UI_COMPONENT_CSS, { isScrollable });
 }
 
 /**

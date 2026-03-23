@@ -59,7 +59,7 @@ export function renderListItem(props: Partial<ListItemProps> = {}, index = 0): s
 <div class="ui-list-item${destructiveClass}" data-component="listItem">
   ${iconHtml}
   <div class="ui-list-item__content">
-    <div class="ui-list-item__title">${title}</div>
+    <div class="ui-list-item__title" data-text-editable>${title}</div>
     ${subtitleHtml}
   </div>
   ${trailingHtml}

@@ -56,8 +56,8 @@ export function renderCard(props: Partial<CardProps> = {}, index = 0): string {
   <div class="ui-card__image">${ICONS.image}</div>
   <div class="ui-card__body">
     ${topHtml}
-    <h4 class="ui-card__title">${title}</h4>
-    <p class="ui-card__description">${description}</p>
+    <h4 class="ui-card__title" data-text-editable>${title}</h4>
+    <p class="ui-card__description" data-text-editable>${description}</p>
     ${bottomHtml}
   </div>
 </div>`;
@@ -67,8 +67,8 @@ export function renderCard(props: Partial<CardProps> = {}, index = 0): string {
 <div class="ui-card ui-card--${variant}" data-component="card">
   ${topHtml}
   <div class="ui-card__icon"></div>
-  <h4 class="ui-card__title">${title}</h4>
-  <p class="ui-card__description">${description}</p>
+  <h4 class="ui-card__title" data-text-editable>${title}</h4>
+  <p class="ui-card__description" data-text-editable>${description}</p>
   ${bottomHtml}
 </div>`;
 }

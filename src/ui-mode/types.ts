@@ -221,6 +221,8 @@ export interface UIResolvedComponent {
   consumedIds?: string[];
   /** Nested child components (e.g. toggle or text inside a card) */
   children?: UIResolvedComponent[];
+  /** User-applied dark mode override from in-viewport editing */
+  _userDarkMode?: boolean;
 }
 
 // ── Component Props Base ────────────────────────────────────
@@ -253,4 +255,19 @@ export interface UILayer2Override {
   styleOverrides?: Record<string, string>;
   /** Variant selection override */
   variantOverride?: string;
+}
+
+// ── User Override ──────────────────────────────────────────
+// User-initiated overrides from in-viewport editing (text edits,
+// variant switching, dark mode toggle). Merged into the render
+// pipeline the same way Layer 2 overrides are.
+
+export interface UIUserOverride {
+  shapeId: string;
+  /** Edited label text from double-click inline editing */
+  textOverride?: string;
+  /** User-picked variant from the variant picker popover */
+  variantOverride?: string;
+  /** Dark mode toggle for individual components */
+  darkMode?: boolean;
 }

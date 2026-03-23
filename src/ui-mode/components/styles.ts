@@ -1372,4 +1372,59 @@ body > .ui-home-indicator { margin-top: auto; }
 .ui-settings-row__chevron { color: var(--color-muted-foreground); }
 .ui-settings-row--destructive .ui-settings-row__title { color: var(--color-destructive); }
 .ui-settings-row--destructive .ui-settings-row__icon { color: var(--color-destructive); background: none; }
+
+/* ── Scrollable Viewport Layout ──────────────────────────── */
+/* Activated when canvas frame height exceeds 852px.          */
+/* Three-zone layout: sticky top, scrollable middle, sticky   */
+/* bottom. Replaces the flat body layout.                     */
+
+body.ui-scrollable {
+  height: 852px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+body.ui-scrollable > * + * { margin-top: 0; }
+
+.ui-viewport-top {
+  flex-shrink: 0;
+  z-index: 50;
+  background: var(--color-background);
+}
+.ui-viewport-top > * + * { margin-top: 0; }
+
+.ui-viewport-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+}
+.ui-viewport-scroll > * + * { margin-top: var(--spacing-sm); }
+.ui-viewport-scroll > .ui-navbar + * { margin-top: 0; }
+
+.ui-viewport-bottom {
+  flex-shrink: 0;
+  z-index: 50;
+  background: var(--color-background);
+}
+.ui-viewport-bottom > * + * { margin-top: 0; }
+
+/* ── Interactivity ───────────────────────────────────────── */
+/* Hover hint on interactive component wrappers               */
+
+[data-shape-id] { cursor: pointer; }
+[data-text-editable] {
+  cursor: text;
+  transition: outline 0.15s ease;
+  border-radius: 2px;
+}
+[data-text-editable]:hover {
+  outline: 1px dashed var(--color-muted-foreground);
+  outline-offset: 1px;
+}
+[contenteditable="true"] {
+  outline: 2px solid #6366f1 !important;
+  outline-offset: 1px !important;
+  border-radius: 2px;
+}
 `;

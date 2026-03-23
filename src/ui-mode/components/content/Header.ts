@@ -38,16 +38,16 @@ export function renderHeader(props: Partial<HeaderProps> = {}): string {
     if (lines.length === 0) {
       return `
 <div class="ui-header ui-text-stack" data-component="header">
-  <div class="${SIZE_MAP.large.className}"><h1 class="ui-header__text">Title</h1></div>
+  <div class="${SIZE_MAP.large.className}"><h1 class="ui-header__text" data-text-editable>Title</h1></div>
 </div>`;
     }
     const parts: string[] = [];
     parts.push(
-      `<div class="${SIZE_MAP.large.className}"><h1 class="ui-header__text">${escapeHtml(lines[0])}</h1></div>`
+      `<div class="${SIZE_MAP.large.className}"><h1 class="ui-header__text" data-text-editable>${escapeHtml(lines[0])}</h1></div>`
     );
     if (lines.length >= 2) {
       parts.push(
-        `<div class="${SIZE_MAP.medium.className}"><h2 class="ui-header__text">${escapeHtml(lines[1])}</h2></div>`
+        `<div class="${SIZE_MAP.medium.className}"><h2 class="ui-header__text" data-text-editable>${escapeHtml(lines[1])}</h2></div>`
       );
     }
     for (let i = 2; i < lines.length; i++) {
@@ -66,6 +66,6 @@ export function renderHeader(props: Partial<HeaderProps> = {}): string {
 
   return `
 <div class="ui-header ${className}" data-component="header">
-  <${tag} class="ui-header__text">${safe}</${tag}>
+  <${tag} class="ui-header__text" data-text-editable>${safe}</${tag}>
 </div>`;
 }

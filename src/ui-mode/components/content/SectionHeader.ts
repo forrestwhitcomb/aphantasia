@@ -16,7 +16,7 @@ export function renderSectionHeader(props: Partial<SectionHeaderProps> = {}): st
 
   return `
 <div class="ui-section-header" data-component="sectionHeader">
-  <h3 class="ui-section-header__label">${title}</h3>
+  <h3 class="ui-section-header__label" data-text-editable>${title}</h3>
   ${variant === "with-action" ? `<span class="ui-section-header__action">${actionLabel}</span>` : ""}
 </div>`;
 }
