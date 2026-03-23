@@ -233,6 +233,8 @@ export interface UIComponentPropsBase {
   variant?: string;
   /** Raw note override text (interpreted at render time) */
   noteOverrides?: string;
+  /** Width hint for components that can switch between content-fit and full-width. */
+  fullWidth?: boolean;
   /** Number of items (for lists, tabs, etc.) */
   itemCount?: number;
   /** Per-item labels */

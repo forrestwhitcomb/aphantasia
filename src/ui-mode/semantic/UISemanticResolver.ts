@@ -208,13 +208,25 @@ function resolveContainment(components: UIResolvedComponent[]): UIResolvedCompon
       if (!NESTABLE_TYPES.has(comp.type)) continue;
 
       const b = comp.bounds;
-      // Check if comp is fully inside the container (with small tolerance)
+      // Check if comp is inside the container.
+      // Prefer full-rect inclusion, but also allow center-point inclusion
+      // so slightly misaligned badges/text near the edge still nest into cards.
       const tol = 4;
+      const centerX = b.x + b.width / 2;
+      const centerY = b.y + b.height / 2;
+      const centerInside =
+        centerX >= cb.x - tol &&
+        centerX <= cb.x + cb.width + tol &&
+        centerY >= cb.y - tol &&
+        centerY <= cb.y + cb.height + tol;
       if (
-        b.x >= cb.x - tol &&
-        b.y >= cb.y - tol &&
-        b.x + b.width <= cb.x + cb.width + tol &&
-        b.y + b.height <= cb.y + cb.height + tol
+        (
+          b.x >= cb.x - tol &&
+          b.y >= cb.y - tol &&
+          b.x + b.width <= cb.x + cb.width + tol &&
+          b.y + b.height <= cb.y + cb.height + tol
+        ) ||
+        centerInside
       ) {
         children.push(comp);
         consumed.add(comp.shapeId);

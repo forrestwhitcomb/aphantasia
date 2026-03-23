@@ -900,6 +900,13 @@ export function CustomCanvasView() {
       const shape = engine.getInternalShapes().find((s) => s.id === id);
       if (!shape) return;
 
+      // Keep active frame in sync with the last selected shape so the
+      // viewport always renders the frame the user is currently working in.
+      const ownerFrame = engine.frameAtPoint(shape.x + shape.width / 2, shape.y + shape.height / 2);
+      if (ownerFrame && ownerFrame.id !== engine.getActiveFrameId()) {
+        engine.setActiveFrame(ownerFrame.id);
+      }
+
       engine.selectShape(id);
       const wp = screenToWorld(e.clientX, e.clientY);
       moveOffsetRef.current = { dx: shape.x - wp.x, dy: shape.y - wp.y };

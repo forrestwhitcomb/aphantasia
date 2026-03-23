@@ -259,6 +259,40 @@ body > .ui-home-indicator { margin-top: auto; }
   line-height: 1.5;
 }
 
+/* In-card text and buttons should align to card content width */
+.ui-card > .ui-header,
+.ui-card__body > .ui-header {
+  width: 100%;
+  padding: 0;
+}
+.ui-card > .ui-btn-wrap,
+.ui-card__body > .ui-btn-wrap {
+  width: 100%;
+  padding: 0;
+}
+.ui-card > .ui-btn-wrap .ui-btn,
+.ui-card__body > .ui-btn-wrap .ui-btn {
+  width: 100%;
+}
+
+/* Two buttons on same row inside card */
+.ui-card__actions-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+.ui-card__actions-col {
+  flex: 1;
+  min-width: 0;
+}
+.ui-card__actions-col .ui-btn-wrap {
+  width: 100%;
+  padding: 0;
+}
+.ui-card__actions-col .ui-btn {
+  width: 100%;
+}
+
 /* Cards container */
 .ui-cards { padding: 0 var(--spacing-md); }
 .ui-cards__title {
@@ -821,6 +855,34 @@ body > .ui-home-indicator { margin-top: auto; }
   justify-content: center;
   background: var(--color-destructive);
   color: var(--color-primary-foreground);
+}
+.ui-badge--full-width {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* In card stacks, badges should hug text unless explicitly marked full-width */
+.ui-card > .ui-badge:not(.ui-badge--full-width),
+.ui-card__body > .ui-badge:not(.ui-badge--full-width) {
+  align-self: flex-start;
+  width: auto;
+}
+
+/* Top-level badge layout (outside cards): keep viewport margins */
+.ui-badge-wrap {
+  padding: 0 var(--spacing-md);
+}
+.ui-badge-wrap--fit {
+  display: flex;
+  justify-content: flex-start;
+}
+.ui-badge-wrap--full .ui-badge {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 /* ── Tag / Chip ───────────────────────────────────────────── */

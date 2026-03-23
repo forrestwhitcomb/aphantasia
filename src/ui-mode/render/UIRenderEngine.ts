@@ -19,6 +19,9 @@ import { buildUIDocument } from "../themeInjector";
 import { renderStatusBar } from "../components/navigation/StatusBar";
 import { parseNotes } from "../notes/NoteParser";
 
+const MOBILE_UI_FRAME_WIDTH = 393;
+const BADGE_FULL_WIDTH_MIN_PX = 140;
+
 /**
  * Render resolved components into a complete HTML document
  * suitable for the viewport iframe's srcDoc.
@@ -68,25 +71,33 @@ export function renderLayer1(
       const renderChild = (child: UIResolvedComponent) => {
         const childNoteParsed = child.notes.length > 0 ? parseNotes(child.notes) : null;
         const childL2 = overrideMap.get(child.shapeId);
+        // For nested badges, compare against parent container width (card/sheet/modal),
+        // not the full frame width.
+        const parentWidth = comp.bounds.width || MOBILE_UI_FRAME_WIDTH;
+        const childFullWidthBadge =
+          child.type === "badge" &&
+          child.bounds.width >= parentWidth * 0.5 &&
+          child.bounds.width >= BADGE_FULL_WIDTH_MIN_PX;
         return renderUIComponent(child.type, {
           label: (childL2?.contentOverrides?.title as string | undefined) ?? child.label,
           variant: childL2?.variantOverride ?? childNoteParsed?.variant ?? child.variant,
           noteOverrides: child.notes.join("\n"),
+          fullWidth: childFullWidthBadge,
         });
       };
 
-      const topChildren: string[] = [];
-      const bottomChildren: string[] = [];
+      const topChildren: UIResolvedComponent[] = [];
+      const bottomChildren: UIResolvedComponent[] = [];
       for (const child of comp.children) {
         const childCenterY = child.bounds.y + child.bounds.height / 2;
         if (childCenterY < cardMidY) {
-          topChildren.push(renderChild(child));
+          topChildren.push(child);
         } else {
-          bottomChildren.push(renderChild(child));
+          bottomChildren.push(child);
         }
       }
-      childrenHtmlTop = topChildren.join("\n");
-      childrenHtmlBottom = bottomChildren.join("\n");
+      childrenHtmlTop = renderCardChildren(topChildren, renderChild);
+      childrenHtmlBottom = renderCardChildren(bottomChildren, renderChild);
     }
 
     const html = renderUIComponent(comp.type, {
@@ -143,14 +154,23 @@ export function renderLayer1(
     const target = comp.type === "tabBar" ? tabBarParts : bodyParts;
 
     // Dark mode flag wraps component with inverted CSS variables
+    let rendered = html;
     if (noteParsed?.flags?.has("darkMode")) {
-      const darkWrapper = `<div style="--color-background:var(--color-foreground);--color-foreground:var(--color-background);--color-card:rgba(255,255,255,0.08);--color-card-foreground:var(--color-background);--color-muted:rgba(255,255,255,0.12);--color-muted-foreground:rgba(255,255,255,0.6);--color-border:rgba(255,255,255,0.15);background:var(--color-foreground);color:var(--color-background);${inlineStyles.join(";")}">${html}</div>`;
-      target.push(darkWrapper);
+      rendered = `<div style="--color-background:var(--color-foreground);--color-foreground:var(--color-background);--color-card:rgba(255,255,255,0.08);--color-card-foreground:var(--color-background);--color-muted:rgba(255,255,255,0.12);--color-muted-foreground:rgba(255,255,255,0.6);--color-border:rgba(255,255,255,0.15);background:var(--color-foreground);color:var(--color-background);${inlineStyles.join(";")}">${rendered}</div>`;
     } else if (inlineStyles.length > 0) {
-      target.push(`<div style="${inlineStyles.join(";")}">${html}</div>`);
-    } else {
-      target.push(html);
+      rendered = `<div style="${inlineStyles.join(";")}">${rendered}</div>`;
     }
+
+    // Top-level badges: always respect viewport margins.
+    // <50% frame width => text-hugging; >=50% => full width within margins.
+    if (comp.type === "badge") {
+      const isWide =
+        comp.bounds.width >= MOBILE_UI_FRAME_WIDTH * 0.5 &&
+        comp.bounds.width >= BADGE_FULL_WIDTH_MIN_PX;
+      rendered = `<div class="ui-badge-wrap ${isWide ? "ui-badge-wrap--full" : "ui-badge-wrap--fit"}">${rendered}</div>`;
+    }
+
+    target.push(rendered);
   }
 
   // TabBar always renders at the bottom, then home indicator last
@@ -165,6 +185,49 @@ export function renderLayer1(
 
   // Wrap in full document with theme CSS
   return buildUIDocument(bodyHtml, designSystem, UI_COMPONENT_CSS);
+}
+
+/**
+ * Render nested card children with lightweight row grouping:
+ * - two button children on the same row render side-by-side
+ * - all other children render in stacked order
+ */
+function renderCardChildren(
+  children: UIResolvedComponent[],
+  renderChild: (child: UIResolvedComponent) => string
+): string {
+  if (children.length === 0) return "";
+  const ordered = [...children].sort((a, b) =>
+    a.bounds.y === b.bounds.y ? a.bounds.x - b.bounds.x : a.bounds.y - b.bounds.y
+  );
+
+  const parts: string[] = [];
+  const rowThreshold = 18;
+
+  for (let i = 0; i < ordered.length; i++) {
+    const current = ordered[i];
+    const next = ordered[i + 1];
+    if (
+      current.type === "button" &&
+      next &&
+      next.type === "button" &&
+      Math.abs(
+        (current.bounds.y + current.bounds.height / 2) -
+          (next.bounds.y + next.bounds.height / 2)
+      ) <= rowThreshold
+    ) {
+      parts.push(
+        `<div class="ui-card__actions-row">` +
+          `<div class="ui-card__actions-col">${renderChild(current)}</div>` +
+          `<div class="ui-card__actions-col">${renderChild(next)}</div>` +
+        `</div>`
+      );
+      i++;
+      continue;
+    }
+    parts.push(renderChild(current));
+  }
+  return parts.join("\n");
 }
 
 /** Convert camelCase to kebab-case for CSS properties */
