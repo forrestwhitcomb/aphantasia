@@ -3,6 +3,12 @@
    Warm cream + pink gradient theme
    ============================================================ */
 
+/* ── Prevent browser back/forward swipe on trackpad ────────── */
+.rebtel-workspace-layout,
+.rebtel-workspace-layout * {
+  overscroll-behavior: none;
+}
+
 /* ── Shared Gradient Background ────────────────────────────── */
 
 .rebtel-bg {

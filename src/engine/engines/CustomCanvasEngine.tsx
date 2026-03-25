@@ -1218,7 +1218,7 @@ export function CustomCanvasView() {
       ref={containerRef}
       className="w-full h-full relative overflow-hidden outline-none"
       data-output-type={engine.getDocument().outputType}
-      style={{ background: "#F5F5F5", cursor: cursorStyle }}
+      style={{ background: "#F5F5F5", cursor: cursorStyle, overscrollBehavior: "none", touchAction: "none" }}
       tabIndex={0}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
