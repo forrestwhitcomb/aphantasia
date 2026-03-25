@@ -93,7 +93,7 @@ export interface CanvasFrame {
 export interface CanvasDocument {
   id: string;
   version: number;
-  outputType: "site" | "slides" | "doodles" | "ui";
+  outputType: "site" | "slides" | "doodles" | "ui" | "rebtel";
   frame: CanvasFrame;
   frames: CanvasFrame[];
   activeFrameId: string;

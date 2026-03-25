@@ -38,12 +38,22 @@ const BADGE_FULL_WIDTH_MIN_PX = 140;
  *
  * @param frameHeight — canvas frame height; when > 852 the viewport becomes scrollable
  */
+export interface RenderLayer1Options {
+  /** Custom component dispatcher (defaults to base renderUIComponent) */
+  dispatcher?: (type: string, props: Partial<UIComponentPropsBase> & { childrenHtmlTop?: string; childrenHtmlBottom?: string }) => string;
+  /** Extra CSS to inject alongside the base component CSS */
+  extraCSS?: string;
+}
+
 export function renderLayer1(
   components: UIResolvedComponent[],
   designSystem: UIDesignSystem,
   layer2Overrides?: UILayer2Override[],
-  frameHeight?: number
+  frameHeight?: number,
+  options?: RenderLayer1Options
 ): string {
+  const dispatch = options?.dispatcher ?? renderUIComponent;
+
   // Index Layer 2 overrides by component ID for quick lookup
   const overrideMap = new Map<string, UILayer2Override>();
   if (layer2Overrides) {
@@ -92,7 +102,7 @@ export function renderLayer1(
           child.type === "badge" &&
           child.bounds.width >= parentWidth * 0.5 &&
           child.bounds.width >= BADGE_FULL_WIDTH_MIN_PX;
-        return renderUIComponent(child.type, {
+        return dispatch(child.type, {
           label: (childL2?.contentOverrides?.title as string | undefined) ?? child.label,
           variant: childL2?.variantOverride ?? childNoteParsed?.variant ?? child.variant,
           noteOverrides: child.notes.join("\n"),
@@ -114,7 +124,7 @@ export function renderLayer1(
       childrenHtmlBottom = renderCardChildren(bottomChildren, renderChild);
     }
 
-    const html = renderUIComponent(comp.type, {
+    const html = dispatch(comp.type, {
       label,
       variant,
       itemCount,
@@ -218,7 +228,8 @@ export function renderLayer1(
   }
 
   // Wrap in full document with theme CSS
-  return buildUIDocument(bodyHtml, designSystem, UI_COMPONENT_CSS, { isScrollable });
+  const css = options?.extraCSS ? UI_COMPONENT_CSS + "\n" + options.extraCSS : UI_COMPONENT_CSS;
+  return buildUIDocument(bodyHtml, designSystem, css, { isScrollable });
 }
 
 /**

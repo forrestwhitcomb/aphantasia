@@ -71,7 +71,7 @@ export class CustomCanvasEngine implements CanvasEngine {
   private activeFrameId: string = DESKTOP_FRAME_ID;
   private handlers = new Map<CanvasEventType, Set<CanvasEventHandler>>();
   private ver = 0;
-  private _outputType: "site" | "slides" | "doodles" | "ui" = "site";
+  private _outputType: "site" | "slides" | "doodles" | "ui" | "rebtel" = "site";
   private _tool: CanvasTool = "select";
   private _clipboard: CanvasShape[] = [];
   camera: Camera = { x: 0, y: 0, zoom: 1 };
@@ -103,7 +103,7 @@ export class CustomCanvasEngine implements CanvasEngine {
 
   // -- Output type ----------------------------------------------------------
 
-  setOutputType(type: "site" | "slides" | "doodles" | "ui") {
+  setOutputType(type: "site" | "slides" | "doodles" | "ui" | "rebtel") {
     this._outputType = type;
     this.changed();
   }
@@ -1217,6 +1217,7 @@ export function CustomCanvasView() {
     <div
       ref={containerRef}
       className="w-full h-full relative overflow-hidden outline-none"
+      data-output-type={engine.getDocument().outputType}
       style={{ background: "#F5F5F5", cursor: cursorStyle }}
       tabIndex={0}
       onMouseDown={onMouseDown}
@@ -1237,7 +1238,7 @@ export function CustomCanvasView() {
         }}
       >
         {/* UI mode: reference panel is rendered OUTSIDE the world layer (see below) */}
-        {engine.getDocument().outputType === "ui" ? (
+        {(engine.getDocument().outputType === "ui" || engine.getDocument().outputType === "rebtel") ? (
           <></>
         ) : (
           <>
@@ -1405,7 +1406,7 @@ export function CustomCanvasView() {
               ) : null}
 
               {/* UI component type badge */}
-              {engine.getDocument().outputType === "ui" && s.meta?.uiComponentType ? (
+              {(engine.getDocument().outputType === "ui" || engine.getDocument().outputType === "rebtel") && s.meta?.uiComponentType ? (
                 <div
                   style={{
                     position: "absolute",
@@ -1754,7 +1755,7 @@ export function CustomCanvasView() {
         })()}
       </div>
 
-      {/* UI mode: Reference panel — fixed sidebar, outside world transform */}
+      {/* UI mode: Reference panel — fixed sidebar, outside world transform (not for rebtel — baked-in design system) */}
       {engine.getDocument().outputType === "ui" && (
         <div style={{
           position: "absolute",
@@ -1786,7 +1787,7 @@ export function CustomCanvasView() {
       {/* Per-shape tag dropdown (portal to body) */}
       {typeof document !== "undefined" &&
         createPortal(
-          <>{engine.getDocument().outputType === "ui" ? (
+          <>{(engine.getDocument().outputType === "ui" || engine.getDocument().outputType === "rebtel") ? (
             <UIShapeTagDropdown
               open={!!tagDropdownShapeId}
               onClose={() => {

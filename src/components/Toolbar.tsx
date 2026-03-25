@@ -7,6 +7,7 @@ import { SparkleIcon } from "@/components/SparkleIcon";
 import { DNAToolbarPill } from "@/dna/DNAToolbarPill";
 import { DNAEditor } from "@/dna/DNAEditor";
 import { ComponentPicker } from "@/ui-mode/canvas/ComponentPicker";
+import { RebtelComponentPicker } from "@/rebtel/canvas/RebtelComponentPicker";
 
 type ToolDef = {
   id: CanvasTool;
@@ -71,6 +72,7 @@ function ToolIcon({ tool }: { tool: CanvasTool }) {
 }
 
 export function Toolbar({ outputType }: { outputType?: string }) {
+  const isUILike = outputType === "ui" || outputType === "rebtel";
   const [activeTool, setActiveTool] = useState<CanvasTool>(canvasEngine.getTool());
   const [pickerOpen, setPickerOpen] = useState(false);
   const addBtnRef = useRef<HTMLButtonElement>(null);
@@ -141,7 +143,7 @@ export function Toolbar({ outputType }: { outputType?: string }) {
           ref={addBtnRef}
           onClick={(e) => {
             e.stopPropagation();
-            if (outputType === "ui") {
+            if (isUILike) {
               setPickerOpen((prev) => !prev);
             } else {
               window.dispatchEvent(
@@ -171,39 +173,48 @@ export function Toolbar({ outputType }: { outputType?: string }) {
         </button>
 
         {/* Component Picker renders inline above the button */}
-        {outputType === "ui" && (
-          <ComponentPicker
-            isOpen={pickerOpen}
-            onClose={() => setPickerOpen(false)}
-          />
+        {isUILike && (
+          outputType === "rebtel" ? (
+            <RebtelComponentPicker
+              isOpen={pickerOpen}
+              onClose={() => setPickerOpen(false)}
+            />
+          ) : (
+            <ComponentPicker
+              isOpen={pickerOpen}
+              onClose={() => setPickerOpen(false)}
+            />
+          )
         )}
       </div>
 
-      {/* AI button — grayed out, coming soon */}
-      <button
-        title="AI Assistant (Coming soon)"
-        disabled
-        style={{
-          width: 40,
-          height: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 12,
-          border: "none",
-          cursor: "not-allowed",
-          background: "transparent",
-          color: "rgba(255,255,255,0.2)",
-          opacity: 0.5,
-        }}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z" />
-        </svg>
-      </button>
+      {/* AI button — hidden in rebtel mode */}
+      {outputType !== "rebtel" && (
+        <button
+          title="AI Assistant (Coming soon)"
+          disabled
+          style={{
+            width: 40,
+            height: 40,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 12,
+            border: "none",
+            cursor: "not-allowed",
+            background: "transparent",
+            color: "rgba(255,255,255,0.2)",
+            opacity: 0.5,
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z" />
+          </svg>
+        </button>
+      )}
 
-      {/* UI mode: Render button (Layer 2) */}
-      {outputType === "ui" && (
+      {/* Render button — hidden in rebtel mode */}
+      {isUILike && outputType !== "rebtel" && (
         <>
           <div style={{ width: 1, height: 24, background: "#333", margin: "0 8px" }} />
           <button
@@ -229,7 +240,7 @@ export function Toolbar({ outputType }: { outputType?: string }) {
         </>
       )}
 
-      {outputType !== "ui" && (
+      {!isUILike && (
         <>
           {/* Separator */}
           <div style={{ width: 1, height: 24, background: "#333", margin: "0 8px" }} />

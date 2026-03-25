@@ -1,0 +1,284 @@
+/* ============================================================
+   APHANTASIA for REBTEL — Page Styles
+   Warm cream + pink gradient theme
+   ============================================================ */
+
+/* ── Shared Gradient Background ────────────────────────────── */
+
+.rebtel-bg {
+  position: fixed;
+  inset: 0;
+  background: #F2E6DC;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.rebtel-bg__blob {
+  position: absolute;
+  top: -10%;
+  right: -5%;
+  width: 55%;
+  height: 70%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    #E84393 0%,
+    #F77FB1 30%,
+    #FBAA8E 55%,
+    transparent 75%
+  );
+  filter: blur(80px);
+  opacity: 0.85;
+  pointer-events: none;
+  will-change: top, right;
+}
+
+/* ── Landing Page ──────────────────────────────────────────── */
+
+.rebtel-landing {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-poppins), 'Inter', -apple-system, sans-serif;
+  z-index: 1;
+}
+
+.rebtel-landing__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  max-width: 680px;
+  width: 100%;
+  padding: 0 32px;
+}
+
+.rebtel-landing__heading {
+  font-size: 38px;
+  font-weight: 700;
+  color: #1a1a2e;
+  text-align: center;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.rebtel-landing__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.rebtel-landing__chip {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a2e;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.rebtel-landing__chip:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Input area — glass card */
+.rebtel-landing__input-card {
+  width: 100%;
+  background: rgba(210, 180, 170, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+}
+
+.rebtel-landing__textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 18px;
+  font-weight: 400;
+  color: #1a1a2e;
+  font-family: inherit;
+  resize: none;
+  line-height: 1.5;
+}
+
+.rebtel-landing__textarea::placeholder {
+  color: rgba(26, 26, 46, 0.35);
+}
+
+.rebtel-landing__file-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(26, 26, 46, 0.06);
+  border-radius: 10px;
+  font-size: 13px;
+  color: rgba(26, 26, 46, 0.6);
+  font-family: inherit;
+}
+
+.rebtel-landing__input-footer {
+  display: flex;
+  align-items: center;
+}
+
+.rebtel-landing__upload-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  color: rgba(26, 26, 46, 0.35);
+  transition: color 0.2s;
+}
+
+.rebtel-landing__upload-btn:hover {
+  color: rgba(26, 26, 46, 0.7);
+}
+
+.rebtel-landing__send-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1a1a2e;
+  color: #F2E6DC;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.rebtel-landing__send-btn:hover {
+  background: #2d2d44;
+  transform: scale(1.04);
+}
+
+.rebtel-landing__send-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+  transform: none;
+}
+
+/* "Just let me start drawing" button */
+.rebtel-landing__draw-btn {
+  padding: 16px 40px;
+  background: #1a1a2e;
+  color: #F2E6DC;
+  border: none;
+  border-radius: 100px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  letter-spacing: -0.01em;
+}
+
+.rebtel-landing__draw-btn:hover {
+  background: #2d2d44;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(26, 26, 46, 0.2);
+}
+
+/* ── Canvas Workspace Page ─────────────────────────────────── */
+
+.rebtel-workspace-layout {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  font-family: var(--font-poppins), 'Inter', -apple-system, sans-serif;
+  z-index: 1;
+}
+
+/* Two-pane: canvas (full-bleed left) + viewport (right card) */
+.rebtel-workspace {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  gap: 0;
+  box-sizing: border-box;
+}
+
+/* ── Canvas Pane ──────────────────────────────────────────── */
+/* Full-bleed on top, left, bottom — transparent so gradient shows through */
+.rebtel-canvas-pane {
+  flex: 2.2;
+  position: relative;
+  background: transparent;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+/* Make the actual canvas drawing area semi-transparent in rebtel mode */
+[data-output-type="rebtel"] {
+  background: rgba(242, 230, 220, 0.75) !important;
+}
+
+/* ── Floating Chat Panel ──────────────────────────────────── */
+/* Bottom-left of canvas, compact glass panel */
+.rebtel-chat-float {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 260px;
+  max-height: 460px;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Viewport Pane ────────────────────────────────────────── */
+/* Viewport — phone floats directly on gradient, pushed right */
+.rebtel-viewport-pane {
+  flex: 0;
+  width: 360px;
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  background: transparent;
+  border-radius: 0;
+  margin: 0 16px;
+  padding: 24px 0;
+  box-sizing: border-box;
+}
