@@ -15,6 +15,7 @@ import { Toolbar } from "@/components/Toolbar";
 import { getCustomEngine } from "@/engine/engines/CustomCanvasEngine";
 import { RebtelViewportPane } from "@/rebtel/viewport/RebtelViewportPane";
 import { ChatPanel } from "@/rebtel/chat/ChatPanel";
+import { RebtelFigmaConnect } from "@/rebtel/canvas/RebtelFigmaConnect";
 import "../rebtel.css";
 
 function CanvasWorkspaceInner() {
@@ -44,6 +45,9 @@ function CanvasWorkspaceInner() {
           <div className="rebtel-canvas-pane">
             <CanvasView />
             <Toolbar outputType="rebtel" />
+
+            {/* Figma connect widget — top-left */}
+            <RebtelFigmaConnect />
 
             {/* Floating chat panel — bottom-left */}
             <RebtelChatFloat initialPrompt={initialPrompt} />

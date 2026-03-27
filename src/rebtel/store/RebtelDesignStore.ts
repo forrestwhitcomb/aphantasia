@@ -8,8 +8,9 @@
 // prototyping.
 // ============================================================
 
-import type { UIDesignSystem } from "@/ui-mode/types";
+import type { UIDesignSystem, FigmaComponentEntry, ComponentLayoutCSS } from "@/ui-mode/types";
 import { REBTEL_DESIGN_SYSTEM } from "../designSystem";
+import { buildRebtelRegistry } from "../figmaRegistry";
 
 interface ScreenEntry {
   screenId: string;
@@ -23,6 +24,9 @@ class RebtelDesignStore {
   private listeners = new Set<Listener>();
   private screens: ScreenEntry[] = [];
   private activeScreenId: string = "";
+  private registry: FigmaComponentEntry[] = [];
+  private layoutMap: Record<string, ComponentLayoutCSS> = {};
+  private figmaConnected: boolean = false;
 
   // ── Design System ─────────────────────────────────────────
 
@@ -80,6 +84,41 @@ class RebtelDesignStore {
   clearScreens() {
     this.screens = [];
     this.activeScreenId = "";
+    this.notify();
+  }
+
+  // ── Figma Registry ────────────────────────────────────────
+
+  setFigmaData(
+    rawRegistry: FigmaComponentEntry[],
+    layoutMap: Record<string, ComponentLayoutCSS>
+  ): void {
+    this.registry = buildRebtelRegistry(rawRegistry);
+    this.layoutMap = layoutMap;
+    this.figmaConnected = true;
+    this.notify();
+  }
+
+  getRegistry(): FigmaComponentEntry[] {
+    return this.registry;
+  }
+
+  getLayoutMap(): Record<string, ComponentLayoutCSS> {
+    return this.layoutMap;
+  }
+
+  isFigmaConnected(): boolean {
+    return this.figmaConnected;
+  }
+
+  getLayoutForComponent(figmaId: string): ComponentLayoutCSS | undefined {
+    return this.layoutMap[figmaId];
+  }
+
+  clearFigmaData(): void {
+    this.registry = [];
+    this.layoutMap = {};
+    this.figmaConnected = false;
     this.notify();
   }
 }

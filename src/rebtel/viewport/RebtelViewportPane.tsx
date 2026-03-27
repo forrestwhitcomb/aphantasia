@@ -395,6 +395,11 @@ export function RebtelViewportPane() {
           onVariantChange={handleVariantChange}
           onDarkModeToggle={handleDarkModeToggle}
           onDismiss={handlePickerDismiss}
+          figmaEntry={
+            (canvasEngine.getDocument().shapes
+              .find(s => s.id === selectedComponent.shapeId)
+              ?.meta as any)?.figmaComponentEntry ?? null
+          }
         />
       )}
     </div>

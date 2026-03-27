@@ -2,7 +2,7 @@
 // Walks the full node tree to extract real colors, typography,
 // shadows, and radii from the design — not just named variables.
 
-import type { UIDesignSystem } from "@/ui-mode/types";
+import type { UIDesignSystem, FigmaComponentEntry, ComponentLayoutCSS } from "@/ui-mode/types";
 import { DEFAULT_UI_DESIGN_SYSTEM } from "@/ui-mode/defaultDesignSystem";
 import { parseFigmaFileKey, parseFigmaNodeId } from "@/lib/figmaUrl";
 
@@ -30,6 +30,27 @@ export interface FigmaNodeDoc {
   };
   characters?: string;
   absoluteBoundingBox?: { x: number; y: number; width: number; height: number };
+  layoutMode?: 'HORIZONTAL' | 'VERTICAL' | 'NONE';
+  itemSpacing?: number;
+  paddingLeft?: number;
+  paddingRight?: number;
+  paddingTop?: number;
+  paddingBottom?: number;
+  primaryAxisAlignItems?: 'MIN' | 'MAX' | 'CENTER' | 'SPACE_BETWEEN';
+  counterAxisAlignItems?: 'MIN' | 'MAX' | 'CENTER' | 'BASELINE';
+  layoutSizingHorizontal?: 'FILL' | 'HUG' | 'FIXED';
+  layoutSizingVertical?: 'FILL' | 'HUG' | 'FIXED';
+  componentPropertyDefinitions?: Record<string, {
+    type: 'VARIANT' | 'TEXT' | 'BOOLEAN' | 'INSTANCE_SWAP';
+    variantOptions?: string[];
+    defaultValue?: string | boolean;
+  }>;
+  // INSTANCE-specific fields
+  componentId?: string;
+  componentProperties?: Record<string, {
+    type: 'VARIANT' | 'TEXT' | 'BOOLEAN' | 'INSTANCE_SWAP';
+    value: string | boolean;
+  }>;
 }
 
 interface FigmaPaint {
@@ -177,6 +198,164 @@ export function collectComponentNamesFromNode(node: FigmaNodeDoc | null | undefi
   }
   walk(node);
   return Array.from(seen).slice(0, 40);
+}
+
+/**
+ * Walk the Figma node tree and collect COMPONENT and COMPONENT_SET nodes
+ * as FigmaComponentEntry records. aphantasiaType is a generic lowercased
+ * baseName — the Rebtel registry layer remaps these to real component types.
+ */
+export function collectComponentRegistry(
+  root: FigmaNodeDoc | null | undefined
+): FigmaComponentEntry[] {
+  const entries: FigmaComponentEntry[] = [];
+  const seen = new Set<string>();
+  const MAX_ENTRIES = 60;
+
+  function walk(n: FigmaNodeDoc): void {
+    if (!n || entries.length >= MAX_ENTRIES) return;
+
+    if (n.type === 'COMPONENT_SET' && n.id && n.name) {
+      if (!seen.has(n.id)) {
+        seen.add(n.id);
+        const variantMap: Record<string, string[]> = {};
+        let defaultVariant: string | undefined;
+
+        if (n.componentPropertyDefinitions) {
+          for (const [propName, propDef] of Object.entries(n.componentPropertyDefinitions)) {
+            if (propDef.type === 'VARIANT' && propDef.variantOptions) {
+              variantMap[propName] = propDef.variantOptions;
+              if (!defaultVariant && propDef.defaultValue) {
+                defaultVariant = String(propDef.defaultValue);
+              }
+            }
+          }
+        }
+
+        entries.push({
+          figmaId: n.id,
+          figmaName: n.name,
+          baseName: n.name.split('/')[0].trim(),
+          aphantasiaType: n.name.split('/')[0].trim().toLowerCase().replace(/\s+/g, '-'),
+          hasVariants: Object.keys(variantMap).length > 0,
+          variantMap: Object.keys(variantMap).length > 0 ? variantMap : undefined,
+          defaultVariant,
+          thumbnail: null,
+        });
+      }
+    } else if (n.type === 'COMPONENT' && n.id && n.name) {
+      if (!seen.has(n.id)) {
+        seen.add(n.id);
+        entries.push({
+          figmaId: n.id,
+          figmaName: n.name,
+          baseName: n.name.split('/')[0].trim(),
+          aphantasiaType: n.name.split('/')[0].trim().toLowerCase().replace(/\s+/g, '-'),
+          hasVariants: false,
+          thumbnail: null,
+        });
+      }
+    } else if (n.type === 'INSTANCE' && n.name && n.componentId) {
+      // INSTANCE nodes reference a component defined elsewhere.
+      // Deduplicate by componentId so each source component appears once.
+      if (!seen.has(n.componentId)) {
+        seen.add(n.componentId);
+
+        // Extract variant properties from componentProperties
+        const variantMap: Record<string, string[]> = {};
+        let defaultVariant: string | undefined;
+        if (n.componentProperties) {
+          for (const [rawProp, propDef] of Object.entries(n.componentProperties)) {
+            if (propDef.type === 'VARIANT' && typeof propDef.value === 'string') {
+              // Property names may have a #nodeId suffix — strip it
+              const propName = rawProp.replace(/#[\d:]+$/, '');
+              if (!variantMap[propName]) {
+                variantMap[propName] = [];
+              }
+              if (!variantMap[propName].includes(propDef.value)) {
+                variantMap[propName].push(propDef.value);
+              }
+              if (!defaultVariant) defaultVariant = propDef.value;
+            }
+          }
+        }
+
+        entries.push({
+          figmaId: n.componentId,
+          figmaName: n.name,
+          baseName: n.name.split('/')[0].trim(),
+          aphantasiaType: n.name.split('/')[0].trim().toLowerCase().replace(/\s+/g, '-'),
+          hasVariants: Object.keys(variantMap).length > 0,
+          variantMap: Object.keys(variantMap).length > 0 ? variantMap : undefined,
+          defaultVariant,
+          thumbnail: null,
+        });
+      }
+    }
+
+    if (Array.isArray(n.children)) {
+      for (const c of n.children) walk(c);
+    }
+  }
+
+  if (root) walk(root);
+  return entries;
+}
+
+/**
+ * Walk the Figma node tree and extract auto-layout CSS for each
+ * COMPONENT or FRAME node that has layoutMode set.
+ * Returns a map of figmaId → ComponentLayoutCSS.
+ */
+export function collectComponentLayouts(
+  root: FigmaNodeDoc | null | undefined
+): Record<string, ComponentLayoutCSS> {
+  const layouts: Record<string, ComponentLayoutCSS> = {};
+
+  function walk(n: FigmaNodeDoc): void {
+    if (!n) return;
+
+    const isContainer =
+      n.type === 'FRAME' ||
+      n.type === 'COMPONENT' ||
+      n.type === 'COMPONENT_SET' ||
+      n.type === 'INSTANCE';
+
+    if (isContainer && n.id && n.layoutMode && n.layoutMode !== 'NONE') {
+      const css: ComponentLayoutCSS = { display: 'flex' };
+
+      css.flexDirection = n.layoutMode === 'HORIZONTAL' ? 'row' : 'column';
+      if (n.itemSpacing != null && n.itemSpacing > 0) css.gap = `${n.itemSpacing}px`;
+      if (n.paddingTop) css.paddingTop = `${n.paddingTop}px`;
+      if (n.paddingRight) css.paddingRight = `${n.paddingRight}px`;
+      if (n.paddingBottom) css.paddingBottom = `${n.paddingBottom}px`;
+      if (n.paddingLeft) css.paddingLeft = `${n.paddingLeft}px`;
+
+      const primary = n.primaryAxisAlignItems;
+      css.justifyContent =
+        primary === 'CENTER' ? 'center' :
+        primary === 'MAX' ? 'flex-end' :
+        primary === 'SPACE_BETWEEN' ? 'space-between' : 'flex-start';
+
+      const counter = n.counterAxisAlignItems;
+      css.alignItems =
+        counter === 'CENTER' ? 'center' :
+        counter === 'MAX' ? 'flex-end' :
+        counter === 'BASELINE' ? 'baseline' : 'flex-start';
+
+      if (n.layoutSizingHorizontal === 'FILL') css.width = '100%';
+      else if (n.layoutSizingHorizontal === 'HUG') css.minWidth = 'fit-content';
+
+      layouts[n.id] = css;
+    }
+
+    if (Array.isArray(n.children)) {
+      for (const c of n.children) walk(c);
+    }
+  }
+
+  if (root) walk(root);
+  return layouts;
 }
 
 // ── Node tree extraction ────────────────────────────────────

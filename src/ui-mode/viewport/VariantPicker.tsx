@@ -12,8 +12,9 @@
 // Positioned using the iframe's screen rect + component bounds.
 // ============================================================
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
+import type { FigmaComponentEntry } from "../types";
 
 interface VariantPickerProps {
   shapeId: string;
@@ -27,6 +28,7 @@ interface VariantPickerProps {
   onVariantChange: (shapeId: string, variant: string) => void;
   onDarkModeToggle: (shapeId: string, darkMode: boolean) => void;
   onDismiss: () => void;
+  figmaEntry?: FigmaComponentEntry | null;
 }
 
 /** Available variants per component type */
@@ -71,6 +73,7 @@ export function VariantPicker({
   onVariantChange,
   onDarkModeToggle,
   onDismiss,
+  figmaEntry,
 }: VariantPickerProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -109,7 +112,19 @@ export function VariantPicker({
     };
   }, [onDismiss]);
 
-  const variants = VARIANT_OPTIONS[componentType] ?? [];
+  const variants = useMemo(() => {
+    if (figmaEntry?.variantMap) {
+      const dimensions = Object.entries(figmaEntry.variantMap);
+      if (dimensions.length === 1) {
+        return dimensions[0][1]; // Single dimension: show values directly
+      }
+      // Multiple dimensions: flat "Prop: Value" list
+      return dimensions.flatMap(([prop, values]) =>
+        values.map(v => `${prop}: ${v}`)
+      );
+    }
+    return VARIANT_OPTIONS[componentType] ?? [];
+  }, [figmaEntry, componentType]);
 
   const handleVariant = useCallback(
     (variant: string) => onVariantChange(shapeId, variant),

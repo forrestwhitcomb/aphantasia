@@ -4,6 +4,8 @@ import {
   parseFigmaNodeId,
   mapFigmaToDesignSystem,
   collectComponentNamesFromNode,
+  collectComponentRegistry,
+  collectComponentLayouts,
   type FigmaStylesResponse,
   type FigmaVariablesResponse,
   type FigmaFileResponse,
@@ -96,17 +98,22 @@ export async function POST(request: NextRequest) {
     let frameName: string | undefined;
     let thumbnailUrl: string | undefined;
     let componentHints: string[] = [];
+    let componentRegistry: import("@/ui-mode/types").FigmaComponentEntry[] = [];
+    let componentLayouts: Record<string, import("@/ui-mode/types").ComponentLayoutCSS> = {};
 
     if (nodeId) {
+      // Specific node selected — fetch its full subtree + thumbnail
       const encodedId = encodeURIComponent(nodeId);
       const [nodesRes, imagesRes] = await Promise.all([
         fetchFigma(
-          `${FIGMA_API}/files/${fileKey}/nodes?ids=${encodedId}&geometry=paths&plugin_data=shared`,
-          headers
+          `${FIGMA_API}/files/${fileKey}/nodes?ids=${encodedId}&plugin_data=shared`,
+          headers,
+          45000
         ),
         fetchFigma(
           `${FIGMA_API}/images/${fileKey}?ids=${encodedId}&format=png&scale=2`,
-          headers
+          headers,
+          45000
         ),
       ]);
 
@@ -118,6 +125,8 @@ export async function POST(request: NextRequest) {
           nodeDocument = doc;
           frameName = doc.name;
           componentHints = collectComponentNamesFromNode(doc);
+          componentRegistry = collectComponentRegistry(doc);
+          componentLayouts = collectComponentLayouts(doc);
         }
       }
 
@@ -125,6 +134,22 @@ export async function POST(request: NextRequest) {
         const imgData = (await imagesRes.json()) as FigmaImagesResponse;
         const u = imgData.images?.[nodeId];
         if (typeof u === "string" && u) thumbnailUrl = u;
+      }
+    } else {
+      // No node-id — fetch the full file tree to discover components
+      const deepFileRes = await fetchFigma(
+        `${FIGMA_API}/files/${fileKey}`,
+        headers,
+        45000
+      );
+      if (deepFileRes.ok) {
+        const deepFileData = (await deepFileRes.json()) as FigmaFileResponse;
+        const doc = deepFileData.document as FigmaNodeDoc | undefined;
+        if (doc) {
+          componentHints = collectComponentNamesFromNode(doc);
+          componentRegistry = collectComponentRegistry(doc);
+          componentLayouts = collectComponentLayouts(doc);
+        }
       }
     }
 
@@ -146,22 +171,33 @@ export async function POST(request: NextRequest) {
       nodeName: frameName ?? null,
       thumbnailUrl: thumbnailUrl ?? null,
       componentHints,
+      componentRegistry,
+      componentLayouts,
     });
   } catch (error) {
     console.error("[ui-extract-figma] Error:", error);
+    const isTimeout =
+      error instanceof DOMException && error.name === "TimeoutError";
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Extraction failed" },
-      { status: 500 }
+      {
+        error: isTimeout
+          ? "The operation was aborted due to timeout. The Figma file may be too large — try a URL with a specific node-id (e.g. ?node-id=123:456)."
+          : error instanceof Error
+            ? error.message
+            : "Extraction failed",
+      },
+      { status: isTimeout ? 504 : 500 }
     );
   }
 }
 
 async function fetchFigma(
   url: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  timeoutMs = 30000
 ): Promise<Response> {
   return fetch(url, {
     headers,
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 }

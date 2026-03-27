@@ -11,6 +11,8 @@
 import { useState, useEffect, useRef } from "react";
 import { canvasEngine } from "@/engine";
 import type { AllRebtelComponentType } from "../types";
+import { rebtelDesignStore } from "../store/RebtelDesignStore";
+import type { FigmaComponentEntry } from "@/ui-mode/types";
 
 interface RebtelComponentEntry {
   type: AllRebtelComponentType;
@@ -112,6 +114,15 @@ interface RebtelComponentPickerProps {
 export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPickerProps) {
   const [activeCategory, setActiveCategory] = useState(0);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const [figmaComponents, setFigmaComponents] = useState<FigmaComponentEntry[]>([]);
+
+  useEffect(() => {
+    const unsub = rebtelDesignStore.subscribe(() => {
+      setFigmaComponents(rebtelDesignStore.getRegistry());
+    });
+    setFigmaComponents(rebtelDesignStore.getRegistry());
+    return unsub;
+  }, []);
 
   // Dismiss on click outside
   useEffect(() => {
@@ -227,6 +238,68 @@ export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPicker
 
       {/* Component grid */}
       <div style={{ padding: 8, overflowY: "auto", flex: 1 }}>
+        {figmaComponents.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 4px 6px" }}>
+              From Figma
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6 }}>
+              {figmaComponents.map(entry => (
+                <button
+                  key={entry.figmaId}
+                  onClick={() => {
+                    const doc = canvasEngine.getDocument();
+                    const frameW = doc.frame.width;
+                    const x = (frameW - 353) / 2;
+                    const y = doc.frame.height * 0.3;
+                    canvasEngine.createShape({
+                      type: "rectangle",
+                      x,
+                      y,
+                      width: 353,
+                      height: 160,
+                      label: entry.baseName,
+                      isInsideFrame: true,
+                    });
+                    onClose();
+                  }}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 3,
+                    padding: "10px 6px",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    transition: "background 0.1s, border-color 0.1s",
+                  }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget;
+                    el.style.background = "rgba(230,57,70,0.15)";
+                    el.style.borderColor = "rgba(230,57,70,0.3)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget;
+                    el.style.background = "rgba(255,255,255,0.05)";
+                    el.style.borderColor = "rgba(255,255,255,0.08)";
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>
+                    {entry.baseName}
+                    {entry.hasVariants && (
+                      <span style={{ opacity: 0.5, fontSize: "0.8em", marginLeft: 4 }}>
+                        {Object.keys(entry.variantMap ?? {}).length}v
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div
           style={{
             display: "grid",

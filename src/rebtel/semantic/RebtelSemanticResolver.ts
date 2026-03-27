@@ -2,8 +2,11 @@
 // APHANTASIA for REBTEL — Semantic Resolver
 // ============================================================
 // Wraps the base UISemanticResolver with Rebtel-specific label
-// rules. Rebtel rules run FIRST (highest priority), then the
-// generic resolver handles remaining shapes.
+// rules. Resolution order:
+//   1. Manual override (meta.uiComponentType)
+//   2. Figma registry lookup by shape label
+//   3. Label regex rules
+//   4. Base UI resolver fallback
 // ============================================================
 
 import type { CanvasShape } from "@/engine/CanvasEngine";
@@ -11,35 +14,49 @@ import type { UIResolvedComponent } from "@/ui-mode/types";
 import { resolveUIComponents } from "@/ui-mode/semantic/UISemanticResolver";
 import { resolveRebtelLabel } from "./rebtelRules";
 import { isAllRebtelType } from "../types";
+import { lookupByName } from "../figmaRegistry";
+import { rebtelDesignStore } from "../store/RebtelDesignStore";
 
-/**
- * Resolve canvas shapes into Rebtel components.
- * 1. Check shape.meta.uiComponentType for manual overrides
- * 2. Try Rebtel domain-specific label rules
- * 3. Fall back to generic UI semantic resolver
- */
 export function resolveRebtelComponents(
   shapes: CanvasShape[],
   frameWidth: number,
   frameHeight: number
 ): UIResolvedComponent[] {
-  // First pass: resolve all shapes using the base resolver
   const resolved = resolveUIComponents(shapes, frameWidth, frameHeight);
+  const registry = rebtelDesignStore.getRegistry();
 
-  // Second pass: apply Rebtel label rules on top
-  // Only override if:
-  //   - The shape has a label that matches a Rebtel domain rule
-  //   - The shape wasn't manually tagged (meta.uiComponentType)
   for (const comp of resolved) {
-    // Skip manually tagged components
     const shape = shapes.find(s => s.id === comp.shapeId);
+
+    // 1. Manual override via meta.uiComponentType
+    //    This is how applyFlowToCanvas() sets components — always honoured.
     if (shape?.meta?.uiComponentType && isAllRebtelType(shape.meta.uiComponentType as string)) {
-      // Manual override — use it directly
       comp.type = shape.meta.uiComponentType as any;
+      // Attach registry entry if a figmaComponentId is also in meta
+      if (shape.meta?.figmaComponentId && registry.length > 0) {
+        const entry = registry.find(e => e.figmaId === shape.meta!.figmaComponentId);
+        if (entry && !(shape.meta as any).figmaComponentEntry) {
+          (shape.meta as any).figmaComponentEntry = entry;
+        }
+      }
       continue;
     }
 
-    // Try Rebtel label rules
+    // 2. Figma registry lookup by shape label
+    //    Catches drawn shapes whose label matches a real Figma component name.
+    if (registry.length > 0 && comp.label) {
+      const entry = lookupByName(registry, comp.label);
+      if (entry && isAllRebtelType(entry.aphantasiaType)) {
+        comp.type = entry.aphantasiaType as any;
+        if (shape?.meta) {
+          (shape.meta as any).figmaComponentId = entry.figmaId;
+          (shape.meta as any).figmaComponentEntry = entry;
+        }
+        continue;
+      }
+    }
+
+    // 3. Label regex rules (existing behaviour)
     if (comp.label) {
       const rebtelType = resolveRebtelLabel(comp.label);
       if (rebtelType) {

@@ -92,10 +92,45 @@ export interface UIDesignSystem {
     tabBar: { height: string; iconSize: string };
   };
 
+  // ── Figma Component Registry (optional — populated by live Figma extraction) ──
+  componentRegistry?: FigmaComponentEntry[];
+
+  // ── Component Layout Map (optional — keyed by figmaComponentId) ──
+  componentLayouts?: Record<string, ComponentLayoutCSS>;
+
   // ── Meta ──
   name: string;
   extractedFrom?: string; // base64 thumbnail of original reference
   confidence: number; // 0–1, how confident the extraction was
+}
+
+export interface FigmaComponentEntry {
+  figmaId: string;          // Figma node ID (e.g. "123:456")
+  figmaName: string;        // Full name (e.g. "Button/Primary/Large")
+  baseName: string;         // Top-level segment (e.g. "Button")
+  aphantasiaType: string;   // Rebtel component type (e.g. "topUpCard")
+  hasVariants: boolean;
+  variantMap?: FigmaVariantMap;
+  defaultVariant?: string;
+  thumbnail?: string | null; // Reserved for Phase 4, leave null
+}
+
+export interface FigmaVariantMap {
+  [propertyName: string]: string[];
+}
+
+export interface ComponentLayoutCSS {
+  display: 'flex' | 'block';
+  flexDirection?: 'row' | 'column';
+  gap?: string;
+  paddingTop?: string;
+  paddingRight?: string;
+  paddingBottom?: string;
+  paddingLeft?: string;
+  alignItems?: string;
+  justifyContent?: string;
+  width?: string;
+  minWidth?: string;
 }
 
 // ── Component Types ─────────────────────────────────────────

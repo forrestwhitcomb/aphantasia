@@ -101,14 +101,37 @@ export function rebtelRenderLayer1(
     }
   }
 
+  // Build auto-layout CSS from Figma data
+  const layoutMap = rebtelDesignStore.getLayoutMap();
+  const layoutCSS = Object.entries(layoutMap).length > 0
+    ? Object.entries(layoutMap)
+        .map(([figmaId, layout]) => {
+          const props: string[] = [`display:${layout.display}`];
+          if (layout.flexDirection) props.push(`flex-direction:${layout.flexDirection}`);
+          if (layout.gap) props.push(`gap:${layout.gap}`);
+          if (layout.paddingTop) props.push(`padding-top:${layout.paddingTop}`);
+          if (layout.paddingRight) props.push(`padding-right:${layout.paddingRight}`);
+          if (layout.paddingBottom) props.push(`padding-bottom:${layout.paddingBottom}`);
+          if (layout.paddingLeft) props.push(`padding-left:${layout.paddingLeft}`);
+          if (layout.alignItems) props.push(`align-items:${layout.alignItems}`);
+          if (layout.justifyContent) props.push(`justify-content:${layout.justifyContent}`);
+          if (layout.width) props.push(`width:${layout.width}`);
+          if (layout.minWidth) props.push(`min-width:${layout.minWidth}`);
+          return `[data-figma-id="${figmaId}"]{${props.join(';')}}`;
+        })
+        .join('\n')
+    : '';
+
   let html = renderLayer1(
     components,
     REBTEL_DESIGN_SYSTEM,
-    layer2Overrides,
+    undefined,   // layer2Overrides not used in Rebtel
     frameHeight,
     {
       dispatcher: renderRebtelComponent,
-      extraCSS: REBTEL_COMPONENT_CSS + "\n" + REBTEL_EXTRA_CSS,
+      extraCSS: [REBTEL_COMPONENT_CSS, REBTEL_EXTRA_CSS, layoutCSS]
+        .filter(Boolean)
+        .join('\n'),
     }
   );
 
@@ -128,6 +151,22 @@ export function rebtelRenderLayer1(
         marker,
         `${marker} data-navigate-to="${targetScreenId}"`
       );
+    }
+  }
+
+  // Inject data-figma-id on components that have a figmaComponentId in meta
+  if (shapes) {
+    for (const shape of shapes) {
+      const figmaId = (shape.meta as any)?.figmaComponentId;
+      if (figmaId) {
+        const marker = `data-shape-id="${shape.id}"`;
+        if (html.includes(marker)) {
+          html = html.replace(
+            marker,
+            `${marker} data-figma-id="${figmaId}"`
+          );
+        }
+      }
     }
   }
 

@@ -16,6 +16,7 @@ import {
   extractFigmaUrl,
   buildFigmaDesignUrl,
 } from "@/lib/figmaUrl";
+import { rebtelDesignStore } from "@/rebtel/store/RebtelDesignStore";
 
 type TabId = "screenshot" | "website" | "figma";
 
@@ -173,6 +174,13 @@ export function ReferencePanel() {
 
       uiDesignStoreV2.clearOverrides();
       uiDesignStoreV2.setSourceLayer("figma", designSystem);
+
+      if (data.componentRegistry && data.componentLayouts) {
+        rebtelDesignStore.setFigmaData(
+          data.componentRegistry,
+          data.componentLayouts
+        );
+      }
 
       const fk = parseFigmaFileKey(figmaUrl.trim()) || "";
       const meta: FigmaReferenceMeta = {
