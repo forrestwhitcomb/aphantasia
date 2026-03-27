@@ -105,12 +105,38 @@ export const TOKEN_MAP: Record<string, string> = {
   "color.grey-50": "var(--rebtel-grey-50)",
   "color.grey-0": "var(--rebtel-grey-0)",
 
-  // Shadows
-  "shadow.sm": "0 1px 2px rgba(0,0,0,0.05)",
-  "shadow.card": "0 2px 8px rgba(0,0,0,0.06)",
-  "shadow.md": "0 4px 12px rgba(0,0,0,0.08)",
-  "shadow.lg": "0 8px 24px rgba(0,0,0,0.12)",
-  "shadow.button": "0 1px 3px rgba(0,0,0,0.08)",
+  // Figma 3.0 Surface Tokens (Mapped)
+  "color.surface-canvas": "var(--rebtel-surface-canvas)",
+  "color.surface-default": "var(--rebtel-surface-default)",
+  "color.surface-raised": "var(--rebtel-surface-raised)",
+  "color.surface-overlay": "var(--rebtel-surface-overlay)",
+  "color.surface-sheet": "var(--rebtel-surface-sheet)",
+  "color.surface-calling": "var(--rebtel-surface-calling)",
+  "color.surface-mtu": "var(--rebtel-surface-mtu)",
+
+  // Figma 3.0 Content Tokens (Mapped)
+  "color.content-primary": "var(--rebtel-content-primary)",
+  "color.content-secondary": "var(--rebtel-content-secondary)",
+  "color.content-tertiary": "var(--rebtel-content-tertiary)",
+  "color.content-disabled": "var(--rebtel-content-disabled)",
+  "color.content-inverse": "var(--rebtel-content-inverse)",
+  "color.content-brand": "var(--rebtel-content-brand)",
+  "color.content-success": "var(--rebtel-content-success)",
+
+  // Figma 3.0 Button Tokens (Component)
+  "color.button-primary-bg": "var(--rebtel-button-primary-bg)",
+  "color.button-primary-text": "var(--rebtel-button-primary-text)",
+  "color.button-secondary-black-bg": "var(--rebtel-button-secondary-black-bg)",
+  "color.button-secondary-black-text": "var(--rebtel-button-secondary-black-text)",
+  "color.button-outlined-border": "var(--rebtel-button-outlined-border)",
+  "color.button-outlined-text": "var(--rebtel-button-outlined-text)",
+
+  // Shadows (Figma 3.0 audited)
+  "shadow.sm": "0 1px 2px rgba(50,50,93,0.04)",
+  "shadow.card": "4px 5px 10px 2px rgba(0,0,0,0.02)",
+  "shadow.md": "0 4px 12px rgba(50,50,93,0.06)",
+  "shadow.lg": "0 8px 24px rgba(50,50,93,0.08)",
+  "shadow.button": "0 1px 3px rgba(50,50,93,0.06)",
 };
 
 // ── Text Style Map ───────────────────────────────────────────

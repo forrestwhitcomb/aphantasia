@@ -1,31 +1,40 @@
 "use client";
 
 // ============================================================
-// APHANTASIA for REBTEL — Viewport Pane
+// APHANTASIA for REBTEL — Viewport Pane (React Render Tree)
 // ============================================================
-// Renders Rebtel components in a phone-frame viewport.
-// Wired to the RebtelDesignStore instead of UIDesignStoreV2.
-// Uses the Rebtel render engine wrapper for component dispatch.
+// Renders Rebtel components directly as React elements inside
+// a phone-frame viewport. Replaces the iframe + srcDoc pipeline
+// with SpecRenderer for direct DOM rendering.
 // ============================================================
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { canvasEngine } from "@/engine";
 import {
   MOBILE_FRAME_WIDTH,
   MOBILE_FRAME_HEIGHT,
   getCustomEngine,
 } from "@/engine/engines/CustomCanvasEngine";
-import { resolveRebtelComponents } from "../semantic/RebtelSemanticResolver";
-import type { UIResolvedComponent, UILayer2Override, UIUserOverride } from "@/ui-mode/types";
+import type { ComponentSpec } from "../spec/types";
+import { drawnShapeToPrimitive } from "../spec/inference";
+import { resolveTemplate } from "../templates";
+import { editText } from "../spec/operations";
+import { renderSpec } from "../spec/render";
+import { REBTEL_EXTRA_CSS, REBTEL_VIEWPORT_CSS } from "../designSystem";
 import { PhoneChrome } from "@/ui-mode/viewport/PhoneChrome";
 import { VariantPicker } from "@/ui-mode/viewport/VariantPicker";
 import { CopyToFigmaButton } from "@/ui-mode/viewport/CopyToFigmaButton";
-import { rebtelRenderLayer1 } from "../render/rebtelRenderEngine";
-import { useRebtelInteractionHandler } from "./RebtelInteractionHandler";
 import { ScreenNavigator } from "./ScreenNavigator";
+import { SpecRenderer } from "./SpecRenderer";
 import { rebtelDesignStore } from "../store/RebtelDesignStore";
 
-type RenderPhase = "idle" | "layer1" | "layer2" | "complete";
+interface ShapeSpec {
+  spec: ComponentSpec;
+  primitive: string;
+  template: string;
+  shapeId: string;
+  y: number;
+}
 
 interface ComponentSelection {
   shapeId: string;
@@ -36,14 +45,11 @@ interface ComponentSelection {
 
 export function RebtelViewportPane() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [srcDoc, setSrcDoc] = useState<string>("");
+  const viewportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [phase, setPhase] = useState<RenderPhase>("idle");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const resolvedRef = useRef<UIResolvedComponent[]>([]);
-  const l2OverridesRef = useRef<UILayer2Override[]>([]);
-  const userOverridesRef = useRef<Map<string, UIUserOverride>>(new Map());
+  const [shapeSpecs, setShapeSpecs] = useState<ShapeSpec[]>([]);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedComponent, setSelectedComponent] = useState<ComponentSelection | null>(null);
   const [viewportMode, setViewportMode] = useState<"design" | "preview">("design");
   const [screens, setScreens] = useState(rebtelDesignStore.getScreens());
@@ -58,38 +64,8 @@ export function RebtelViewportPane() {
     return unsub;
   }, []);
 
-  // Send mode to iframe — triggered by mode change, iframe ready signal, or iframe load
-  const sendModeToIframe = useCallback(() => {
-    iframeRef.current?.contentWindow?.postMessage(
-      { type: "rebtel:set-mode", mode: viewportMode },
-      "*"
-    );
-  }, [viewportMode]);
-
-  // When mode changes, send immediately (iframe may already be loaded)
-  useEffect(() => {
-    sendModeToIframe();
-  }, [sendModeToIframe]);
-
-  // Listen for iframe "ready" signal (most reliable — fires after iframe scripts execute)
-  useEffect(() => {
-    const handleReady = (e: MessageEvent) => {
-      if (e.data?.type === "rebtel:iframe-ready") {
-        sendModeToIframe();
-      }
-    };
-    window.addEventListener("message", handleReady);
-    return () => window.removeEventListener("message", handleReady);
-  }, [sendModeToIframe]);
-
-  // Fallback: also send on iframe load event
-  const handleIframeLoad = useCallback(() => {
-    // Small delay to ensure scripts have executed
-    setTimeout(sendModeToIframe, 50);
-  }, [sendModeToIframe]);
-
   // Scale to fit pane height
-  const BUTTON_AREA_HEIGHT = 90; // extra room for copy-to-figma + mode toggle + screen nav
+  const BUTTON_AREA_HEIGHT = 90;
   useEffect(() => {
     if (!containerRef.current) return;
     const obs = new ResizeObserver(([entry]) => {
@@ -100,44 +76,58 @@ export function RebtelViewportPane() {
     return () => obs.disconnect();
   }, []);
 
-  // postMessage listener for iframe interaction
-  useEffect(() => {
-    const handleMessage = (e: MessageEvent) => {
-      if (!e.data?.type?.startsWith("aphantasia:")) return;
+  // Build specs from canvas shapes
+  const buildSpecs = useCallback(() => {
+    const doc = canvasEngine.getDocument();
+    const fw = doc.frame.width;
+    const fh = doc.frame.height;
+    const specs: ShapeSpec[] = [];
 
-      switch (e.data.type) {
-        case "aphantasia:text-edit": {
-          const { shapeId, newText } = e.data;
-          if (!shapeId || !newText) return;
-          const existing: UIUserOverride = userOverridesRef.current.get(shapeId) ?? { shapeId };
-          existing.textOverride = newText;
-          userOverridesRef.current.set(shapeId, existing);
-          break;
-        }
-        case "aphantasia:component-select": {
-          const { shapeId, componentType, currentVariant, bounds } = e.data;
-          if (!shapeId) return;
-          setSelectedComponent({ shapeId, componentType, currentVariant, bounds });
-          iframeRef.current?.contentWindow?.postMessage(
-            { type: "aphantasia:highlight", shapeId },
-            "*"
-          );
-          break;
-        }
+    for (const shape of doc.shapes) {
+      // If shape already has a stored spec, use it
+      if (shape.spec) {
+        specs.push({
+          spec: shape.spec as ComponentSpec,
+          primitive: (shape.primitive as string) ?? "card",
+          template: (shape.template as string) ?? "blank",
+          shapeId: shape.id,
+          y: shape.y,
+        });
+        continue;
       }
-    };
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+
+      // Infer from geometry/label
+      const inferred = drawnShapeToPrimitive(shape, fw, fh);
+      if (inferred) {
+        const spec = resolveTemplate(inferred.primitive, inferred.template);
+        // Persist spec to shape so it survives re-renders
+        canvasEngine.updateShape(shape.id, {
+          spec: spec as unknown,
+          primitive: inferred.primitive,
+          template: inferred.template,
+        } as any);
+        specs.push({
+          spec,
+          primitive: inferred.primitive,
+          template: inferred.template,
+          shapeId: shape.id,
+          y: shape.y,
+        });
+      }
+    }
+
+    // Sort by y-position (top to bottom)
+    specs.sort((a, b) => a.y - b.y);
+    setShapeSpecs(specs);
   }, []);
 
-  // Subscribe to canvas changes — Layer 1 render
+  // Subscribe to canvas changes
   useEffect(() => {
-    doLayer1();
+    buildSpecs();
 
     const handleChange = () => {
-      l2OverridesRef.current = [];
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(doLayer1, 200);
+      debounceRef.current = setTimeout(buildSpecs, 200);
     };
 
     canvasEngine.on("canvas:changed", handleChange);
@@ -149,37 +139,7 @@ export function RebtelViewportPane() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Layer 1: synchronous render
-  const doLayer1 = useCallback(() => {
-    const doc = canvasEngine.getDocument();
-    const fw = doc.frame.width;
-    const fh = doc.frame.height;
-
-    const resolved = resolveRebtelComponents(doc.shapes, fw, fh);
-    resolvedRef.current = resolved;
-
-    // Apply user overrides
-    for (const comp of resolved) {
-      const userOv = userOverridesRef.current.get(comp.shapeId);
-      if (userOv) {
-        if (userOv.textOverride !== undefined) comp.label = userOv.textOverride;
-        if (userOv.variantOverride !== undefined) comp.variant = userOv.variantOverride;
-        if (userOv.darkMode) comp._userDarkMode = true;
-      }
-    }
-
-    // Pass shapes so the render engine can wire up data-navigate-to
-    const html = rebtelRenderLayer1(
-      resolved,
-      l2OverridesRef.current.length > 0 ? l2OverridesRef.current : undefined,
-      fh,
-      doc.shapes
-    );
-    setSrcDoc(html);
-    setPhase("layer1");
-  }, []);
-
-  // Screen navigation callback (after doLayer1 so it can reference it)
+  // Screen navigation
   const handleScreenNavigate = useCallback((screenId: string) => {
     rebtelDesignStore.setActiveScreen(screenId);
     const screen = rebtelDesignStore.getScreens().find(s => s.screenId === screenId);
@@ -190,50 +150,87 @@ export function RebtelViewportPane() {
         // Frame may not exist yet
       }
     }
-    // Trigger re-render of viewport content
-    doLayer1();
-  }, [doLayer1]);
+    buildSpecs();
+  }, [buildSpecs]);
 
-  // Wire up rebtel:* postMessage handler
-  useRebtelInteractionHandler(handleScreenNavigate);
+  // Component selection in design mode
+  const handleSelect = useCallback((key: string, spec: ComponentSpec) => {
+    setSelectedKey(key);
+
+    // Find the shape that owns this spec to populate variant picker
+    const ownerShape = shapeSpecs.find(ss =>
+      ss.spec.key === key || ss.spec === spec
+    );
+    if (ownerShape) {
+      setSelectedComponent({
+        shapeId: ownerShape.shapeId,
+        componentType: ownerShape.primitive,
+        currentVariant: ownerShape.template,
+        bounds: {
+          x: 0,
+          y: ownerShape.y,
+          width: MOBILE_FRAME_WIDTH,
+          height: 100,
+        },
+      });
+    }
+  }, [shapeSpecs]);
+
+  // Text editing in design mode
+  const handleTextChange = useCallback((key: string, newText: string) => {
+    // Find the shape that owns this spec and mutate it
+    for (const ss of shapeSpecs) {
+      if (editText(ss.spec, key, newText)) {
+        // Persist the updated spec back to the canvas shape
+        canvasEngine.updateShape(ss.shapeId, {
+          spec: ss.spec as unknown,
+        } as any);
+        break;
+      }
+    }
+  }, [shapeSpecs]);
 
   // Variant picker callbacks
   const handleVariantChange = useCallback((shapeId: string, variant: string) => {
-    const existing: UIUserOverride = userOverridesRef.current.get(shapeId) ?? { shapeId };
-    existing.variantOverride = variant;
-    userOverridesRef.current.set(shapeId, existing);
-    setSelectedComponent(null);
-    iframeRef.current?.contentWindow?.postMessage(
-      { type: "aphantasia:highlight", shapeId: null },
-      "*"
-    );
-    doLayer1();
-  }, [doLayer1]);
-
-  const handleDarkModeToggle = useCallback((shapeId: string, darkMode: boolean) => {
-    const existing: UIUserOverride = userOverridesRef.current.get(shapeId) ?? { shapeId };
-    existing.darkMode = darkMode;
-    userOverridesRef.current.set(shapeId, existing);
-    doLayer1();
-  }, [doLayer1]);
-
-  const handlePickerDismiss = useCallback(() => {
-    if (selectedComponent) {
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: "aphantasia:highlight", shapeId: null },
-        "*"
-      );
+    // Re-resolve the template with the new variant
+    const ss = shapeSpecs.find(s => s.shapeId === shapeId);
+    if (ss) {
+      const newSpec = resolveTemplate(ss.primitive, variant);
+      canvasEngine.updateShape(shapeId, {
+        spec: newSpec as unknown,
+        template: variant,
+      } as any);
     }
     setSelectedComponent(null);
-  }, [selectedComponent]);
+    setSelectedKey(null);
+    buildSpecs();
+  }, [shapeSpecs, buildSpecs]);
 
-  // Get current screen HTML for Copy to Figma
+  const handleDarkModeToggle = useCallback((_shapeId: string, _darkMode: boolean) => {
+    // Dark mode toggle — future enhancement
+  }, []);
+
+  const handlePickerDismiss = useCallback(() => {
+    setSelectedComponent(null);
+    setSelectedKey(null);
+  }, []);
+
+  // Generate HTML for CopyToFigma
   const getCurrentScreenSrcDoc = useCallback((): string => {
-    return srcDoc;
-  }, [srcDoc]);
+    if (shapeSpecs.length === 0) return "";
+    const bodyHtml = shapeSpecs.map(ss => renderSpec(ss.spec)).join("\n");
+    return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>${REBTEL_EXTRA_CSS}</style>
+</head><body style="margin:0;padding:0;background:#fff;width:${MOBILE_FRAME_WIDTH}px;min-height:${MOBILE_FRAME_HEIGHT}px;overflow-x:hidden">
+${bodyHtml}
+</body></html>`;
+  }, [shapeSpecs]);
 
   const scaledWidth = MOBILE_FRAME_WIDTH * scale;
   const scaledHeight = MOBILE_FRAME_HEIGHT * scale;
+
+  const hasContent = shapeSpecs.length > 0;
 
   return (
     <div
@@ -250,30 +247,7 @@ export function RebtelViewportPane() {
         background: "transparent",
       }}
     >
-      {/* Phase indicator */}
-      {phase === "layer2" && (
-        <div
-          style={{
-            position: "absolute",
-            top: 8,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(230,57,70,0.9)",
-            color: "#fff",
-            fontSize: 11,
-            fontWeight: 500,
-            padding: "3px 10px",
-            borderRadius: 6,
-            zIndex: 20,
-            pointerEvents: "none",
-            fontFamily: "var(--font-poppins), sans-serif",
-          }}
-        >
-          AI rendering...
-        </div>
-      )}
-
-      {/* Design / Preview toggle — above phone */}
+      {/* Design / Preview toggle */}
       <div
         style={{
           display: "flex",
@@ -303,11 +277,11 @@ export function RebtelViewportPane() {
               border: "none",
               cursor: "pointer",
               fontFamily: "inherit",
-              textTransform: "capitalize",
+              textTransform: "capitalize" as const,
               transition: "all 0.15s",
             }}
           >
-            {m === "design" ? "✏️ Design" : "▶ Preview"}
+            {m === "design" ? "\u270F\uFE0F Design" : "\u25B6 Preview"}
           </button>
         ))}
       </div>
@@ -315,23 +289,42 @@ export function RebtelViewportPane() {
       {/* Phone wrapper */}
       <div style={{ position: "relative", flexShrink: 0 }}>
         <PhoneChrome width={scaledWidth} height={scaledHeight} scale={scale}>
-          {srcDoc ? (
-            <iframe
-              ref={iframeRef}
-              key="rebtel-viewport"
-              srcDoc={srcDoc}
-              title="Rebtel Viewport"
-              sandbox="allow-scripts"
-              onLoad={handleIframeLoad}
+          {hasContent ? (
+            <div
+              ref={viewportRef}
+              className="rebtel-viewport-screen"
               style={{
                 width: MOBILE_FRAME_WIDTH,
                 height: MOBILE_FRAME_HEIGHT,
-                border: "none",
-                display: "block",
+                overflow: "auto",
+                background: "#FFFFFF",
                 transform: `scale(${scale})`,
                 transformOrigin: "top left",
               }}
-            />
+              onClick={() => {
+                // Click on empty space deselects
+                if (viewportMode === "design") {
+                  setSelectedKey(null);
+                  setSelectedComponent(null);
+                }
+              }}
+            >
+              {/* Inject Rebtel CSS custom properties */}
+              <style dangerouslySetInnerHTML={{ __html: REBTEL_VIEWPORT_CSS }} />
+
+              {/* Render each shape's spec */}
+              {shapeSpecs.map((ss) => (
+                <SpecRenderer
+                  key={ss.shapeId}
+                  spec={ss.spec}
+                  selectedKey={selectedKey}
+                  onSelect={handleSelect}
+                  onTextChange={handleTextChange}
+                  onNavigate={handleScreenNavigate}
+                  isDesignMode={viewportMode === "design"}
+                />
+              ))}
+            </div>
           ) : (
             <div
               style={{
@@ -391,7 +384,7 @@ export function RebtelViewportPane() {
           currentVariant={selectedComponent.currentVariant}
           bounds={selectedComponent.bounds}
           scale={scale}
-          iframeEl={iframeRef.current}
+          iframeEl={viewportRef.current as any}
           onVariantChange={handleVariantChange}
           onDarkModeToggle={handleDarkModeToggle}
           onDismiss={handlePickerDismiss}

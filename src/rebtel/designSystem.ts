@@ -40,22 +40,22 @@ export const REBTEL_DESIGN_SYSTEM: UIDesignSystem = {
   },
 
   colors: {
-    background: "#FFFFFF",                // surface-primary
-    foreground: "#1D1D1F",                // text-primary (grey-900)
-    primary: "#E63946",                   // red-500 / brand-red
-    primaryForeground: "#FFFFFF",         // text-on-brand
-    secondary: "#F4F4F5",                 // grey-50 / surface-primary-light
-    secondaryForeground: "#5E5E68",       // text-secondary (grey-600)
-    muted: "#EBEBED",                     // grey-100 / surface-primary-neutral
-    mutedForeground: "#808088",           // text-tertiary (grey-500)
-    accent: "#E63946",                    // red-500
-    accentForeground: "#FFFFFF",          // text-brand-inverted
-    destructive: "#E63946",               // red-500
-    border: "#D5D5D9",                    // border-default (grey-200)
-    input: "#EBEBED",                     // grey-100
-    ring: "#E63946",                      // red-500
-    card: "#FFFFFF",                      // surface-primary
-    cardForeground: "#1D1D1F",            // text-primary (grey-900)
+    background: "#FFFFFF",                // surface/page/raised
+    foreground: "#111111",                // content/primary (grey-900)
+    primary: "#E31B3B",                   // color/brand/red
+    primaryForeground: "#FFFFFF",         // content/inverse
+    secondary: "#F3F3F3",                 // surface/page/default (grey-200)
+    secondaryForeground: "#737378",       // content/secondary (grey-600)
+    muted: "#F3F3F3",                     // surface/page/default
+    mutedForeground: "#B9B9BE",           // content/tertiary (grey-400)
+    accent: "#E31B3B",                    // brand/primary
+    accentForeground: "#FFFFFF",          // content/inverse
+    destructive: "#E31B3B",               // error/500
+    border: "#DCDCE1",                    // border/default (grey-300)
+    input: "#F3F3F3",                     // surface/page/default
+    ring: "#E31B3B",                      // border/focus
+    card: "#FFFFFF",                      // surface/page/raised
+    cardForeground: "#111111",            // content/primary
   },
 
   spacing: {
@@ -222,90 +222,117 @@ export const REBTEL_EXTRA_CSS = `
     --rebtel-radius-xxl: 32px;
     --rebtel-radius-full: 9999px;
 
-    /* ── Brand Colors ── */
-    --rebtel-brand-red: #E63946;
-    --rebtel-brand-black: #1D1D1F;
+    /* ── Brand Colors (Figma 3.0: 1·Primitives) ── */
+    --rebtel-brand-red: #E31B3B;
+    --rebtel-brand-black: #111111;
     --rebtel-brand-white: #FFFFFF;
 
-    /* ── Grey Scale ── */
-    --rebtel-grey-900: #1D1D1F;
+    /* ── Grey Scale (Figma 3.0: 1·Primitives → color/grey) ── */
+    --rebtel-grey-900: #111111;
     --rebtel-grey-800: #2D2D32;
-    --rebtel-grey-700: #474750;
-    --rebtel-grey-600: #5E5E68;
-    --rebtel-grey-500: #808088;
-    --rebtel-grey-400: #9E9EA6;
-    --rebtel-grey-300: #BFBFC4;
-    --rebtel-grey-200: #D5D5D9;
-    --rebtel-grey-100: #EBEBED;
-    --rebtel-grey-50: #F4F4F5;
+    --rebtel-grey-700: #505055;
+    --rebtel-grey-600: #737378;
+    --rebtel-grey-500: #96969B;
+    --rebtel-grey-400: #B9B9BE;
+    --rebtel-grey-300: #DCDCE1;
+    --rebtel-grey-200: #F3F3F3;
+    --rebtel-grey-100: #FAFAFC;
+    --rebtel-grey-50: #FAFAFC;
     --rebtel-grey-0: #FFFFFF;
 
-    /* ── Red Scale ── */
-    --rebtel-red-900: #661822;
-    --rebtel-red-800: #8C1E2A;
-    --rebtel-red-700: #B3263A;
-    --rebtel-red-600: #D92D42;
-    --rebtel-red-500: #E63946;
-    --rebtel-red-400: #EB5E6E;
-    --rebtel-red-300: #F08D98;
-    --rebtel-red-200: #F5B2BA;
-    --rebtel-red-100: #F9D4D8;
-    --rebtel-red-50: #FDE9EB;
+    /* ── Red Scale (Figma 3.0: 1·Primitives → color/red) ── */
+    --rebtel-red-900: #5B0B18;
+    --rebtel-red-800: #5B0B18;
+    --rebtel-red-700: #881023;
+    --rebtel-red-600: #B6162F;
+    --rebtel-red-500: #E31B3B;
+    --rebtel-red-400: #E94962;
+    --rebtel-red-300: #EE7689;
+    --rebtel-red-200: #F4A4B1;
+    --rebtel-red-100: #FCE8EB;
+    --rebtel-red-50: #FCE8EB;
 
-    /* ── Semantic Colors ── */
-    --rebtel-warning: #F5A623;
-    --rebtel-warning-light: #FDE8C8;
-    --rebtel-warning-lighter: #FEF4E4;
-    --rebtel-success: #2ECC71;
-    --rebtel-success-light: #E8F8F0;
-    --rebtel-green: #34C759;
-    --rebtel-green-light: #E8F7ED;
-    --rebtel-green-lighter: #C5F0D3;
-    --rebtel-purple: #6366F1;
+    /* ── Semantic Colors (Figma 3.0: 3·Mapped) ── */
+    --rebtel-warning: #F06E1D;
+    --rebtel-warning-light: #FBDBC6;
+    --rebtel-warning-lighter: #FBDBC6;
+    --rebtel-success: #047804;
+    --rebtel-success-light: #D1F3C5;
+    --rebtel-green: #09BC09;
+    --rebtel-green-light: #D1F3C5;
+    --rebtel-green-lighter: #A4E68B;
+    --rebtel-purple: #4200FF;
 
-    /* ── Surface Mapped Tokens ── */
+    /* ── Surface Mapped Tokens (Figma 3.0: 3·Mapped → surface/) ── */
     --rebtel-surface-primary: #FFFFFF;
     --rebtel-surface-primary-elevated: #FFFFFF;
-    --rebtel-surface-primary-inverse: #1D1D1F;
-    --rebtel-surface-primary-neutral: #EBEBED;
-    --rebtel-surface-primary-light: #F4F4F5;
-    --rebtel-surface-primary-lighter: #FFFFFF;
-    --rebtel-surface-brand-red: #E63946;
+    --rebtel-surface-primary-inverse: #111111;
+    --rebtel-surface-primary-neutral: #F3F3F3;
+    --rebtel-surface-primary-light: #F3F3F3;
+    --rebtel-surface-primary-lighter: #FAFAFC;
+    --rebtel-surface-brand-red: #E31B3B;
+    --rebtel-surface-canvas: #FAFAFC;
+    --rebtel-surface-default: #F3F3F3;
+    --rebtel-surface-raised: #FFFFFF;
+    --rebtel-surface-overlay: #111111;
+    --rebtel-surface-sheet: #FFFFFF;
+    --rebtel-surface-calling: #EDEADD;
+    --rebtel-surface-mtu: #DAE2F4;
 
-    /* ── Text Mapped Tokens ── */
-    --rebtel-text-primary: #1D1D1F;
-    --rebtel-text-secondary: #5E5E68;
-    --rebtel-text-tertiary: #808088;
-    --rebtel-text-highlight: #E63946;
+    /* ── Text/Content Mapped Tokens (Figma 3.0: 3·Mapped → content/) ── */
+    --rebtel-text-primary: #111111;
+    --rebtel-text-secondary: #737378;
+    --rebtel-text-tertiary: #B9B9BE;
+    --rebtel-text-highlight: #E31B3B;
     --rebtel-text-brand-inverted: #FFFFFF;
     --rebtel-text-on-brand: #FFFFFF;
+    --rebtel-content-primary: #111111;
+    --rebtel-content-secondary: #737378;
+    --rebtel-content-tertiary: #B9B9BE;
+    --rebtel-content-disabled: #B9B9BE;
+    --rebtel-content-inverse: #FFFFFF;
+    --rebtel-content-brand: #E31B3B;
+    --rebtel-content-success: #09BC09;
 
-    /* ── Icon Mapped Tokens ── */
-    --rebtel-icon-default: #2D2D32;
-    --rebtel-icon-secondary: #808088;
-    --rebtel-icon-disabled: #BFBFC4;
-    --rebtel-icon-brand: #E63946;
+    /* ── Icon Mapped Tokens (Figma 3.0: 3·Mapped → icon/) ── */
+    --rebtel-icon-default: #111111;
+    --rebtel-icon-secondary: #737378;
+    --rebtel-icon-disabled: #B9B9BE;
+    --rebtel-icon-brand: #E31B3B;
 
-    /* ── Border Mapped Tokens ── */
-    --rebtel-border-default: #D5D5D9;
-    --rebtel-border-secondary: #EBEBED;
-    --rebtel-border-highlight: #E63946;
+    /* ── Border Mapped Tokens (Figma 3.0: 3·Mapped → border/) ── */
+    --rebtel-border-default: #DCDCE1;
+    --rebtel-border-secondary: #F3F3F3;
+    --rebtel-border-highlight: #E31B3B;
 
-    /* ── Button Surface Tokens ── */
-    --rebtel-button-primary: #E63946;
+    /* ── Button Surface Tokens (Figma 3.0: 4·Component) ── */
+    --rebtel-button-primary: #E31B3B;
+    --rebtel-button-primary-bg: #E31B3B;
+    --rebtel-button-primary-text: #FFFFFF;
+    --rebtel-button-secondary-black-bg: #111111;
+    --rebtel-button-secondary-black-text: #FFFFFF;
     --rebtel-button-secondary-white: #FFFFFF;
-    --rebtel-button-secondary-grey: #F4F4F5;
-    --rebtel-button-disabled: #EBEBED;
-    --rebtel-button-green: #34C759;
+    --rebtel-button-secondary-grey: #F3F3F3;
+    --rebtel-button-outlined-border: #DCDCE1;
+    --rebtel-button-outlined-text: #111111;
+    --rebtel-button-disabled: #F3F3F3;
+    --rebtel-button-green: #09BC09;
 
-    /* ── Legacy Aliases (backwards compat) ── */
-    --rebtel-red: #E63946;
-    --rebtel-red-dark: #B3263A;
-    --rebtel-red-light: #FDE9EB;
-    --rebtel-green-dark: #27AE60;
-    --rebtel-call-green: #2ECC71;
-    --rebtel-call-red: #E63946;
-    --rebtel-gradient-primary: linear-gradient(135deg, #E63946 0%, #D92D42 100%);
-    --rebtel-gradient-success: linear-gradient(135deg, #34C759 0%, #2ECC71 100%);
+    /* ── Legacy Aliases ── */
+    --rebtel-red: #E31B3B;
+    --rebtel-red-dark: #881023;
+    --rebtel-red-light: #FCE8EB;
+    --rebtel-green-dark: #047804;
+    --rebtel-call-green: #09BC09;
+    --rebtel-call-red: #E31B3B;
+    --rebtel-gradient-primary: linear-gradient(135deg, #E31B3B 0%, #B6162F 100%);
+    --rebtel-gradient-success: linear-gradient(135deg, #09BC09 0%, #047804 100%);
   }
 `;
+
+// ── Viewport-only CSS (no @font-face — fonts loaded in globals.css) ──
+// Used by the React viewport div instead of the iframe.
+export const REBTEL_VIEWPORT_CSS = REBTEL_EXTRA_CSS.replace(
+  /@font-face\s*\{[^}]*\}\s*/g,
+  ""
+);

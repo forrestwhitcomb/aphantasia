@@ -1,47 +1,90 @@
-// Tab Bar — Bottom navigation (Home, Services, Account) + home indicator
-// Figma: 5405:106124 — 390×90, 3 items with icons + labels
+// ============================================================
+// Tab Bar — Bottom navigation (Figma 3.0 audited: 5405:106124)
+// ============================================================
+// 390×90, 3 items: Home/Services/Account
+// Active: filled icon #111111 + label #111111
+// Inactive: outlined icon + label #B9B9BE (grey-400)
+// Icon containers: 40×40, label: 11px KH Teka Regular
+// Home indicator: 134×5 bar, #111111, radius full
+// ============================================================
 
 import type { ComponentSpec } from "../../spec/types";
 
-const ICON_HOME = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 22V12h6v10"/></svg>`;
-const ICON_HOME_FILLED = `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-8H9v8H4a1 1 0 0 1-1-1V9.5z"/></svg>`;
-const ICON_SERVICES = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.97.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.84.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
-const ICON_ACCOUNT = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+// Figma-audited icons (40×40 viewbox to match icon containers, strokes match Figma)
+const ICON_HOME_ACTIVE = `<svg width="32" height="24" viewBox="0 0 32 24" fill="#111111" stroke="none"><path d="M16 0L0 11.5V22a2 2 0 0 0 2 2h9V14h10v10h9a2 2 0 0 0 2-2V11.5L16 0z"/></svg>`;
+const ICON_HOME_INACTIVE = `<svg width="32" height="24" viewBox="0 0 32 24" fill="none" stroke="#B9B9BE" stroke-width="1.8"><path d="M2 11.5L16 2l14 9.5V22a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V11.5z"/><path d="M11 24V14h10v10"/></svg>`;
+const ICON_SERVICES_INACTIVE = `<svg width="32" height="24" viewBox="0 0 32 24" fill="none" stroke="#B9B9BE" stroke-width="2"><rect x="4" y="0" width="24" height="24" rx="4" stroke-opacity="1"/><path d="M12 12h8M12 8h8M12 16h5" stroke-linecap="round"/></svg>`;
+const ICON_ACCOUNT_INACTIVE = `<svg width="32" height="24" viewBox="0 0 32 24" fill="none" stroke="#B9B9BE" stroke-width="1.8" stroke-linecap="round"><path d="M24 21v-2a4 4 0 0 0-4-4h-8a4 4 0 0 0-4 4v2"/><circle cx="16" cy="7" r="4"/></svg>`;
 
 function tabItem(key: string, label: string, iconSvg: string, active: boolean): ComponentSpec {
   return {
     key,
     tag: "div",
-    layout: { display: "flex", direction: "column", align: "center", gap: "2px", flex: "1" },
-    style: { cursor: "pointer", color: active ? "var(--rebtel-grey-900)" : "var(--rebtel-grey-400)" },
+    layout: {
+      display: "flex",
+      direction: "column",
+      align: "center",
+      gap: "0px",
+      flex: "1",
+    },
+    style: { cursor: "pointer" },
     interactive: { type: "tab" },
     children: [
-      { key: `${key}-icon`, tag: "div", layout: { display: "flex", align: "center", justify: "center", width: 24, height: 24 }, style: {}, data: { innerHTML: iconSvg } },
-      { key: `${key}-label`, tag: "span", layout: { display: "block" }, style: {}, text: { content: label, style: "label-xs", color: active ? { token: "color.grey-900" } : { token: "color.grey-400" }, editable: true } },
+      // Icon container: 40×40
+      {
+        key: `${key}-icon`,
+        tag: "div",
+        layout: { display: "flex", align: "center", justify: "center", width: 40, height: 40 },
+        style: {},
+        data: { innerHTML: iconSvg },
+      },
+      // Label: 11px KH Teka Regular
+      {
+        key: `${key}-label`,
+        tag: "span",
+        layout: { display: "block" },
+        style: {},
+        text: {
+          content: label,
+          style: "label-xs", // 11px
+          weight: 400,
+          color: active ? { token: "color.content-primary" } : { token: "color.grey-400" },
+          editable: true,
+        },
+      },
     ],
   };
 }
 
 export function tabBarTemplate(props?: Record<string, unknown>): ComponentSpec {
   const activeTab = (props?.activeTab as string) ?? "home";
+
   return {
     key: "tab-bar",
     tag: "div",
     layout: { display: "flex", direction: "column", width: "100%", boxSizing: "border-box" },
-    style: { background: { token: "color.surface-primary" } },
+    style: { background: { token: "color.surface-canvas" } }, // #FAFAFC
     data: { component: "tabBar" },
     children: [
+      // Tab items row: height 56px
       {
         key: "tabs-row",
         tag: "div",
-        layout: { display: "flex", align: "center", justify: "space-around", height: { token: "height.xl" }, padding: { x: { token: "spacing.lg" } } },
+        layout: {
+          display: "flex",
+          align: "center",
+          justify: "space-around",
+          height: 56,
+          padding: { x: { token: "spacing.lg" } },
+        },
         style: {},
         children: [
-          tabItem("tab-home", "Home", activeTab === "home" ? ICON_HOME_FILLED : ICON_HOME, activeTab === "home"),
-          tabItem("tab-services", "Services", ICON_SERVICES, activeTab === "services"),
-          tabItem("tab-account", "Account", ICON_ACCOUNT, activeTab === "account"),
+          tabItem("tab-home", "Home", activeTab === "home" ? ICON_HOME_ACTIVE : ICON_HOME_INACTIVE, activeTab === "home"),
+          tabItem("tab-services", "Services", ICON_SERVICES_INACTIVE, activeTab === "services"),
+          tabItem("tab-account", "Account", ICON_ACCOUNT_INACTIVE, activeTab === "account"),
         ],
       },
+      // Home indicator: 134×5, radius full, bg #111111
       {
         key: "home-indicator",
         tag: "div",
@@ -51,7 +94,7 @@ export function tabBarTemplate(props?: Record<string, unknown>): ComponentSpec {
           key: "indicator-bar",
           tag: "div",
           layout: { display: "block", width: 134, height: 5, borderRadius: { token: "radius.full" } },
-          style: { background: { token: "color.grey-900" } },
+          style: { background: { token: "color.content-primary" } }, // #111111
         }],
       },
     ],

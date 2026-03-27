@@ -1,23 +1,27 @@
 // ============================================================
-// App Bar — ComponentSpec template factory
+// App Bar — ComponentSpec template factory (Figma 3.0 audited)
 // ============================================================
-// Ported from components/navigation/AppBar.ts
-// Variants: home, back, close, search
+// Figma node: 5405:107477 (Section header instance)
+// Status bar: 9:41 label-sm/600, signal+wifi+battery icons
+// Nav: back/close/search variants, title headline-xs/600
+// Icon colors: icon/primary (#111111), icon/secondary (#737378)
 // ============================================================
 
 import type { ComponentSpec } from "../../spec/types";
 
-// ── SVG Icons (identical to legacy renderers) ────────────────
+// ── SVG Icons (Figma audited: stroke widths match design) ────
 
-const ICON_BACK = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-default)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
-const ICON_CLOSE = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-default)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-const ICON_SETTINGS = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-default)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>`;
-const ICON_SEARCH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-secondary)" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
-const ICON_SIGNAL = `<svg width="16" height="12" viewBox="0 0 16 12" fill="var(--rebtel-icon-default)"><rect x="0" y="4" width="3" height="8" rx="1"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1"/><rect x="9" y="1" width="3" height="11" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1"/></svg>`;
-const ICON_WIFI = `<svg width="16" height="12" viewBox="0 0 16 12" fill="var(--rebtel-icon-default)"><path d="M8 3C5.8 3 3.8 3.8 2.3 5.2L0.5 3.4C2.5 1.5 5.1 0.3 8 0.3c2.9 0 5.5 1.2 7.5 3.1L13.7 5.2C12.2 3.8 10.2 3 8 3zM8 6.5c-1.5 0-2.8 0.6-3.8 1.5L2.5 6.2C4 4.8 5.9 4 8 4s4 0.8 5.5 2.2L11.8 8C10.8 7.1 9.5 6.5 8 6.5zM8 10c-0.7 0-1.3 0.3-1.8 0.7L8 12.8l1.8-2.1C9.3 10.3 8.7 10 8 10z"/></svg>`;
-const ICON_BATTERY = `<svg width="25" height="12" viewBox="0 0 25 12" fill="var(--rebtel-icon-default)"><rect x="0" y="1" width="21" height="10" rx="2" fill="none" stroke="var(--rebtel-icon-default)" stroke-width="1"/><rect x="22" y="4" width="2" height="4" rx="0.5"/><rect x="1.5" y="2.5" width="16" height="7" rx="1"/></svg>`;
+const ICON_BACK = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-content-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+const ICON_CLOSE = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-content-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const ICON_SETTINGS = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-content-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+const ICON_SEARCH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-content-secondary)" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
 
-// ── Status Bar Sub-spec ──────────────────────────────────────
+// Figma status bar icons
+const ICON_SIGNAL = `<svg width="16" height="12" viewBox="0 0 16 12" fill="var(--rebtel-content-primary)"><rect x="0" y="4" width="3" height="8" rx="1"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1"/><rect x="9" y="1" width="3" height="11" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1"/></svg>`;
+const ICON_WIFI = `<svg width="16" height="12" viewBox="0 0 16 12" fill="var(--rebtel-content-primary)"><path d="M8 3C5.8 3 3.8 3.8 2.3 5.2L0.5 3.4C2.5 1.5 5.1 0.3 8 0.3c2.9 0 5.5 1.2 7.5 3.1L13.7 5.2C12.2 3.8 10.2 3 8 3zM8 6.5c-1.5 0-2.8 0.6-3.8 1.5L2.5 6.2C4 4.8 5.9 4 8 4s4 0.8 5.5 2.2L11.8 8C10.8 7.1 9.5 6.5 8 6.5zM8 10c-0.7 0-1.3 0.3-1.8 0.7L8 12.8l1.8-2.1C9.3 10.3 8.7 10 8 10z"/></svg>`;
+const ICON_BATTERY = `<svg width="25" height="12" viewBox="0 0 25 12" fill="var(--rebtel-content-primary)"><rect x="0" y="1" width="21" height="10" rx="2" fill="none" stroke="var(--rebtel-content-primary)" stroke-width="1"/><rect x="22" y="4" width="2" height="4" rx="0.5"/><rect x="1.5" y="2.5" width="16" height="7" rx="1"/></svg>`;
+
+// ── Status Bar ───────────────────────────────────────────────
 
 function statusBar(): ComponentSpec {
   return {
@@ -38,21 +42,12 @@ function statusBar(): ComponentSpec {
         tag: "span",
         layout: { display: "inline-flex" },
         style: {},
-        text: {
-          content: "9:41",
-          style: "label-sm",
-          weight: 600,
-          color: { token: "color.text-primary" },
-        },
+        text: { content: "9:41", style: "label-sm", weight: 600, color: { token: "color.content-primary" } },
       },
       {
         key: "sb-icons",
         tag: "div",
-        layout: {
-          display: "flex",
-          align: "center",
-          gap: { token: "spacing.xxs" },
-        },
+        layout: { display: "flex", align: "center", gap: { token: "spacing.xxs" } },
         style: {},
         children: [
           { key: "sb-signal", tag: "div", layout: { display: "inline-flex" }, style: {}, data: { innerHTML: ICON_SIGNAL } },
@@ -64,7 +59,7 @@ function statusBar(): ComponentSpec {
   };
 }
 
-// ── Icon Button Helper ───────────────────────────────────────
+// ── Icon Button ──────────────────────────────────────────────
 
 function iconButton(key: string, svgHtml: string, size: string = "height.md"): ComponentSpec {
   return {
@@ -84,22 +79,15 @@ function iconButton(key: string, svgHtml: string, size: string = "height.md"): C
   };
 }
 
-// ── Spacer (matches icon button width for centering) ─────────
-
 function spacer(key: string, size: string = "height.md"): ComponentSpec {
-  return {
-    key,
-    tag: "div",
-    layout: { display: "block", width: { token: size } },
-    style: {},
-  };
+  return { key, tag: "div", layout: { display: "block", width: { token: size } }, style: {} };
 }
 
 // ── Template Factory ─────────────────────────────────────────
 
 export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
   const variant = (props?.variant as string) ?? "back";
-  const title = (props?.title as string) ?? (props?.label as string) ?? "Section header";
+  const title = (props?.title as string) ?? (props?.label as string) ?? "Mobile Top-up";
 
   const navChildren: ComponentSpec[] = [];
 
@@ -110,14 +98,7 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
         tag: "span",
         layout: { display: "inline-flex" },
         style: {},
-        text: {
-          content: "Rebtel",
-          style: "display-xs",
-          weight: 700,
-          color: { token: "color.brand-red" },
-          align: "center",
-          editable: true,
-        },
+        text: { content: "Rebtel", style: "display-xs", weight: 700, color: { token: "color.content-brand" }, align: "center", editable: true },
       });
       break;
 
@@ -129,14 +110,7 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
           tag: "span",
           layout: { display: "block", flex: "1" },
           style: {},
-          text: {
-            content: title,
-            style: "headline-xs",
-            weight: 600,
-            color: { token: "color.text-primary" },
-            align: "center",
-            editable: true,
-          },
+          text: { content: title, style: "headline-xs", weight: 600, color: { token: "color.content-primary" }, align: "center", editable: true },
         },
         iconButton("nav-action", ICON_SETTINGS),
       );
@@ -150,14 +124,7 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
           tag: "span",
           layout: { display: "block", flex: "1" },
           style: {},
-          text: {
-            content: title,
-            style: "headline-xs",
-            weight: 600,
-            color: { token: "color.text-primary" },
-            align: "center",
-            editable: true,
-          },
+          text: { content: title, style: "headline-xs", weight: 600, color: { token: "color.content-primary" }, align: "center", editable: true },
         },
         spacer("nav-spacer"),
       );
@@ -178,22 +145,11 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
             padding: { x: { token: "spacing.sm" } },
             borderRadius: { token: "radius.full" },
           },
-          style: { background: { token: "color.surface-light" } },
+          style: { background: { token: "color.surface-default" } },
           interactive: { type: "input" },
           children: [
             { key: "search-icon", tag: "div", layout: { display: "inline-flex" }, style: {}, data: { innerHTML: ICON_SEARCH } },
-            {
-              key: "search-placeholder",
-              tag: "span",
-              layout: { display: "inline-flex" },
-              style: {},
-              text: {
-                content: "Search contacts, countries...",
-                style: "paragraph-sm",
-                color: { token: "color.text-tertiary" },
-                editable: true,
-              },
-            },
+            { key: "search-placeholder", tag: "span", layout: { display: "inline-flex" }, style: {}, text: { content: "Search contacts, countries...", style: "paragraph-sm", color: { token: "color.content-tertiary" }, editable: true } },
           ],
         },
       );
@@ -203,13 +159,8 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
   return {
     key: "app-bar",
     tag: "div",
-    layout: {
-      display: "flex",
-      direction: "column",
-      width: "100%",
-      boxSizing: "border-box",
-    },
-    style: { background: { token: "color.surface-primary" } },
+    layout: { display: "flex", direction: "column", width: "100%", boxSizing: "border-box" },
+    style: { background: { token: "color.surface-canvas" } },
     data: { component: "appBar" },
     children: [
       statusBar(),
@@ -223,11 +174,7 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
           gap: variant === "search" ? { token: "spacing.xs" } : undefined,
           height: { token: "height.xl" },
           width: "100%",
-          padding: {
-            x: variant === "search" || variant === "home"
-              ? { token: "spacing.md" }
-              : { token: "spacing.xs" },
-          },
+          padding: { x: variant === "search" || variant === "home" ? { token: "spacing.md" } : { token: "spacing.xs" } },
           boxSizing: "border-box",
           position: "relative",
         },
