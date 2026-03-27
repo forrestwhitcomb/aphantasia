@@ -79,6 +79,15 @@ export interface CanvasShape {
   linkedShapeId?: string;
   isSuggestion?: boolean;
   meta?: Record<string, unknown>;
+  // ── ComponentSpec v2 fields ──
+  /** Parent shape ID for composition (child rendered inside parent) */
+  parentId?: string;
+  /** Canvas primitive type (screen, bar, card, row, button, etc.) */
+  primitive?: string;
+  /** Template name within the primitive (e.g., "topup-amount", "app-bar") */
+  template?: string;
+  /** Stored ComponentSpec tree — source of truth for viewport rendering */
+  spec?: unknown;
 }
 
 export interface CanvasFrame {

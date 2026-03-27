@@ -9,6 +9,8 @@
 import type { UIComponentPropsBase } from "@/ui-mode/types";
 import { renderUIComponent } from "@/ui-mode/components";
 import { isSharedType } from "../types";
+import { renderSpec } from "../spec/render";
+import type { ComponentSpec } from "../spec/types";
 
 // Navigation
 import { renderAppBar } from "./navigation/AppBar";
@@ -67,6 +69,12 @@ export function renderRebtelComponent(
   type: string,
   props: Partial<UIComponentPropsBase> = {}
 ): string {
+  // ── ComponentSpec v2 path: if a spec tree is attached, use renderSpec()
+  const specData = (props as any)?._spec as ComponentSpec | undefined;
+  if (specData) {
+    return renderSpec(specData);
+  }
+
   // Shared base types — delegate to existing renderers
   if (isSharedType(type)) {
     return renderUIComponent(type as any, props);

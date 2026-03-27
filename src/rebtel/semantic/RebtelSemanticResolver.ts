@@ -28,6 +28,17 @@ export function resolveRebtelComponents(
   for (const comp of resolved) {
     const shape = shapes.find(s => s.id === comp.shapeId);
 
+    // 0. ComponentSpec v2: if shape has a stored spec, skip all resolution.
+    //    The spec IS the component — the dispatcher will use renderSpec().
+    if (shape?.spec) {
+      // Keep the meta.uiComponentType as the type for the dispatcher,
+      // but the spec will be rendered via renderSpec() regardless.
+      if (shape.meta?.uiComponentType) {
+        comp.type = shape.meta.uiComponentType as any;
+      }
+      continue;
+    }
+
     // 1. Manual override via meta.uiComponentType
     //    This is how applyFlowToCanvas() sets components — always honoured.
     if (shape?.meta?.uiComponentType && isAllRebtelType(shape.meta.uiComponentType as string)) {

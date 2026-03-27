@@ -122,13 +122,32 @@ export function rebtelRenderLayer1(
         .join('\n')
     : '';
 
+  // ── ComponentSpec v2 integration ──
+  // Build a shapeId→spec map. The UIRenderEngine calls the dispatcher
+  // in component order, so we use a queue to match specs to dispatch calls.
+  const specQueue: (unknown | null)[] = components.map(comp => {
+    const shape = shapes?.find(s => s.id === comp.shapeId);
+    return shape?.spec ?? null;
+  });
+  let specIndex = 0;
+
+  // Wrap dispatcher to inject spec from the queue
+  const specAwareDispatcher = (type: string, props: any) => {
+    const spec = specQueue[specIndex] ?? null;
+    specIndex++;
+    if (spec) {
+      return renderRebtelComponent(type, { ...props, _spec: spec });
+    }
+    return renderRebtelComponent(type, props);
+  };
+
   let html = renderLayer1(
     components,
     REBTEL_DESIGN_SYSTEM,
     undefined,   // layer2Overrides not used in Rebtel
     frameHeight,
     {
-      dispatcher: renderRebtelComponent,
+      dispatcher: specAwareDispatcher,
       extraCSS: [REBTEL_COMPONENT_CSS, REBTEL_EXTRA_CSS, layoutCSS]
         .filter(Boolean)
         .join('\n'),

@@ -1,109 +1,86 @@
 "use client";
 
 // ============================================================
-// APHANTASIA for REBTEL — Component Picker
+// APHANTASIA for REBTEL — Component Picker (v2)
 // ============================================================
-// Domain-organized component picker for Rebtel prototyping.
-// Categories match Rebtel product domains rather than generic
-// UI component categories.
+// Flat single-section list matching all titled Figma components.
+// No tabs, no categories. Components generate ComponentSpec on drop.
 // ============================================================
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { canvasEngine } from "@/engine";
-import type { AllRebtelComponentType } from "../types";
-import { rebtelDesignStore } from "../store/RebtelDesignStore";
-import type { FigmaComponentEntry } from "@/ui-mode/types";
+import { resolveTemplate } from "../templates";
+import { getLegacyMapping } from "../spec/primitives";
 
-interface RebtelComponentEntry {
-  type: AllRebtelComponentType;
+interface PickerEntry {
+  /** Display name matching Figma title */
   label: string;
-  defaultWidth: number;
-  defaultHeight: number;
+  /** Legacy type for meta.uiComponentType (keeps semantic resolver working) */
+  legacyType: string;
+  /** Primitive + template for ComponentSpec generation */
+  primitive: string;
+  template: string;
+  /** Default canvas dimensions */
+  w: number;
+  h: number;
+  /** Optional props passed to template factory */
+  props?: Record<string, unknown>;
 }
 
-interface RebtelCategory {
-  name: string;
-  items: RebtelComponentEntry[];
-}
+// All 33 Figma components — flat list, ordered by usage frequency
+const COMPONENTS: PickerEntry[] = [
+  // Navigation
+  { label: "App Bar", legacyType: "appBar", primitive: "bar", template: "app-bar", w: 393, h: 76 },
+  { label: "Tab Bar", legacyType: "rebtelTabBar", primitive: "bar", template: "tab-bar", w: 393, h: 90 },
+  { label: "Section Header", legacyType: "appBar", primitive: "bar", template: "app-bar", w: 393, h: 48, props: { variant: "back" } },
 
-const REBTEL_CATEGORIES: RebtelCategory[] = [
-  {
-    name: "Top Up",
-    items: [
-      { type: "topUpCard", label: "Calling Card", defaultWidth: 353, defaultHeight: 340 },
-      { type: "productCard", label: "Product Card", defaultWidth: 353, defaultHeight: 280 },
-      { type: "amountSelector", label: "Amount Selector", defaultWidth: 353, defaultHeight: 220 },
-      { type: "countryPicker", label: "Country Picker", defaultWidth: 393, defaultHeight: 400 },
-      { type: "paymentModule", label: "Payment Module", defaultWidth: 353, defaultHeight: 160 },
-      { type: "orderSummary", label: "Order Summary", defaultWidth: 353, defaultHeight: 280 },
-      { type: "topUpFlow", label: "Top-Up Flow", defaultWidth: 393, defaultHeight: 600 },
-    ],
-  },
-  {
-    name: "Calling",
-    items: [
-      { type: "contactCard", label: "Home Card", defaultWidth: 353, defaultHeight: 220 },
-      { type: "rateCard", label: "Rate Card", defaultWidth: 353, defaultHeight: 72 },
-      { type: "phoneInput", label: "Phone Input", defaultWidth: 353, defaultHeight: 48 },
-      { type: "callStatus", label: "Call Status", defaultWidth: 393, defaultHeight: 400 },
-      { type: "callingFlow", label: "Calling Flow", defaultWidth: 393, defaultHeight: 600 },
-    ],
-  },
-  {
-    name: "Home & Nav",
-    items: [
-      { type: "appBar", label: "App Bar", defaultWidth: 393, defaultHeight: 76 },
-      { type: "rebtelTabBar", label: "Bottom Nav", defaultWidth: 393, defaultHeight: 80 },
-      { type: "segmentedNav", label: "Button Tabs", defaultWidth: 240, defaultHeight: 52 },
-      { type: "promoCard", label: "Offer Card", defaultWidth: 353, defaultHeight: 240 },
-      { type: "balanceWidget", label: "Balance Widget", defaultWidth: 353, defaultHeight: 120 },
-      { type: "homeScreen", label: "Home Screen", defaultWidth: 393, defaultHeight: 600 },
-    ],
-  },
-  {
-    name: "Forms",
-    items: [
-      { type: "textField", label: "Text Field", defaultWidth: 353, defaultHeight: 56 },
-      { type: "paymentForm", label: "Payment Form", defaultWidth: 393, defaultHeight: 700 },
-      { type: "paymentMethod", label: "Payment Select", defaultWidth: 353, defaultHeight: 80 },
-      { type: "pinInput", label: "PIN Input", defaultWidth: 353, defaultHeight: 80 },
-    ],
-  },
-  {
-    name: "Content",
-    items: [
-      { type: "heroText", label: "Hero Text", defaultWidth: 353, defaultHeight: 120 },
-      { type: "sectionText", label: "Section Text", defaultWidth: 353, defaultHeight: 60 },
-      { type: "countryRow", label: "Country Row", defaultWidth: 393, defaultHeight: 44 },
-      { type: "label", label: "Label / Tag", defaultWidth: 67, defaultHeight: 24 },
-      { type: "transactionRow", label: "Transaction Row", defaultWidth: 393, defaultHeight: 72 },
-      { type: "carrierBadge", label: "Carrier Badge", defaultWidth: 120, defaultHeight: 32 },
-    ],
-  },
-  {
-    name: "Overlays",
-    items: [
-      { type: "rebtelBottomSheet", label: "Bottom Sheet", defaultWidth: 393, defaultHeight: 240 },
-      { type: "dialogPopup", label: "Dialog Popup", defaultWidth: 320, defaultHeight: 320 },
-      { type: "successScreen", label: "Success Screen", defaultWidth: 393, defaultHeight: 500 },
-      { type: "errorBanner", label: "Error Banner", defaultWidth: 353, defaultHeight: 56 },
-      { type: "loadingState", label: "Loading State", defaultWidth: 353, defaultHeight: 200 },
-      { type: "alert", label: "Alert", defaultWidth: 353, defaultHeight: 56 },
-      { type: "toast", label: "Toast", defaultWidth: 353, defaultHeight: 48 },
-    ],
-  },
-  {
-    name: "Shared",
-    items: [
-      { type: "button", label: "Button", defaultWidth: 353, defaultHeight: 48 },
-      { type: "textInput", label: "Text Input", defaultWidth: 353, defaultHeight: 48 },
-      { type: "toggle", label: "Toggle", defaultWidth: 51, defaultHeight: 31 },
-      { type: "searchBar", label: "Search Bar", defaultWidth: 353, defaultHeight: 44 },
-      { type: "bottomSheet", label: "Bottom Sheet", defaultWidth: 393, defaultHeight: 300 },
-      { type: "divider", label: "Divider", defaultWidth: 393, defaultHeight: 1 },
-      { type: "emptyState", label: "Empty State", defaultWidth: 353, defaultHeight: 200 },
-    ],
-  },
+  // Cards
+  { label: "Card / Calling", legacyType: "contactCard", primitive: "card", template: "contact-calling", w: 358, h: 170 },
+  { label: "Card / Top-up", legacyType: "contactCard", primitive: "card", template: "contact-topup", w: 358, h: 185, props: { variant: "topup" } },
+  { label: "Card / Empty", legacyType: "contactCard", primitive: "card", template: "blank", w: 358, h: 122 },
+  { label: "Card / Promo", legacyType: "promoCard", primitive: "card", template: "promo", w: 358, h: 220 },
+  { label: "Card / Product MTU", legacyType: "productCard", primitive: "card", template: "product-mtu", w: 358, h: 220 },
+  { label: "Card / Calling Credits", legacyType: "topUpCard", primitive: "card", template: "product-credits", w: 361, h: 335 },
+  { label: "Card / Order Summary", legacyType: "orderSummary", primitive: "card", template: "order-summary", w: 350, h: 246 },
+  { label: "Card / Service Type", legacyType: "productCard", primitive: "card", template: "service-type", w: 358, h: 120 },
+  { label: "Card / Info w Icon", legacyType: "label", primitive: "card", template: "info-icon", w: 360, h: 74 },
+  { label: "Card / Info", legacyType: "label", primitive: "card", template: "info", w: 360, h: 74, props: { showIcon: false } },
+  { label: "Rebtel Credits", legacyType: "balanceWidget", primitive: "card", template: "credits-collapsed", w: 358, h: 56 },
+  { label: "Credits Expanded", legacyType: "balanceWidget", primitive: "card", template: "credits-expanded", w: 358, h: 296 },
+
+  // Inputs
+  { label: "Text Field", legacyType: "textField", primitive: "input", template: "text-field", w: 358, h: 51 },
+  { label: "PIN Input", legacyType: "pinInput", primitive: "input", template: "pin", w: 358, h: 75 },
+  { label: "Search Bar", legacyType: "searchBar", primitive: "input", template: "search", w: 350, h: 52 },
+  { label: "Phone Input", legacyType: "phoneInput", primitive: "input", template: "phone", w: 358, h: 52 },
+
+  // Rows
+  { label: "Country Row", legacyType: "countryRow", primitive: "row", template: "country", w: 390, h: 44 },
+  { label: "Contact Row", legacyType: "contactCard", primitive: "row", template: "contact", w: 358, h: 72, props: { variant: "compact" } },
+
+  // Sheets
+  { label: "Bottom Sheet (2 btn)", legacyType: "rebtelBottomSheet", primitive: "sheet", template: "action-sheet", w: 390, h: 361 },
+  { label: "Bottom Sheet (1 btn)", legacyType: "rebtelBottomSheet", primitive: "sheet", template: "action-sheet-single", w: 390, h: 285, props: { variant: "one-button" } },
+  { label: "Bottom Sheet Empty", legacyType: "rebtelBottomSheet", primitive: "sheet", template: "blank", w: 390, h: 117 },
+  { label: "Payment Sheet", legacyType: "paymentMethod", primitive: "sheet", template: "payment", w: 390, h: 248 },
+  { label: "Dialog", legacyType: "dialogPopup", primitive: "sheet", template: "dialog", w: 406, h: 344 },
+
+  // Selectors
+  { label: "Tabs", legacyType: "segmentedNav", primitive: "selector", template: "tabs", w: 244, h: 52 },
+
+  // Status
+  { label: "Success State", legacyType: "successScreen", primitive: "status", template: "success", w: 390, h: 844 },
+  { label: "Loading State", legacyType: "loadingState", primitive: "status", template: "loading", w: 120, h: 96 },
+
+  // Buttons
+  { label: "Button Primary", legacyType: "button", primitive: "button", template: "primary", w: 358, h: 64 },
+  { label: "Button Outlined", legacyType: "button", primitive: "button", template: "outlined", w: 358, h: 64, props: { variant: "secondary-white" } },
+  { label: "Button Red", legacyType: "button", primitive: "button", template: "red", w: 358, h: 64, props: { variant: "primary" } },
+  { label: "Button Ghost", legacyType: "button", primitive: "button", template: "borderless", w: 358, h: 64, props: { variant: "ghost" } },
+
+  // Text + Media
+  { label: "Text Block", legacyType: "sectionText", primitive: "text", template: "paragraph-md", w: 353, h: 40 },
+  { label: "Divider", legacyType: "divider", primitive: "divider", template: "default", w: 393, h: 1 },
 ];
 
 interface RebtelComponentPickerProps {
@@ -112,17 +89,7 @@ interface RebtelComponentPickerProps {
 }
 
 export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPickerProps) {
-  const [activeCategory, setActiveCategory] = useState(0);
   const pickerRef = useRef<HTMLDivElement>(null);
-  const [figmaComponents, setFigmaComponents] = useState<FigmaComponentEntry[]>([]);
-
-  useEffect(() => {
-    const unsub = rebtelDesignStore.subscribe(() => {
-      setFigmaComponents(rebtelDesignStore.getRegistry());
-    });
-    setFigmaComponents(rebtelDesignStore.getRegistry());
-    return unsub;
-  }, []);
 
   // Dismiss on click outside
   useEffect(() => {
@@ -143,21 +110,30 @@ export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPicker
 
   if (!isOpen) return null;
 
-  const handleSelect = (entry: RebtelComponentEntry) => {
+  const handleSelect = (entry: PickerEntry) => {
     const doc = canvasEngine.getDocument();
     const frameW = doc.frame.width;
-    const frameH = doc.frame.height;
-    const x = (frameW - entry.defaultWidth) / 2;
-    const y = frameH * 0.3;
+    const x = (frameW - entry.w) / 2;
+    const y = doc.frame.height * 0.3;
+
+    // Generate ComponentSpec from template
+    const spec = resolveTemplate(entry.primitive, entry.template, entry.props);
 
     canvasEngine.createShape({
       type: "rectangle",
       x,
       y,
-      width: entry.defaultWidth,
-      height: entry.defaultHeight,
+      width: entry.w,
+      height: entry.h,
       label: entry.label,
       isInsideFrame: true,
+      primitive: entry.primitive,
+      template: entry.template,
+      spec,
+      meta: {
+        uiComponentType: entry.legacyType,
+        variant: entry.props?.variant,
+      },
     });
 
     onClose();
@@ -173,7 +149,7 @@ export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPicker
         transform: "translateX(-50%)",
         marginBottom: 12,
         width: 340,
-        maxHeight: 440,
+        maxHeight: 480,
         background: "rgba(26,26,26,0.95)",
         backdropFilter: "blur(16px)",
         borderRadius: 16,
@@ -201,105 +177,13 @@ export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPicker
       >
         <span style={{ color: "#E63946" }}>Rebtel</span>
         Components
+        <span style={{ marginLeft: "auto", fontSize: 10, color: "rgba(255,255,255,0.3)" }}>
+          {COMPONENTS.length}
+        </span>
       </div>
 
-      {/* Category tabs */}
-      <div
-        style={{
-          display: "flex",
-          gap: 2,
-          padding: "6px 8px",
-          overflowX: "auto",
-          flexShrink: 0,
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-        }}
-      >
-        {REBTEL_CATEGORIES.map((cat, i) => (
-          <button
-            key={cat.name}
-            onClick={() => setActiveCategory(i)}
-            style={{
-              padding: "5px 10px",
-              fontSize: 11,
-              fontWeight: activeCategory === i ? 600 : 400,
-              color: activeCategory === i ? "#E63946" : "rgba(255,255,255,0.45)",
-              background: activeCategory === i ? "rgba(230,57,70,0.15)" : "transparent",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-              fontFamily: "inherit",
-            }}
-          >
-            {cat.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Component grid */}
+      {/* Component grid — flat, no tabs */}
       <div style={{ padding: 8, overflowY: "auto", flex: 1 }}>
-        {figmaComponents.length > 0 && (
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 4px 6px" }}>
-              From Figma
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6 }}>
-              {figmaComponents.map(entry => (
-                <button
-                  key={entry.figmaId}
-                  onClick={() => {
-                    const doc = canvasEngine.getDocument();
-                    const frameW = doc.frame.width;
-                    const x = (frameW - 353) / 2;
-                    const y = doc.frame.height * 0.3;
-                    canvasEngine.createShape({
-                      type: "rectangle",
-                      x,
-                      y,
-                      width: 353,
-                      height: 160,
-                      label: entry.baseName,
-                      isInsideFrame: true,
-                    });
-                    onClose();
-                  }}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 3,
-                    padding: "10px 6px",
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    transition: "background 0.1s, border-color 0.1s",
-                  }}
-                  onMouseEnter={(e) => {
-                    const el = e.currentTarget;
-                    el.style.background = "rgba(230,57,70,0.15)";
-                    el.style.borderColor = "rgba(230,57,70,0.3)";
-                  }}
-                  onMouseLeave={(e) => {
-                    const el = e.currentTarget;
-                    el.style.background = "rgba(255,255,255,0.05)";
-                    el.style.borderColor = "rgba(255,255,255,0.08)";
-                  }}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>
-                    {entry.baseName}
-                    {entry.hasVariants && (
-                      <span style={{ opacity: 0.5, fontSize: "0.8em", marginLeft: 4 }}>
-                        {Object.keys(entry.variantMap ?? {}).length}v
-                      </span>
-                    )}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         <div
           style={{
             display: "grid",
@@ -307,9 +191,9 @@ export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPicker
             gap: 6,
           }}
         >
-          {REBTEL_CATEGORIES[activeCategory].items.map((entry) => (
+          {COMPONENTS.map((entry) => (
             <button
-              key={entry.type}
+              key={`${entry.primitive}-${entry.template}`}
               onClick={() => handleSelect(entry)}
               style={{
                 display: "flex",
@@ -335,11 +219,11 @@ export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPicker
                 el.style.borderColor = "rgba(255,255,255,0.08)";
               }}
             >
-              <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.85)", textAlign: "center", lineHeight: 1.3 }}>
                 {entry.label}
               </span>
               <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
-                {entry.defaultWidth}×{entry.defaultHeight}
+                {entry.w}×{entry.h}
               </span>
             </button>
           ))}
@@ -349,4 +233,5 @@ export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPicker
   );
 }
 
-export { REBTEL_CATEGORIES };
+// Keep export for backwards compat
+export const REBTEL_CATEGORIES = [] as { name: string; items: { type: string; label: string; defaultWidth: number; defaultHeight: number }[] }[];

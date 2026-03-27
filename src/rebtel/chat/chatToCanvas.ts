@@ -7,6 +7,8 @@
 
 import { getCustomEngine } from "@/engine/engines/CustomCanvasEngine";
 import type { RebtelFlow, RebtelScreen, RebtelScreenComponent } from "../types";
+import { getLegacyMapping } from "../spec/primitives";
+import { resolveTemplate, hasTemplate } from "../templates";
 
 const FRAME_W = 393;
 const FRAME_H = 852;
@@ -160,6 +162,22 @@ function layoutScreenComponents(
       cursorY += height + CONTENT_GAP;
     }
 
+    // ── ComponentSpec v2: generate spec for ported templates ──
+    const mapping = getLegacyMapping(component.type);
+    let spec: unknown = undefined;
+    let primitive: string | undefined = undefined;
+    let template: string | undefined = undefined;
+
+    if (mapping && hasTemplate(mapping.primitive, mapping.template)) {
+      primitive = mapping.primitive;
+      template = mapping.template;
+      spec = resolveTemplate(mapping.primitive, mapping.template, {
+        ...component.props,
+        label: component.label,
+        variant: component.variant,
+      });
+    }
+
     engine.createShape({
       type: "rectangle",
       x: frameX,
@@ -169,6 +187,9 @@ function layoutScreenComponents(
       label: component.label || component.type,
       semanticTag: "unknown",
       isInsideFrame: true,
+      primitive,
+      template,
+      spec,
       meta: {
         uiComponentType: component.type,
         variant: component.variant,
