@@ -1,7 +1,9 @@
 // ============================================================
 // APHANTASIA for REBTEL — Sample Flows
 // ============================================================
-// Few-shot examples for AI flow generation.
+// Few-shot examples matching actual Figma FLOWS audit.
+// These teach the AI the exact screen patterns from the
+// real product design.
 // ============================================================
 
 import type { RebtelFlow } from "../types";
@@ -12,116 +14,126 @@ interface SampleFlowEntry {
 }
 
 export const REBTEL_SAMPLE_FLOWS: SampleFlowEntry[] = [
-  // ── 1. Top-Up Flow ────────────────────────────────────────
+  // ── 1. Mobile Top-Up Flow (from Figma MTU section) ─────────
   {
-    prompt: "Create a top-up flow for sending credit to Cuba",
+    prompt: "Create a top-up flow for sending credit to Nigeria",
     flow: {
-      name: "Cuba Top-Up Flow",
+      name: "Nigeria Top-Up Flow",
       screens: [
         {
-          screenId: "select-recipient",
-          title: "Select Recipient",
+          screenId: "search-contact",
+          title: "Mobile Top-up",
           components: [
-            { type: "appBar", label: "Send Top-Up", variant: "back" },
-            { type: "flowStepper", props: { steps: 4, currentStep: 1 } },
-            { type: "sectionHeader", label: "Recent Recipients" },
-            { type: "contactCard", label: "Maria Garcia", variant: "selectable", navigateTo: "select-amount" },
-            { type: "contactCard", label: "Carlos Rodriguez", variant: "selectable", navigateTo: "select-amount" },
+            { type: "appBar", label: "Mobile Top-up", variant: "back" },
+            { type: "searchBar", label: "Search contacts" },
+            { type: "sectionHeader", label: "Relevant contacts" },
+            { type: "contactCard", label: "Jane Cooper", variant: "compact", props: { phone: "+234787332454", flag: "🇳🇬" }, navigateTo: "select-product" },
+            { type: "contactCard", label: "Jane Cooper", variant: "compact", props: { phone: "+234787332454", flag: "🇳🇬" }, navigateTo: "select-product" },
+            { type: "contactCard", label: "Jane Cooper", variant: "compact", props: { phone: "+234787332454", flag: "🇳🇬" }, navigateTo: "select-product" },
             { type: "divider" },
-            { type: "sectionHeader", label: "New Recipient" },
-            { type: "phoneInput", variant: "with-contact" },
-            { type: "countryPicker", label: "Cuba", variant: "dropdown" },
-            { type: "button", label: "Continue", variant: "primary", navigateTo: "select-amount" },
+            { type: "contactCard", label: "Jane Cooper", variant: "compact", props: { phone: "+234787332454", flag: "🇳🇬" }, navigateTo: "select-product" },
           ],
         },
         {
-          screenId: "select-amount",
-          title: "Select Amount",
+          screenId: "select-product",
+          title: "Mobile Top-up",
           components: [
-            { type: "appBar", label: "Select Amount", variant: "back" },
-            { type: "flowStepper", props: { steps: 4, currentStep: 2 } },
-            { type: "carrierBadge", label: "Cubacel", variant: "selected" },
-            { type: "sectionHeader", label: "Popular Amounts" },
-            { type: "topUpCard", label: "$20 USD", variant: "popular", props: { receiverGets: "1000 CUP" } },
-            { type: "topUpCard", label: "$30 USD", variant: "default", props: { receiverGets: "1500 CUP" } },
-            { type: "topUpCard", label: "$50 USD", variant: "default", props: { receiverGets: "2500 CUP" } },
-            { type: "promoCard", label: "Double bonus this week!", variant: "compact" },
-            { type: "button", label: "Continue", variant: "primary", navigateTo: "payment" },
+            { type: "appBar", label: "Mobile Top-up", variant: "back" },
+            { type: "segmentedNav", label: "Bundles | Credits", variant: "large" },
+            { type: "sectionHeader", label: "Bundles" },
+            { type: "productCard", label: "7GB Nigeria", props: { tags: ["Most popular", "Carrier Bonus"], features: ["11 GB data", "Unlimited calling", "20 SMS"], price: "$3.21", validity: "30 days" }, navigateTo: "order-summary" },
+            { type: "productCard", label: "15GB Nigeria", props: { tags: ["Auto-restock", "Carrier Bonus"], features: ["Data 24GB", "Unlimited calling", "Unlimited SMS"], price: "$3.21", validity: "30 days" }, navigateTo: "order-summary" },
+            { type: "sectionHeader", label: "Credits" },
+            { type: "topUpCard", label: "Rebtel Credits to Nigeria", variant: "amount-select", props: { amounts: ["$5", "$10", "$25"] } },
           ],
         },
         {
-          screenId: "payment",
-          title: "Payment",
+          screenId: "auto-topup",
+          title: "Mobile Top-up",
           components: [
-            { type: "appBar", label: "Payment", variant: "back" },
-            { type: "flowStepper", props: { steps: 4, currentStep: 3 } },
-            { type: "sectionHeader", label: "Order Summary" },
-            { type: "contactCard", label: "Maria Garcia — Cubacel", variant: "compact" },
-            { type: "topUpCard", label: "$20 USD → 1000 CUP", variant: "default" },
-            { type: "divider" },
-            { type: "sectionHeader", label: "Payment Method" },
-            { type: "paymentMethod", label: "Visa ending in 4242", variant: "card" },
-            { type: "paymentMethod", label: "Add new card", variant: "selector" },
-            { type: "button", label: "Pay $20.00", variant: "primary", navigateTo: "confirmation" },
+            { type: "appBar", label: "Mobile Top-up", variant: "back" },
+            { type: "contactCard", label: "Jane Cooper", variant: "compact", props: { phone: "+234787332454", flag: "🇳🇬" } },
+            { type: "heroText", label: "Make sure that Dan never runs out of credit", props: { subtitle: "Don't think about it ever again: we'll do it for you! Activate automatic Top-Ups. Cancel anytime." } },
+            { type: "button", label: "Yes", variant: "primary" , navigateTo: "order-summary" },
+            { type: "button", label: "No", variant: "secondary", navigateTo: "order-summary" },
           ],
         },
         {
-          screenId: "confirmation",
-          title: "Confirmation",
+          screenId: "order-summary",
+          title: "Order summary",
           components: [
-            { type: "appBar", label: "Confirmation", variant: "close" },
-            { type: "flowStepper", props: { steps: 4, currentStep: 4 } },
-            { type: "successScreen", label: "Top-Up Sent!", variant: "topup" },
-            { type: "contactCard", label: "Maria Garcia — $20 USD", variant: "compact" },
-            { type: "toggle", label: "Set up auto-recharge" },
-            { type: "button", label: "Done", variant: "primary" },
-            { type: "button", label: "Send Another", variant: "outline" },
+            { type: "appBar", label: "Order summary", variant: "back" },
+            { type: "orderSummary", props: { planName: "11GB Nigeria", planPrice: "$5", trialText: "Validity:", trialPrice: "30 days", payNow: "$5", afterTrial: "Every 30 days" } },
+            { type: "paymentModule", props: { cardLast4: "1000", ctaLabel: "Pay $5" } },
+          ],
+        },
+        {
+          screenId: "success",
+          title: "Success",
+          components: [
+            { type: "successScreen", label: "You sent NGN 7650 to Buyaka", variant: "topup", props: { subtitle: "For more details, just check your account activity." } },
+            { type: "promoCard", label: "Get 30 minutes to call Philippines!", variant: "offer", props: { description: "Only $1, Try a free call." } },
+            { type: "button", label: "Close", variant: "text-link" },
           ],
         },
       ],
     },
   },
 
-  // ── 2. Onboarding Flow ────────────────────────────────────
+  // ── 2. Onboarding Flow (from Figma Onboarding section) ─────
   {
     prompt: "Design an onboarding flow for new users",
     flow: {
       name: "New User Onboarding",
       screens: [
         {
-          screenId: "welcome",
+          screenId: "welcome-splash",
           title: "Welcome",
           components: [
-            { type: "appBar", label: "Rebtel", variant: "home" },
-            { type: "emptyState", label: "Send love across borders", props: { description: "Affordable calls and instant top-ups to 190+ countries" } },
-            { type: "promoCard", label: "Get $2 free calling credit", variant: "hero" },
-            { type: "button", label: "Get Started", variant: "primary", navigateTo: "phone-verify" },
-            { type: "button", label: "I already have an account", variant: "ghost" },
+            { type: "heroText", label: "Stay globally connected with calls and top-ups.", props: { subtitle: "" } },
+            { type: "button", label: "Get started", variant: "primary-dark", navigateTo: "sign-up" },
+            { type: "button", label: "Log in", variant: "secondary", navigateTo: "sign-up" },
           ],
         },
         {
-          screenId: "phone-verify",
-          title: "Phone Verification",
+          screenId: "sign-up",
+          title: "Sign Up",
           components: [
-            { type: "appBar", label: "Verify Phone", variant: "back" },
-            { type: "sectionHeader", label: "Enter your phone number" },
-            { type: "phoneInput", variant: "default" },
-            { type: "button", label: "Send Code", variant: "primary" },
-            { type: "divider" },
-            { type: "sectionHeader", label: "Enter verification code" },
-            { type: "pinInput", variant: "6-digit" },
-            { type: "button", label: "Verify", variant: "primary", navigateTo: "get-started" },
+            { type: "appBar", variant: "back" },
+            { type: "heroText", label: "Sign up with your phone number", props: { subtitle: "We need this for some services and to ensure your account's security" } },
+            { type: "phoneInput", variant: "filled" },
+            { type: "button", label: "Continue", variant: "primary-dark", navigateTo: "otp-verify" },
           ],
         },
         {
-          screenId: "get-started",
-          title: "Get Started",
+          screenId: "otp-verify",
+          title: "Verify",
           components: [
-            { type: "appBar", label: "Rebtel", variant: "home" },
-            { type: "sectionHeader", label: "What would you like to do?" },
-            { type: "topUpCard", label: "Send a Top-Up", variant: "popular", props: { description: "Send airtime to family abroad" } },
-            { type: "rateCard", label: "Make a Call", variant: "featured", props: { description: "Cheap international calls" } },
-            { type: "promoCard", label: "Explore calling plans", variant: "compact" },
+            { type: "appBar", variant: "back" },
+            { type: "heroText", label: "Please verify your phone number", props: { subtitle: "We've sent a one-time verification code to (USER NUMBER). Enter the code below" } },
+            { type: "pinInput", variant: "4-digit" },
+          ],
+        },
+        {
+          screenId: "notifications",
+          title: "Notifications",
+          components: [
+            { type: "appBar", variant: "back" },
+            { type: "heroText", label: "Never miss out", props: { subtitle: "Stay up-to-date on important info, promos, and new features — no need to keep checking the app." } },
+            { type: "toggle", label: "Notifications", props: { description: "Describe notifications" } },
+            { type: "toggle", label: "Promotions", props: { description: "Describe promotions" } },
+            { type: "button", label: "Continue", variant: "primary-dark", navigateTo: "npu-home" },
+          ],
+        },
+        {
+          screenId: "npu-home",
+          title: "Home",
+          components: [
+            { type: "searchBar", label: "Search contacts" },
+            { type: "heroText", label: "Welcome to Rebtel", props: { subtitle: "The place for dual-culture people like you to connect their worlds." } },
+            { type: "promoCard", label: "Get started with 7 days of free unlimited calls to Nigeria", variant: "offer", props: { ctaText: "Start free trial" } },
+            { type: "button", label: "Make your first call", variant: "primary-dark" },
+            { type: "button", label: "Send your first top-up", variant: "primary-dark" },
             { type: "rebtelTabBar" },
           ],
         },
@@ -129,7 +141,7 @@ export const REBTEL_SAMPLE_FLOWS: SampleFlowEntry[] = [
     },
   },
 
-  // ── 3. Home Screen ────────────────────────────────────────
+  // ── 3. Home Screen — Active User (from Figma Home section) ─
   {
     prompt: "Show me a home screen for an active user",
     flow: {
@@ -139,17 +151,52 @@ export const REBTEL_SAMPLE_FLOWS: SampleFlowEntry[] = [
           screenId: "home",
           title: "Home",
           components: [
-            { type: "appBar", label: "Rebtel", variant: "home" },
-            { type: "balanceWidget", label: "$12.50 Credits", variant: "multi", props: { planName: "Cuba Unlimited", planRemaining: "18 days" } },
-            { type: "sectionHeader", label: "Quick Actions" },
-            { type: "button", label: "Send Top-Up", variant: "primary" },
-            { type: "button", label: "Buy a Plan", variant: "outline" },
-            { type: "sectionHeader", label: "Recent Activity" },
-            { type: "transactionRow", label: "Top-Up to Maria Garcia", variant: "topup", props: { amount: "$20.00", date: "Today" } },
-            { type: "transactionRow", label: "Call to Havana", variant: "call", props: { duration: "23 min", date: "Yesterday" } },
-            { type: "transactionRow", label: "Top-Up to Carlos", variant: "topup", props: { amount: "$15.00", date: "Mar 18" } },
-            { type: "promoCard", label: "Cuba Double Bonus — This Weekend Only!", variant: "compact" },
+            { type: "searchBar", label: "Search contacts" },
+            { type: "contactCard", label: "Emil Lee Ann Bergst...", variant: "calling", props: { minutesLeft: "340 minutes left", localTime: "Local time 2:30 PM" } },
+            { type: "contactCard", label: "Emil Lee Ann Bergst...", variant: "topup", props: { amountSent: "UGX 10499", theyReceived: "Monthly Youtube & Soc..." } },
+            { type: "contactCard", label: "Emil Lee Ann Bergst...", variant: "calling", props: { minutesLeft: "3 minutes left", localTime: "Local time 2:30 PM" } },
+            { type: "contactCard", label: "Emil Lee Ann Bergst...", variant: "calling", props: { minutesLeft: "0 minutes left", localTime: "Local time 2:30 PM" } },
             { type: "rebtelTabBar" },
+          ],
+        },
+      ],
+    },
+  },
+
+  // ── 4. International Calling Flow (from Figma Calling section) ─
+  {
+    prompt: "Design the international calling experience",
+    flow: {
+      name: "International Calling",
+      screens: [
+        {
+          screenId: "calling-home",
+          title: "International calling",
+          components: [
+            { type: "appBar", label: "International calling", variant: "back" },
+            { type: "searchBar", label: "Search contacts" },
+            { type: "sectionHeader", label: "Recent" },
+            { type: "contactCard", label: "Leslie Alexander", variant: "compact", props: { phone: "+234787332454", flag: "🇮🇳", minutesLeft: "23 min left" }, navigateTo: "country-pricing" },
+            { type: "contactCard", label: "Jerome Bell", variant: "compact", props: { phone: "+234787332454", flag: "🇲🇽", minutesLeft: "78 min left" }, navigateTo: "country-pricing" },
+            { type: "promoCard", label: "Get 30 minutes to call Philippines!", variant: "offer" },
+          ],
+        },
+        {
+          screenId: "country-pricing",
+          title: "India",
+          components: [
+            { type: "appBar", label: "India", variant: "back" },
+            { type: "topUpCard", label: "India Unlimited", variant: "plan", props: { planName: "India Unlimited", planPrice: "$6/30 days", planFeatures: ["Unlimited calls to India", "Cancel anytime"] } },
+            { type: "divider", label: "Or" },
+            { type: "topUpCard", label: "Rebtel Credits to India", variant: "amount-select", props: { amounts: ["$5", "$10", "$25"] } },
+          ],
+        },
+        {
+          screenId: "call-rating",
+          title: "Call Rating",
+          components: [
+            { type: "callStatus", variant: "ended", label: "Richmond Ko", props: { minutesTalked: "335 min", minutesLeft: "267 min" } },
+            { type: "button", label: "Close", variant: "text-link" },
           ],
         },
       ],

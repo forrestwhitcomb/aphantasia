@@ -43,7 +43,18 @@ export type RebtelComponentType =
   | "onboardingFlow"
   | "settingsGroup"
   | "rebtelProfileHeader"
-  | "homeScreen";
+  | "homeScreen"
+  // New Figma-matched components
+  | "label"
+  | "productCard"
+  | "orderSummary"
+  | "heroText"
+  | "sectionText"
+  | "textField"
+  | "rebtelBottomSheet"
+  | "paymentModule"
+  | "paymentForm"
+  | "dialogPopup";
 
 // ── Shared Base Components (reskinned via Rebtel tokens) ────
 
@@ -95,6 +106,8 @@ const REBTEL_TYPES = new Set<string>([
   "successScreen", "errorBanner", "loadingState", "callStatus",
   "topUpFlow", "callingFlow", "onboardingFlow", "settingsGroup",
   "rebtelProfileHeader", "homeScreen",
+  "label", "productCard", "orderSummary", "heroText", "sectionText",
+  "textField", "rebtelBottomSheet", "paymentModule", "paymentForm", "dialogPopup",
 ]);
 
 const SHARED_TYPES = new Set<string>([

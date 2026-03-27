@@ -1,5 +1,5 @@
-// AppBar — Rebtel app bar matching Figma
-// Figma: back chevron (<) + "Section header" centered + settings icon
+// AppBar — Rebtel app bar matching Figma precisely
+// Figma: back chevron (<) + "Section header" centered + target/settings icon
 // Status bar with time "9:41" and signal/wifi/battery icons
 // Variants: "home" | "back" | "close" | "search"
 
@@ -9,10 +9,12 @@ export interface AppBarProps extends UIComponentPropsBase {
   variant?: "home" | "back" | "close" | "search";
 }
 
-const ICON_BACK = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-default)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
-const ICON_CLOSE = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-default)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-const ICON_SETTINGS = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-default)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
-const ICON_SEARCH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-secondary)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+// Thin chevron matching Figma (stroke-width 1.5)
+const ICON_BACK = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-default)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+const ICON_CLOSE = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-default)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+// Target/crosshair icon matching Figma (not gear)
+const ICON_SETTINGS = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-default)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>`;
+const ICON_SEARCH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-icon-secondary)" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
 
 const STATUS_BAR = `
 <div style="display:flex;align-items:center;justify-content:space-between;height:var(--rebtel-height-xs);padding:0 var(--rebtel-spacing-md);box-sizing:border-box">
@@ -66,7 +68,7 @@ export function renderAppBar(props: Partial<AppBarProps> = {}): string {
   ${STATUS_BAR}
   <nav style="display:flex;align-items:center;gap:var(--rebtel-spacing-xs);height:var(--rebtel-height-xl);width:100%;padding:0 var(--rebtel-spacing-md);box-sizing:border-box">
     <div style="width:var(--rebtel-height-sm);height:var(--rebtel-height-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0" data-interactive="button">${ICON_BACK}</div>
-    <div style="flex:1;display:flex;align-items:center;gap:var(--rebtel-spacing-xs);background:var(--rebtel-surface-primary-light);border-radius:var(--rebtel-radius-sm);padding:0 var(--rebtel-spacing-sm);height:var(--rebtel-height-sm)" data-interactive="input">
+    <div style="flex:1;display:flex;align-items:center;gap:var(--rebtel-spacing-xs);background:var(--rebtel-surface-primary-light);border-radius:var(--rebtel-radius-full);padding:0 var(--rebtel-spacing-sm);height:var(--rebtel-height-sm)" data-interactive="input">
       ${ICON_SEARCH}
       <span style="font-family:var(--rebtel-font-body);font-size:var(--rebtel-paragraph-sm-size);line-height:var(--rebtel-paragraph-sm-lh);color:var(--rebtel-text-tertiary);letter-spacing:var(--rebtel-ls)" data-text-editable>Search contacts, countries...</span>
     </div>

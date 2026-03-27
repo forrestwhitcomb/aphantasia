@@ -60,7 +60,7 @@ export function renderTopUpCard(props: Partial<TopUpCardProps> = {}, _index = 0)
 
     const pillsHtml = amounts.map(amt => {
       const isSelected = amt === selected;
-      return `<div style="display:flex;align-items:center;justify-content:center;height:var(--rebtel-height-md);padding:0 var(--rebtel-spacing-lg);border-radius:var(--rebtel-radius-sm);border:1px solid ${isSelected ? "var(--rebtel-brand-red)" : "var(--rebtel-border-default)"};background:${isSelected ? "var(--rebtel-brand-red)" : "var(--rebtel-surface-primary)"};color:${isSelected ? "var(--rebtel-text-on-brand)" : "var(--rebtel-text-primary)"};font-family:var(--rebtel-font-body);font-size:var(--rebtel-label-md-size);line-height:var(--rebtel-label-md-lh);font-weight:500;letter-spacing:var(--rebtel-ls);cursor:pointer" data-interactive="button" data-text-editable>${amt}</div>`;
+      return `<div style="display:flex;align-items:center;justify-content:center;height:var(--rebtel-height-md);padding:0 var(--rebtel-spacing-lg);border-radius:var(--rebtel-radius-full);border:1px solid ${isSelected ? "var(--rebtel-brand-red)" : "var(--rebtel-border-default)"};background:${isSelected ? "var(--rebtel-brand-red)" : "var(--rebtel-surface-primary)"};color:${isSelected ? "var(--rebtel-text-on-brand)" : "var(--rebtel-text-primary)"};font-family:var(--rebtel-font-body);font-size:var(--rebtel-label-md-size);line-height:var(--rebtel-label-md-lh);font-weight:500;letter-spacing:var(--rebtel-ls);cursor:pointer" data-interactive="button" data-text-editable>${amt}</div>`;
     }).join("");
 
     return `
@@ -85,7 +85,7 @@ export function renderTopUpCard(props: Partial<TopUpCardProps> = {}, _index = 0)
     <span style="font-family:var(--rebtel-font-body);font-size:var(--rebtel-paragraph-sm-size);line-height:var(--rebtel-paragraph-sm-lh);font-weight:500;color:var(--rebtel-text-primary);letter-spacing:var(--rebtel-ls)" data-text-editable>2500 min</span>
   </div>
 
-  <div style="display:flex;align-items:center;justify-content:center;height:var(--rebtel-height-lg);background:var(--rebtel-button-primary);color:var(--rebtel-text-on-brand);border-radius:var(--rebtel-radius-md);font-family:var(--rebtel-font-body);font-size:var(--rebtel-label-md-size);line-height:var(--rebtel-label-md-lh);font-weight:600;letter-spacing:var(--rebtel-ls);cursor:pointer" data-interactive="button" data-text-editable>Buy now</div>
+  <div style="display:flex;align-items:center;justify-content:center;height:var(--rebtel-height-lg);background:var(--rebtel-button-primary);color:var(--rebtel-text-on-brand);border-radius:var(--rebtel-radius-full);font-family:var(--rebtel-font-body);font-size:var(--rebtel-label-md-size);line-height:var(--rebtel-label-md-lh);font-weight:600;letter-spacing:var(--rebtel-ls);cursor:pointer" data-interactive="button" data-text-editable>Buy now</div>
 </div>`;
   }
 
@@ -124,7 +124,7 @@ export function renderTopUpCard(props: Partial<TopUpCardProps> = {}, _index = 0)
     <span style="font-family:var(--rebtel-font-body);font-size:var(--rebtel-headline-sm-size);line-height:var(--rebtel-headline-sm-lh);font-weight:700;color:var(--rebtel-text-primary);letter-spacing:var(--rebtel-ls)" data-text-editable>${bundlePrice}</span>
   </div>
 
-  <div style="display:flex;align-items:center;justify-content:center;height:var(--rebtel-height-lg);background:var(--rebtel-surface-primary);color:var(--rebtel-text-primary);border:1px solid var(--rebtel-border-default);border-radius:var(--rebtel-radius-md);font-family:var(--rebtel-font-body);font-size:var(--rebtel-label-md-size);line-height:var(--rebtel-label-md-lh);font-weight:500;letter-spacing:var(--rebtel-ls);cursor:pointer" data-interactive="button" data-text-editable>Select product</div>
+  <div style="display:flex;align-items:center;justify-content:center;height:var(--rebtel-height-lg);background:var(--rebtel-surface-primary);color:var(--rebtel-text-primary);border:1px solid var(--rebtel-border-default);border-radius:var(--rebtel-radius-full);font-family:var(--rebtel-font-body);font-size:var(--rebtel-label-md-size);line-height:var(--rebtel-label-md-lh);font-weight:500;letter-spacing:var(--rebtel-ls);cursor:pointer" data-interactive="button" data-text-editable>Select product</div>
 </div>`;
   }
 
@@ -147,7 +147,7 @@ export function renderTopUpCard(props: Partial<TopUpCardProps> = {}, _index = 0)
       <span style="font-family:var(--rebtel-font-body);font-size:var(--rebtel-paragraph-sm-size);line-height:var(--rebtel-paragraph-sm-lh);color:var(--rebtel-text-secondary);letter-spacing:var(--rebtel-ls)">${f}</span>
     </div>`).join("")}
   </div>
-  <div style="display:flex;align-items:center;justify-content:center;height:var(--rebtel-height-lg);background:var(--rebtel-button-primary);color:var(--rebtel-text-on-brand);border-radius:var(--rebtel-radius-md);font-family:var(--rebtel-font-body);font-size:var(--rebtel-label-md-size);line-height:var(--rebtel-label-md-lh);font-weight:600;letter-spacing:var(--rebtel-ls);cursor:pointer" data-interactive="button" data-text-editable>Subscribe</div>
+  <div style="display:flex;align-items:center;justify-content:center;height:var(--rebtel-height-lg);background:var(--rebtel-button-primary);color:var(--rebtel-text-on-brand);border-radius:var(--rebtel-radius-full);font-family:var(--rebtel-font-body);font-size:var(--rebtel-label-md-size);line-height:var(--rebtel-label-md-lh);font-weight:600;letter-spacing:var(--rebtel-ls);cursor:pointer" data-interactive="button" data-text-editable>Subscribe</div>
 </div>`;
   }
 

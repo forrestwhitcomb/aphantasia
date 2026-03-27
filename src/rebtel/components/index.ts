@@ -3,7 +3,7 @@
 // ============================================================
 // Routes component types to their renderers. For the 10 shared
 // base types, delegates to the existing ui-mode renderers.
-// For the 36 Rebtel types, delegates to Rebtel-specific renderers.
+// For Rebtel types, delegates to Rebtel-specific renderers.
 // ============================================================
 
 import type { UIComponentPropsBase } from "@/ui-mode/types";
@@ -26,6 +26,11 @@ import { renderBalanceWidget } from "./content/BalanceWidget";
 import { renderCountryRow } from "./content/CountryRow";
 import { renderCarrierBadge } from "./content/CarrierBadge";
 import { renderPromoCard } from "./content/PromoCard";
+import { renderLabel } from "./content/Label";
+import { renderProductCard } from "./content/ProductCard";
+import { renderOrderSummary } from "./content/OrderSummary";
+import { renderHeroText } from "./content/HeroText";
+import { renderSectionText } from "./content/SectionText";
 
 // Inputs
 import { renderPhoneInput } from "./inputs/PhoneInput";
@@ -33,6 +38,8 @@ import { renderAmountSelector } from "./inputs/AmountSelector";
 import { renderCountryPicker } from "./inputs/CountryPicker";
 import { renderPinInput } from "./inputs/PinInput";
 import { renderPaymentMethod } from "./inputs/PaymentMethod";
+import { renderTextField } from "./inputs/TextField";
+import { renderPaymentModule } from "./inputs/PaymentModule";
 
 // Feedback
 import { renderSuccessScreen } from "./feedback/SuccessScreen";
@@ -47,6 +54,9 @@ import { renderOnboardingFlow } from "./composite/OnboardingFlow";
 import { renderSettingsGroup } from "./composite/SettingsGroup";
 import { renderRebtelProfileHeader } from "./composite/RebtelProfileHeader";
 import { renderHomeScreen } from "./composite/HomeScreen";
+import { renderRebtelBottomSheet } from "./composite/BottomSheet";
+import { renderDialogPopup } from "./composite/DialogPopup";
+import { renderPaymentForm } from "./composite/PaymentForm";
 
 /**
  * Render a Rebtel component by type. Returns an HTML string.
@@ -82,6 +92,11 @@ export function renderRebtelComponent(
     case "countryRow": return renderCountryRow(p);
     case "carrierBadge": return renderCarrierBadge(p);
     case "promoCard": return renderPromoCard(p);
+    case "label": return renderLabel(p);
+    case "productCard": return renderProductCard(p);
+    case "orderSummary": return renderOrderSummary(p);
+    case "heroText": return renderHeroText(p);
+    case "sectionText": return renderSectionText(p);
 
     // Inputs
     case "phoneInput": return renderPhoneInput(p);
@@ -89,6 +104,8 @@ export function renderRebtelComponent(
     case "countryPicker": return renderCountryPicker(p);
     case "pinInput": return renderPinInput(p);
     case "paymentMethod": return renderPaymentMethod(p);
+    case "textField": return renderTextField(p);
+    case "paymentModule": return renderPaymentModule(p);
 
     // Feedback
     case "successScreen": return renderSuccessScreen(p);
@@ -103,6 +120,9 @@ export function renderRebtelComponent(
     case "settingsGroup": return renderSettingsGroup(p);
     case "rebtelProfileHeader": return renderRebtelProfileHeader(p);
     case "homeScreen": return renderHomeScreen(p);
+    case "rebtelBottomSheet": return renderRebtelBottomSheet(p);
+    case "dialogPopup": return renderDialogPopup(p);
+    case "paymentForm": return renderPaymentForm(p);
 
     default:
       return renderRebtelPlaceholder(type, props);

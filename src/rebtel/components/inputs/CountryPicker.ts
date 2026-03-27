@@ -22,18 +22,18 @@ export function renderCountryPicker(props: Partial<UIComponentPropsBase> = {}): 
   ];
 
   const renderRow = (c: typeof countries[0]) => `
-    <div style="display:flex;align-items:center;gap:var(--rebtel-spacing-sm);padding:var(--rebtel-spacing-sm) var(--rebtel-spacing-md);min-height:var(--rebtel-height-xl);border-bottom:1px solid var(--rebtel-border-secondary);cursor:pointer;box-sizing:border-box" data-interactive="button">
-      <span style="font-size:24px;flex-shrink:0">${c.flag}</span>
+    <div style="display:flex;align-items:center;gap:var(--rebtel-spacing-xs);padding:var(--rebtel-spacing-sm) var(--rebtel-spacing-md);height:44px;cursor:pointer;box-sizing:border-box" data-interactive="button">
+      <span style="font-size:20px;flex-shrink:0;line-height:1">${c.flag}</span>
       <span style="flex:1;font-family:var(--rebtel-font-body);font-size:var(--rebtel-paragraph-md-size);line-height:var(--rebtel-paragraph-md-lh);font-weight:500;color:var(--rebtel-text-primary);letter-spacing:var(--rebtel-ls)">${c.name}</span>
-      <span style="font-family:var(--rebtel-font-body);font-size:var(--rebtel-paragraph-sm-size);color:var(--rebtel-text-tertiary);letter-spacing:var(--rebtel-ls);white-space:nowrap">${c.contacts} contacts</span>
+      <span style="font-family:var(--rebtel-font-body);font-size:var(--rebtel-paragraph-sm-size);color:var(--rebtel-text-tertiary);letter-spacing:var(--rebtel-ls);white-space:nowrap">${c.contacts} contacts here</span>
       <span style="display:flex;align-items:center;flex-shrink:0">${ICON_CHEVRON_RIGHT}</span>
     </div>`;
 
   const searchBar = `
   <div style="padding:var(--rebtel-spacing-sm) var(--rebtel-spacing-md)">
-    <div style="display:flex;align-items:center;gap:var(--rebtel-spacing-xs);background:var(--rebtel-surface-primary-light);border-radius:var(--rebtel-radius-sm);padding:0 var(--rebtel-spacing-sm);height:var(--rebtel-height-md)" data-interactive="input">
+    <div style="display:flex;align-items:center;gap:var(--rebtel-spacing-xs);background:var(--rebtel-surface-primary);border:1px solid var(--rebtel-border-default);border-radius:var(--rebtel-radius-full);padding:0 var(--rebtel-spacing-md);height:var(--rebtel-height-lg)" data-interactive="input">
       ${ICON_SEARCH}
-      <span style="font-family:var(--rebtel-font-body);font-size:var(--rebtel-paragraph-sm-size);line-height:var(--rebtel-paragraph-sm-lh);color:var(--rebtel-text-tertiary);letter-spacing:var(--rebtel-ls)" data-text-editable>${label}</span>
+      <span style="font-family:var(--rebtel-font-body);font-size:var(--rebtel-paragraph-md-size);line-height:var(--rebtel-paragraph-md-lh);color:var(--rebtel-text-tertiary);letter-spacing:var(--rebtel-ls)" data-text-editable>${label}</span>
     </div>
   </div>`;
 

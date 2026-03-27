@@ -57,6 +57,18 @@ export const REBTEL_LABEL_RULES: RebtelLabelRule[] = [
   { pattern: /\b(profile\s*header|user\s*profile|my\s*profile|account\s*header)\b/i, type: "rebtelProfileHeader" },
   { pattern: /\b(home\s*screen|main\s*screen|dashboard|home\s*page)\b/i, type: "homeScreen" },
 
+  // New Figma-matched components
+  { pattern: /\b(label|tag|badge|chip)\b/i, type: "label" },
+  { pattern: /\b(product\s*card|bundle\s*card|data\s*plan)\b/i, type: "productCard" },
+  { pattern: /\b(order\s*summary|pricing|price\s*summary|plan\s*summary)\b/i, type: "orderSummary" },
+  { pattern: /\b(hero\s*text|hero\s*title|big\s*text|page\s*title)\b/i, type: "heroText" },
+  { pattern: /\b(section\s*text|section\s*title|sub\s*header)\b/i, type: "sectionText" },
+  { pattern: /\b(text\s*field|input\s*field|form\s*field|email\s*input|underline\s*input)\b/i, type: "textField" },
+  { pattern: /\b(bottom\s*sheet|action\s*sheet|picker\s*sheet|frequency)\b/i, type: "rebtelBottomSheet" },
+  { pattern: /\b(payment\s*module|pay\s*now|checkout\s*button)\b/i, type: "paymentModule" },
+  { pattern: /\b(payment\s*form|add\s*payment|card\s*form|checkout\s*form)\b/i, type: "paymentForm" },
+  { pattern: /\b(dialog|popup|confirm|modal|confirmation)\b/i, type: "dialogPopup" },
+
   // Generic fallbacks (after specific patterns)
   { pattern: /\b(top[\s-]?up|recharge)\b/i, type: "topUpCard" },
   { pattern: /\b(rates?)\b/i, type: "rateCard" },

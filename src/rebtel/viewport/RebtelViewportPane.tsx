@@ -19,6 +19,7 @@ import { resolveRebtelComponents } from "../semantic/RebtelSemanticResolver";
 import type { UIResolvedComponent, UILayer2Override, UIUserOverride } from "@/ui-mode/types";
 import { PhoneChrome } from "@/ui-mode/viewport/PhoneChrome";
 import { VariantPicker } from "@/ui-mode/viewport/VariantPicker";
+import { CopyToFigmaButton } from "@/ui-mode/viewport/CopyToFigmaButton";
 import { rebtelRenderLayer1 } from "../render/rebtelRenderEngine";
 import { useRebtelInteractionHandler } from "./RebtelInteractionHandler";
 import { ScreenNavigator } from "./ScreenNavigator";
@@ -88,7 +89,7 @@ export function RebtelViewportPane() {
   }, [sendModeToIframe]);
 
   // Scale to fit pane height
-  const BUTTON_AREA_HEIGHT = 80; // extra room for mode toggle + screen nav
+  const BUTTON_AREA_HEIGHT = 90; // extra room for copy-to-figma + mode toggle + screen nav
   useEffect(() => {
     if (!containerRef.current) return;
     const obs = new ResizeObserver(([entry]) => {
@@ -226,6 +227,11 @@ export function RebtelViewportPane() {
     setSelectedComponent(null);
   }, [selectedComponent]);
 
+  // Get current screen HTML for Copy to Figma
+  const getCurrentScreenSrcDoc = useCallback((): string => {
+    return srcDoc;
+  }, [srcDoc]);
+
   const scaledWidth = MOBILE_FRAME_WIDTH * scale;
   const scaledHeight = MOBILE_FRAME_HEIGHT * scale;
 
@@ -266,6 +272,45 @@ export function RebtelViewportPane() {
           AI rendering...
         </div>
       )}
+
+      {/* Design / Preview toggle — above phone */}
+      <div
+        style={{
+          display: "flex",
+          background: "rgba(26,26,26,0.92)",
+          borderRadius: 10,
+          padding: 3,
+          gap: 2,
+          border: "1px solid rgba(255,255,255,0.08)",
+          fontFamily: "var(--font-poppins), system-ui, sans-serif",
+          marginBottom: 8,
+          flexShrink: 0,
+        }}
+      >
+        {(["design", "preview"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setViewportMode(m)}
+            style={{
+              padding: "4px 14px",
+              borderRadius: 8,
+              fontSize: 11,
+              fontWeight: viewportMode === m ? 600 : 400,
+              color: viewportMode === m ? "#fff" : "rgba(255,255,255,0.45)",
+              background: viewportMode === m
+                ? m === "preview" ? "rgba(230,57,70,0.8)" : "rgba(255,255,255,0.15)"
+                : "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              textTransform: "capitalize",
+              transition: "all 0.15s",
+            }}
+          >
+            {m === "design" ? "✏️ Design" : "▶ Preview"}
+          </button>
+        ))}
+      </div>
 
       {/* Phone wrapper */}
       <div style={{ position: "relative", flexShrink: 0 }}>
@@ -327,46 +372,9 @@ export function RebtelViewportPane() {
           )}
         </PhoneChrome>
 
-        {/* Mode toggle + screen navigator below phone chrome */}
+        {/* Copy to Figma + screen navigator below phone chrome */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 8 }}>
-          {/* Design / Preview toggle */}
-          <div
-            style={{
-              display: "flex",
-              background: "rgba(26,26,26,0.92)",
-              borderRadius: 10,
-              padding: 3,
-              gap: 2,
-              border: "1px solid rgba(255,255,255,0.08)",
-              fontFamily: "var(--font-poppins), system-ui, sans-serif",
-            }}
-          >
-            {(["design", "preview"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setViewportMode(m)}
-                style={{
-                  padding: "4px 14px",
-                  borderRadius: 8,
-                  fontSize: 11,
-                  fontWeight: viewportMode === m ? 600 : 400,
-                  color: viewportMode === m ? "#fff" : "rgba(255,255,255,0.45)",
-                  background: viewportMode === m
-                    ? m === "preview" ? "rgba(230,57,70,0.8)" : "rgba(255,255,255,0.15)"
-                    : "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  textTransform: "capitalize",
-                  transition: "all 0.15s",
-                }}
-              >
-                {m === "design" ? "✏️ Design" : "▶ Preview"}
-              </button>
-            ))}
-          </div>
-
-          {/* Screen navigator */}
+          <CopyToFigmaButton getSrcDoc={getCurrentScreenSrcDoc} />
           <ScreenNavigator
             screens={screens.map(s => ({ screenId: s.screenId, title: s.title }))}
             activeScreenId={activeScreenId}
