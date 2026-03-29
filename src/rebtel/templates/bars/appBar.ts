@@ -1,67 +1,24 @@
 // ============================================================
-// App Bar — ComponentSpec template factory (Figma 3.0 audited)
+// App Bar — Pixel-perfect from Figma 3.0
 // ============================================================
-// Figma node: 5405:107477 (Section header instance)
-// Status bar: 9:41 label-sm/600, signal+wifi+battery icons
-// Nav: back/close/search variants, title headline-xs/600
-// Icon colors: icon/primary (#111111), icon/secondary (#737378)
+// Container: width 100%, height 48px, flex row, align center,
+// justify space-between, padding 0 16px
+// Back icon 24x24 left, title center (KH Teka 16px/400, #111111),
+// action icon right. Background: white or transparent.
 // ============================================================
 
 import type { ComponentSpec } from "../../spec/types";
 
-// ── SVG Icons (Figma audited: stroke widths match design) ────
+// ── SVG Icons (24x24, stroke #111111, 1.5px) ────────────────
 
-const ICON_BACK = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-content-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
-const ICON_CLOSE = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-content-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-const ICON_SETTINGS = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-content-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
-const ICON_SEARCH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-content-secondary)" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+const ICON_BACK = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+const ICON_CLOSE = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const ICON_SETTINGS = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+const ICON_SEARCH = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#737378" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
 
-// Figma status bar icons
-const ICON_SIGNAL = `<svg width="16" height="12" viewBox="0 0 16 12" fill="var(--rebtel-content-primary)"><rect x="0" y="4" width="3" height="8" rx="1"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1"/><rect x="9" y="1" width="3" height="11" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1"/></svg>`;
-const ICON_WIFI = `<svg width="16" height="12" viewBox="0 0 16 12" fill="var(--rebtel-content-primary)"><path d="M8 3C5.8 3 3.8 3.8 2.3 5.2L0.5 3.4C2.5 1.5 5.1 0.3 8 0.3c2.9 0 5.5 1.2 7.5 3.1L13.7 5.2C12.2 3.8 10.2 3 8 3zM8 6.5c-1.5 0-2.8 0.6-3.8 1.5L2.5 6.2C4 4.8 5.9 4 8 4s4 0.8 5.5 2.2L11.8 8C10.8 7.1 9.5 6.5 8 6.5zM8 10c-0.7 0-1.3 0.3-1.8 0.7L8 12.8l1.8-2.1C9.3 10.3 8.7 10 8 10z"/></svg>`;
-const ICON_BATTERY = `<svg width="25" height="12" viewBox="0 0 25 12" fill="var(--rebtel-content-primary)"><rect x="0" y="1" width="21" height="10" rx="2" fill="none" stroke="var(--rebtel-content-primary)" stroke-width="1"/><rect x="22" y="4" width="2" height="4" rx="0.5"/><rect x="1.5" y="2.5" width="16" height="7" rx="1"/></svg>`;
+// ── Icon button helper (24x24) ──────────────────────────────
 
-// ── Status Bar ───────────────────────────────────────────────
-
-function statusBar(): ComponentSpec {
-  return {
-    key: "status-bar",
-    tag: "div",
-    layout: {
-      display: "flex",
-      align: "center",
-      justify: "space-between",
-      height: { token: "height.xs" },
-      padding: { x: { token: "spacing.md" } },
-      boxSizing: "border-box",
-    },
-    style: {},
-    children: [
-      {
-        key: "sb-time",
-        tag: "span",
-        layout: { display: "inline-flex" },
-        style: {},
-        text: { content: "9:41", style: "label-sm", weight: 600, color: { token: "color.content-primary" } },
-      },
-      {
-        key: "sb-icons",
-        tag: "div",
-        layout: { display: "flex", align: "center", gap: { token: "spacing.xxs" } },
-        style: {},
-        children: [
-          { key: "sb-signal", tag: "div", layout: { display: "inline-flex" }, style: {}, data: { innerHTML: ICON_SIGNAL } },
-          { key: "sb-wifi", tag: "div", layout: { display: "inline-flex" }, style: {}, data: { innerHTML: ICON_WIFI } },
-          { key: "sb-battery", tag: "div", layout: { display: "inline-flex" }, style: {}, data: { innerHTML: ICON_BATTERY } },
-        ],
-      },
-    ],
-  };
-}
-
-// ── Icon Button ──────────────────────────────────────────────
-
-function iconButton(key: string, svgHtml: string, size: string = "height.md"): ComponentSpec {
+function iconButton(key: string, svgHtml: string): ComponentSpec {
   return {
     key,
     tag: "div",
@@ -69,8 +26,8 @@ function iconButton(key: string, svgHtml: string, size: string = "height.md"): C
       display: "flex",
       align: "center",
       justify: "center",
-      width: { token: size },
-      height: { token: size },
+      width: 24,
+      height: 24,
       flexShrink: 0,
     },
     style: { cursor: "pointer" },
@@ -79,8 +36,14 @@ function iconButton(key: string, svgHtml: string, size: string = "height.md"): C
   };
 }
 
-function spacer(key: string, size: string = "height.md"): ComponentSpec {
-  return { key, tag: "div", layout: { display: "block", width: { token: size } }, style: {} };
+// Invisible 24x24 spacer to balance layout
+function spacer(key: string): ComponentSpec {
+  return {
+    key,
+    tag: "div",
+    layout: { display: "block", width: 24, height: 24, flexShrink: 0 },
+    style: {},
+  };
 }
 
 // ── Template Factory ─────────────────────────────────────────
@@ -88,51 +51,81 @@ function spacer(key: string, size: string = "height.md"): ComponentSpec {
 export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
   const variant = (props?.variant as string) ?? "back";
   const title = (props?.title as string) ?? (props?.label as string) ?? "Mobile Top-up";
+  const bg = (props?.background as string) ?? "#FFFFFF";
 
   const navChildren: ComponentSpec[] = [];
 
   switch (variant) {
     case "home":
-      navChildren.push({
-        key: "nav-title",
-        tag: "span",
-        layout: { display: "inline-flex" },
-        style: {},
-        text: { content: "Rebtel", style: "display-xs", weight: 700, color: { token: "color.content-brand" }, align: "center", editable: true },
-      });
+      // Home variant: centered brand title, no icons
+      navChildren.push(
+        spacer("nav-spacer-left"),
+        {
+          key: "nav-title",
+          tag: "span",
+          layout: { display: "block", flex: "1" },
+          style: { textAlign: "center", fontFamily: "'Pano'", letterSpacing: "0.02em", lineHeight: "20px" },
+          text: {
+            content: "Rebtel",
+            style: "display-xs",
+            weight: 700,
+            color: "#E31B3B",
+            align: "center",
+            editable: true,
+          },
+        },
+        spacer("nav-spacer-right"),
+      );
       break;
 
     case "back":
+      // Back variant: back icon | centered title | action icon
       navChildren.push(
         iconButton("nav-back", ICON_BACK),
         {
           key: "nav-title",
           tag: "span",
           layout: { display: "block", flex: "1" },
-          style: {},
-          text: { content: title, style: "headline-xs", weight: 600, color: { token: "color.content-primary" }, align: "center", editable: true },
+          style: { textAlign: "center", fontFamily: "'KH Teka'", letterSpacing: "0.02em", lineHeight: "20px" },
+          text: {
+            content: title,
+            style: "label-lg",
+            weight: 400,
+            color: "#111111",
+            align: "center",
+            editable: true,
+          },
         },
         iconButton("nav-action", ICON_SETTINGS),
       );
       break;
 
     case "close":
+      // Close variant: close icon | centered title | spacer
       navChildren.push(
         iconButton("nav-close", ICON_CLOSE),
         {
           key: "nav-title",
           tag: "span",
           layout: { display: "block", flex: "1" },
-          style: {},
-          text: { content: title, style: "headline-xs", weight: 600, color: { token: "color.content-primary" }, align: "center", editable: true },
+          style: { textAlign: "center", fontFamily: "'KH Teka'", letterSpacing: "0.02em", lineHeight: "20px" },
+          text: {
+            content: title,
+            style: "label-lg",
+            weight: 400,
+            color: "#111111",
+            align: "center",
+            editable: true,
+          },
         },
         spacer("nav-spacer"),
       );
       break;
 
     case "search":
+      // Search variant: back icon | search field
       navChildren.push(
-        iconButton("nav-back", ICON_BACK, "height.sm"),
+        iconButton("nav-back", ICON_BACK),
         {
           key: "search-field",
           tag: "div",
@@ -140,16 +133,35 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
             display: "flex",
             flex: "1",
             align: "center",
-            gap: { token: "spacing.xs" },
-            height: { token: "height.sm" },
-            padding: { x: { token: "spacing.sm" } },
-            borderRadius: { token: "radius.full" },
+            gap: "8px",
+            height: 36,
+            padding: { x: "12px" },
+            borderRadius: "32px",
+            boxSizing: "border-box",
           },
-          style: { background: { token: "color.surface-default" } },
+          style: { background: "#F3F3F3" },
           interactive: { type: "input" },
           children: [
-            { key: "search-icon", tag: "div", layout: { display: "inline-flex" }, style: {}, data: { innerHTML: ICON_SEARCH } },
-            { key: "search-placeholder", tag: "span", layout: { display: "inline-flex" }, style: {}, text: { content: "Search contacts, countries...", style: "paragraph-sm", color: { token: "color.content-tertiary" }, editable: true } },
+            {
+              key: "search-icon",
+              tag: "div",
+              layout: { display: "flex", align: "center", justify: "center", width: 24, height: 24, flexShrink: 0 },
+              style: {},
+              data: { innerHTML: ICON_SEARCH },
+            },
+            {
+              key: "search-placeholder",
+              tag: "span",
+              layout: { display: "inline-flex" },
+              style: { fontFamily: "'KH Teka'", letterSpacing: "0.02em", lineHeight: "16px" },
+              text: {
+                content: "Search contacts, countries...",
+                style: "paragraph-sm",
+                weight: 400,
+                color: "#737378",
+                editable: true,
+              },
+            },
           ],
         },
       );
@@ -159,24 +171,31 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
   return {
     key: "app-bar",
     tag: "div",
-    layout: { display: "flex", direction: "column", width: "100%", boxSizing: "border-box" },
-    style: { background: { token: "color.surface-canvas" } },
+    layout: {
+      display: "flex",
+      direction: "column",
+      width: "100%",
+      boxSizing: "border-box",
+    },
+    style: {
+      background: bg,
+      fontFamily: "'KH Teka'",
+    },
     data: { component: "appBar" },
     children: [
-      statusBar(),
+      // Nav row: 48px height, horizontal flex, centered, padding 0 16px
       {
         key: "nav-row",
         tag: "nav",
         layout: {
           display: "flex",
           align: "center",
-          justify: variant === "home" ? "center" : undefined,
-          gap: variant === "search" ? { token: "spacing.xs" } : undefined,
-          height: { token: "height.xl" },
+          justify: "space-between",
+          height: 48,
           width: "100%",
-          padding: { x: variant === "search" || variant === "home" ? { token: "spacing.md" } : { token: "spacing.xs" } },
+          padding: { left: "16px", right: "16px" },
           boxSizing: "border-box",
-          position: "relative",
+          gap: variant === "search" ? "8px" : undefined,
         },
         style: {},
         children: navChildren,

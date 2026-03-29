@@ -1,5 +1,13 @@
-// Dialog Popup — Centered card with title, body, primary + secondary buttons
-// Figma: 5405:106106 — 406×344
+// ============================================================
+// Dialog — Pixel-perfect from Figma 3.0
+// ============================================================
+// White bg, 1px solid #DCDCE1 border, 16px radius
+// Padding: 20px horizontal, 24px vertical, 32px gap
+// Visualization: dark bg (#111111), 3:4 aspect ratio
+// Headline: KH Teka 24px/36px, weight 400, center, #2D2D32
+// Body: KH Teka 16px/24px, weight 400, center, #737378
+// Buttons: vertical, 12px gap, primary + tertiary
+// ============================================================
 
 import type { ComponentSpec } from "../../spec/types";
 
@@ -8,6 +16,155 @@ export function dialogTemplate(props?: Record<string, unknown>): ComponentSpec {
   const body = (props?.body as string) ?? "Would you like to set up an auto top-up for Buyaka with NGN 7650 every 30 days? You can cancel anytime you want.";
   const primaryLabel = (props?.primaryLabel as string) ?? "Yes, activate";
   const secondaryLabel = (props?.secondaryLabel as string) ?? "No, cancel";
+  const showVisualization = props?.showVisualization !== false;
+
+  const contentChildren: ComponentSpec[] = [];
+
+  // Visualization area — dark bg, 3:4 aspect ratio placeholder
+  if (showVisualization) {
+    contentChildren.push({
+      key: "visualization",
+      tag: "div",
+      layout: {
+        display: "flex",
+        align: "center",
+        justify: "center",
+        width: "100%",
+        height: 0,
+        borderRadius: "12px",
+        overflow: "hidden",
+      },
+      style: {
+        background: "#111111",
+      },
+      // 3:4 aspect ratio via padding-bottom trick is handled by renderer;
+      // providing the spec node for the area
+    });
+  }
+
+  // Headline
+  contentChildren.push({
+    key: "title",
+    tag: "div",
+    layout: { display: "block", width: "100%" },
+    style: {
+      textAlign: "center",
+      fontSize: 24,
+      letterSpacing: "0.02em",
+      lineHeight: "36px",
+      fontFamily: "'KH Teka'",
+    },
+    text: {
+      content: title,
+      style: "headline-sm",
+      weight: 400,
+      color: "#2D2D32",
+      align: "center",
+      editable: true,
+    },
+  });
+
+  // Body
+  contentChildren.push({
+    key: "body",
+    tag: "div",
+    layout: { display: "block", width: "100%" },
+    style: {
+      textAlign: "center",
+      fontSize: 16,
+      letterSpacing: "0.02em",
+      lineHeight: "24px",
+      fontFamily: "'KH Teka'",
+    },
+    text: {
+      content: body,
+      style: "paragraph-md",
+      weight: 400,
+      color: "#737378",
+      align: "center",
+      editable: true,
+    },
+  });
+
+  // Button combo — vertical, 12px gap
+  contentChildren.push({
+    key: "button-combo",
+    tag: "div",
+    layout: {
+      display: "flex",
+      direction: "column",
+      gap: "12px",
+      width: "100%",
+    },
+    style: {},
+    children: [
+      // Primary button — red bg, white text, lg
+      {
+        key: "btn-primary",
+        tag: "div",
+        layout: {
+          display: "flex",
+          align: "center",
+          justify: "center",
+          width: "100%",
+          height: 64,
+          borderRadius: "32px",
+          padding: { x: "32px" },
+          boxSizing: "border-box",
+        },
+        style: {
+          background: "#E31B3B",
+          cursor: "pointer",
+          fontFamily: "'KH Teka'",
+          fontSize: 20,
+          letterSpacing: "0.02em",
+          lineHeight: "20px",
+        },
+        interactive: { type: "button" },
+        children: [
+          {
+            key: "pri-label",
+            tag: "span",
+            layout: { display: "inline-flex" },
+            style: { letterSpacing: "0.02em", lineHeight: "20px" },
+            text: { content: primaryLabel, style: "label-xl", weight: 400, color: "#FFFFFF", align: "center", editable: true },
+          },
+        ],
+      },
+      // Tertiary button — transparent bg, text only
+      {
+        key: "btn-tertiary",
+        tag: "div",
+        layout: {
+          display: "flex",
+          align: "center",
+          justify: "center",
+          width: "100%",
+          height: 52,
+          borderRadius: "32px",
+          boxSizing: "border-box",
+        },
+        style: {
+          background: "transparent",
+          cursor: "pointer",
+          fontFamily: "'KH Teka'",
+          fontSize: 16,
+          letterSpacing: "0.02em",
+          lineHeight: "16px",
+        },
+        interactive: { type: "button" },
+        children: [
+          {
+            key: "ter-label",
+            tag: "span",
+            layout: { display: "inline-flex" },
+            style: { letterSpacing: "0.02em", lineHeight: "16px" },
+            text: { content: secondaryLabel, style: "label-md", weight: 400, color: "#2D2D32", align: "center", editable: true },
+          },
+        ],
+      },
+    ],
+  });
 
   return {
     key: "dialog",
@@ -16,52 +173,19 @@ export function dialogTemplate(props?: Record<string, unknown>): ComponentSpec {
       display: "flex",
       direction: "column",
       align: "center",
-      gap: { token: "spacing.lg" },
-      padding: { all: { token: "spacing.xxl" } },
-      borderRadius: { token: "radius.xl" },
+      gap: "32px",
+      padding: { top: "24px", bottom: "24px", left: "20px", right: "20px" },
+      borderRadius: "16px",
       maxWidth: 406,
       boxSizing: "border-box",
+      overflow: "hidden",
     },
     style: {
-      background: { token: "color.surface-primary" },
-      shadow: { token: "shadow.lg" },
+      background: "#FFFFFF",
+      border: { width: "1px", style: "solid", color: "#DCDCE1" },
+      fontFamily: "'KH Teka'",
     },
     data: { component: "dialog" },
-    children: [
-      // Title
-      {
-        key: "title",
-        tag: "div",
-        layout: { display: "block", width: "100%" },
-        style: {},
-        text: { content: title, style: "headline-sm", weight: 700, color: { token: "color.text-primary" }, align: "center", editable: true },
-      },
-      // Body
-      {
-        key: "body",
-        tag: "div",
-        layout: { display: "block", width: "100%" },
-        style: {},
-        text: { content: body, style: "paragraph-sm", color: { token: "color.text-secondary" }, align: "center", editable: true },
-      },
-      // Primary button
-      {
-        key: "btn-primary",
-        tag: "div",
-        layout: { display: "flex", align: "center", justify: "center", width: "100%", height: { token: "height.lg" }, borderRadius: { token: "radius.full" } },
-        style: { background: { token: "color.grey-900" }, cursor: "pointer" },
-        interactive: { type: "button" },
-        text: { content: primaryLabel, style: "label-md", weight: 600, color: { token: "color.brand-white" }, align: "center", editable: true },
-      },
-      // Secondary button (text only)
-      {
-        key: "btn-secondary",
-        tag: "div",
-        layout: { display: "flex", align: "center", justify: "center", width: "100%", height: { token: "height.md" } },
-        style: { cursor: "pointer" },
-        interactive: { type: "button" },
-        text: { content: secondaryLabel, style: "paragraph-sm", weight: 500, color: { token: "color.text-primary" }, align: "center", editable: true },
-      },
-    ],
+    children: contentChildren,
   };
 }

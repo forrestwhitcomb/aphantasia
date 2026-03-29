@@ -75,8 +75,14 @@ function buildStyles(spec: ComponentSpec): string {
   if (layout.position) s.push(`position:${layout.position}`);
   if (layout.borderRadius) s.push(`border-radius:${resolveToken(layout.borderRadius)}`);
   if (layout.flexShrink !== undefined) s.push(`flex-shrink:${layout.flexShrink}`);
+  if (layout.flexGrow !== undefined) s.push(`flex-grow:${layout.flexGrow}`);
   if (layout.flexWrap) s.push(`flex-wrap:${layout.flexWrap}`);
   if (layout.boxSizing) s.push(`box-sizing:${layout.boxSizing}`);
+  if (layout.alignSelf) s.push(`align-self:${layout.alignSelf}`);
+  if (layout.top !== undefined) s.push(`top:${resolveSizeValue(layout.top)}`);
+  if (layout.right !== undefined) s.push(`right:${resolveSizeValue(layout.right)}`);
+  if (layout.bottom !== undefined) s.push(`bottom:${resolveSizeValue(layout.bottom)}`);
+  if (layout.left !== undefined) s.push(`left:${resolveSizeValue(layout.left)}`);
 
   // Style
   if (style.background) s.push(`background:${resolveToken(style.background)}`);
@@ -88,12 +94,25 @@ function buildStyles(spec: ComponentSpec): string {
     const bc = b.color ? resolveToken(b.color) : "transparent";
     s.push(`border:${bw} ${bs} ${bc}`);
   }
+  if (style.borderTop) {
+    const b = style.borderTop;
+    s.push(`border-top:${b.width ?? "1px"} ${b.style ?? "solid"} ${b.color ? resolveToken(b.color) : "transparent"}`);
+  }
+  if (style.borderBottom) {
+    const b = style.borderBottom;
+    s.push(`border-bottom:${b.width ?? "1px"} ${b.style ?? "solid"} ${b.color ? resolveToken(b.color) : "transparent"}`);
+  }
   if (style.shadow) s.push(`box-shadow:${resolveToken(style.shadow)}`);
   if (style.opacity !== undefined) s.push(`opacity:${style.opacity}`);
   if (style.cursor) s.push(`cursor:${style.cursor}`);
   if (style.textOverflow) s.push(`text-overflow:${style.textOverflow}`);
   if (style.whiteSpace) s.push(`white-space:${style.whiteSpace}`);
   if (style.overflowText) s.push(`overflow:${style.overflowText}`);
+  if (style.textAlign) s.push(`text-align:${style.textAlign}`);
+  if (style.fontSize) s.push(`font-size:${typeof style.fontSize === "number" ? `${style.fontSize}px` : style.fontSize}`);
+  if (style.fontFamily) s.push(`font-family:${style.fontFamily}`);
+  if (style.letterSpacing) s.push(`letter-spacing:${style.letterSpacing}`);
+  if (style.lineHeight) s.push(`line-height:${typeof style.lineHeight === "number" ? `${style.lineHeight}px` : style.lineHeight}`);
 
   return s.join(";");
 }

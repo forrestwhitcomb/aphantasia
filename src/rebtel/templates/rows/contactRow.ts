@@ -1,15 +1,24 @@
-// Contact List Item — Avatar + name + phone + free minutes badge
-// Figma: 5405:106364 — 358×72
+// ============================================================
+// Contact Row — Pixel-perfect from Figma 3.0
+// ============================================================
+// Container: width 100%, height 72px, flex row, align center,
+//   padding 12px 16px, gap 12px
+// Avatar: 48x48 circle, #F3F3F3 bg, user icon
+// Info column: flex column, gap 2px
+//   Name: KH Teka 16px, #111111
+//   Phone: KH Teka 14px, #737378
+// Action: chevron icon 24x24
+// ============================================================
 
 import type { ComponentSpec } from "../../spec/types";
 
-const ICON_USER = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-grey-400)" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+const ICON_USER = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B9B9BE" stroke-width="1.5" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+const ICON_CHEVRON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B9B9BE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
 
 export function contactRowTemplate(props?: Record<string, unknown>): ComponentSpec {
   const name = (props?.name as string) ?? (props?.label as string) ?? "Leslie Alexander";
-  const phone = (props?.phone as string) ?? "+234787332454";
-  const flag = (props?.flag as string) ?? "\u{1F1F3}\u{1F1EC}";
-  const badge = (props?.badge as string) ?? "3 free minutes";
+  const phone = (props?.phone as string) ?? "+234 787 332 454";
+  const avatarSvg = (props?.avatarSvg as string) ?? ICON_USER;
 
   return {
     key: "contact-row",
@@ -17,57 +26,103 @@ export function contactRowTemplate(props?: Record<string, unknown>): ComponentSp
     layout: {
       display: "flex",
       align: "center",
-      gap: { token: "spacing.sm" },
+      gap: "12px",
       width: "100%",
       height: 72,
-      padding: { x: { token: "spacing.md" } },
+      padding: { top: "12px", bottom: "12px", left: "16px", right: "16px" },
       boxSizing: "border-box",
     },
-    style: { cursor: "pointer" },
+    style: {
+      cursor: "pointer",
+      fontFamily: "'KH Teka'",
+    },
     interactive: { type: "button" },
     data: { component: "contactRow" },
     children: [
-      // Avatar
+      // Avatar: 48x48 circle, grey-200 bg
       {
         key: "avatar",
         tag: "div",
-        layout: { display: "flex", align: "center", justify: "center", width: 40, height: 40, borderRadius: { token: "radius.full" }, flexShrink: 0, overflow: "hidden" },
-        style: { background: { token: "color.grey-100" } },
-        data: { innerHTML: ICON_USER },
+        layout: {
+          display: "flex",
+          align: "center",
+          justify: "center",
+          width: 48,
+          height: 48,
+          borderRadius: "50%",
+          flexShrink: 0,
+          overflow: "hidden",
+        },
+        style: { background: "#F3F3F3" },
+        data: { innerHTML: avatarSvg },
       },
-      // Name + phone
+      // Info column: name + phone
       {
         key: "info",
         tag: "div",
-        layout: { display: "flex", direction: "column", flex: "1", minWidth: 0, gap: "2px" },
+        layout: {
+          display: "flex",
+          direction: "column",
+          flex: "1",
+          minWidth: 0,
+          gap: "2px",
+        },
         style: {},
         children: [
+          // Name: KH Teka 16px, #111111
           {
             key: "name",
             tag: "span",
             layout: { display: "block" },
-            style: {},
-            text: { content: name, style: "paragraph-md", weight: 500, color: { token: "color.text-primary" }, editable: true },
+            style: {
+              fontFamily: "'KH Teka'",
+              fontSize: 16,
+              letterSpacing: "0.02em",
+              lineHeight: "22px",
+            },
+            text: {
+              content: name,
+              style: "paragraph-md",
+              weight: 400,
+              color: "#111111",
+              editable: true,
+            },
           },
+          // Phone: KH Teka 14px, #737378
           {
             key: "phone",
-            tag: "div",
-            layout: { display: "flex", align: "center", gap: "4px" },
-            style: {},
-            children: [
-              { key: "phone-flag", tag: "span", layout: { display: "inline-flex" }, style: {}, text: { content: flag, style: "label-xs" } },
-              { key: "phone-num", tag: "span", layout: { display: "block" }, style: {}, text: { content: phone, style: "paragraph-xs", color: { token: "color.text-secondary" }, editable: true } },
-            ],
+            tag: "span",
+            layout: { display: "block" },
+            style: {
+              fontFamily: "'KH Teka'",
+              fontSize: 14,
+              letterSpacing: "0.02em",
+              lineHeight: "18px",
+            },
+            text: {
+              content: phone,
+              style: "paragraph-sm",
+              weight: 400,
+              color: "#737378",
+              editable: true,
+            },
           },
         ],
       },
-      // Badge
+      // Chevron: 24x24
       {
-        key: "badge",
-        tag: "span",
-        layout: { display: "inline-flex", flexShrink: 0 },
+        key: "chevron",
+        tag: "div",
+        layout: {
+          display: "flex",
+          align: "center",
+          justify: "center",
+          width: 24,
+          height: 24,
+          flexShrink: 0,
+        },
         style: {},
-        text: { content: badge, style: "paragraph-sm", color: { token: "color.text-tertiary" }, editable: true },
+        data: { innerHTML: ICON_CHEVRON },
       },
     ],
   };

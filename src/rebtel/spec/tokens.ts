@@ -131,6 +131,277 @@ export const TOKEN_MAP: Record<string, string> = {
   "color.button-outlined-border": "var(--rebtel-button-outlined-border)",
   "color.button-outlined-text": "var(--rebtel-button-outlined-text)",
 
+  // ── Figma 3.0 Primitives: Extended Color Scales ──
+
+  // Grey alpha variants
+  "color.grey-900-a40": "var(--rebtel-grey-900-a40)",
+  "color.grey-900-a60": "var(--rebtel-grey-900-a60)",
+  "color.grey-900-a80": "var(--rebtel-grey-900-a80)",
+  "color.grey-100-a0": "var(--rebtel-grey-100-a0)",
+  "color.grey-800-a0": "var(--rebtel-grey-800-a0)",
+
+  // Red scale (full)
+  "color.red-100": "var(--rebtel-red-100)",
+  "color.red-200": "var(--rebtel-red-200)",
+  "color.red-300": "var(--rebtel-red-300)",
+  "color.red-400": "var(--rebtel-red-400)",
+  "color.red-500": "var(--rebtel-red-500)",
+  "color.red-600": "var(--rebtel-red-600)",
+  "color.red-700": "var(--rebtel-red-700)",
+  "color.red-800": "var(--rebtel-red-800)",
+
+  // Blue / Accent scale
+  "color.blue-100": "var(--rebtel-blue-100)",
+  "color.blue-200": "var(--rebtel-blue-200)",
+  "color.blue-300": "var(--rebtel-blue-300)",
+  "color.blue-400": "var(--rebtel-blue-400)",
+  "color.blue-500": "var(--rebtel-blue-500)",
+  "color.blue-600": "var(--rebtel-blue-600)",
+  "color.blue-700": "var(--rebtel-blue-700)",
+
+  // Green scale
+  "color.green-100": "var(--rebtel-green-100)",
+  "color.green-200": "var(--rebtel-green-200)",
+  "color.green-300": "var(--rebtel-green-300)",
+  "color.green-400": "var(--rebtel-green-400)",
+  "color.green-500": "var(--rebtel-green-500)",
+
+  // Orange / Warning scale
+  "color.orange-100": "var(--rebtel-orange-100)",
+  "color.orange-200": "var(--rebtel-orange-200)",
+  "color.orange-300": "var(--rebtel-orange-300)",
+
+  // Single-value colors
+  "color.purple-500": "var(--rebtel-purple-500)",
+  "color.shadow-500": "var(--rebtel-shadow-500)",
+  "color.sand-100": "var(--rebtel-sand-100)",
+  "color.cornflower-100": "var(--rebtel-cornflower-100)",
+
+  // ── Figma 3.0 Mapped: Full Surface Tokens ──
+
+  "color.surface-page-canvas": "var(--rebtel-surface-page-canvas)",
+  "color.surface-page-default": "var(--rebtel-surface-page-default)",
+  "color.surface-page-raised": "var(--rebtel-surface-page-raised)",
+  "color.surface-page-overlay": "var(--rebtel-surface-page-overlay)",
+  "color.surface-brand-primary": "var(--rebtel-surface-brand-primary)",
+  "color.surface-brand-pressed": "var(--rebtel-surface-brand-pressed)",
+  "color.surface-brand-subtle": "var(--rebtel-surface-brand-subtle)",
+  "color.surface-accent-primary": "var(--rebtel-surface-accent-primary)",
+  "color.surface-accent-subtle": "var(--rebtel-surface-accent-subtle)",
+  "color.surface-feedback-error": "var(--rebtel-surface-feedback-error)",
+  "color.surface-feedback-error-subtle": "var(--rebtel-surface-feedback-error-subtle)",
+  "color.surface-feedback-warning": "var(--rebtel-surface-feedback-warning)",
+  "color.surface-feedback-warning-subtle": "var(--rebtel-surface-feedback-warning-subtle)",
+  "color.surface-feedback-success": "var(--rebtel-surface-feedback-success)",
+  "color.surface-feedback-success-subtle": "var(--rebtel-surface-feedback-success-subtle)",
+  "color.surface-overlay-scrim": "var(--rebtel-surface-overlay-scrim)",
+  "color.surface-overlay-scrim-strong": "var(--rebtel-surface-overlay-scrim-strong)",
+  "color.surface-overlay-transparent": "var(--rebtel-surface-overlay-transparent)",
+  "color.surface-feature-calling": "var(--rebtel-surface-feature-calling)",
+  "color.surface-feature-mtu": "var(--rebtel-surface-feature-mtu)",
+
+  // ── Figma 3.0 Mapped: Extended Content/Border/Icon Tokens ──
+
+  "color.content-accent": "var(--rebtel-content-accent)",
+  "color.content-warning": "var(--rebtel-content-warning)",
+  "color.content-error": "var(--rebtel-content-error)",
+  "color.border-strong": "var(--rebtel-border-strong)",
+  "color.border-subtle": "var(--rebtel-border-subtle)",
+  "color.border-focus": "var(--rebtel-border-focus)",
+  "color.border-brand": "var(--rebtel-border-brand)",
+  "color.border-accent": "var(--rebtel-border-accent)",
+  "color.border-error": "var(--rebtel-border-error)",
+  "color.border-success": "var(--rebtel-border-success)",
+  "color.border-warning": "var(--rebtel-border-warning)",
+  "color.icon-primary": "var(--rebtel-icon-primary)",
+  "color.icon-tertiary": "var(--rebtel-icon-tertiary)",
+  "color.icon-inverse": "var(--rebtel-icon-inverse)",
+  "color.icon-accent": "var(--rebtel-icon-accent)",
+  "color.icon-success": "var(--rebtel-icon-success)",
+  "color.icon-warning": "var(--rebtel-icon-warning)",
+  "color.icon-error": "var(--rebtel-icon-error)",
+  "color.feedback-label-purple": "var(--rebtel-feedback-label-purple)",
+  "color.feedback-label-dark": "var(--rebtel-feedback-label-dark)",
+
+  // ── Figma 3.0 Component: Button Tokens (all variants + states) ──
+
+  "color.button-primary-bg-pressed": "var(--rebtel-button-primary-bg-pressed)",
+  "color.button-primary-bg-disabled": "var(--rebtel-button-primary-bg-disabled)",
+  "color.button-primary-bg-focus": "var(--rebtel-button-primary-bg-focus)",
+  "color.button-primary-border": "var(--rebtel-button-primary-border)",
+  "color.button-primary-border-disabled": "var(--rebtel-button-primary-border-disabled)",
+  "color.button-primary-border-focus": "var(--rebtel-button-primary-border-focus)",
+  "color.button-primary-text-disabled": "var(--rebtel-button-primary-text-disabled)",
+  "color.button-primary-icon": "var(--rebtel-button-primary-icon)",
+  "color.button-primary-icon-disabled": "var(--rebtel-button-primary-icon-disabled)",
+  "color.button-secondary-black-bg-pressed": "var(--rebtel-button-secondary-black-bg-pressed)",
+  "color.button-secondary-black-bg-disabled": "var(--rebtel-button-secondary-black-bg-disabled)",
+  "color.button-secondary-black-bg-focus": "var(--rebtel-button-secondary-black-bg-focus)",
+  "color.button-secondary-black-border": "var(--rebtel-button-secondary-black-border)",
+  "color.button-secondary-black-border-disabled": "var(--rebtel-button-secondary-black-border-disabled)",
+  "color.button-secondary-black-border-focus": "var(--rebtel-button-secondary-black-border-focus)",
+  "color.button-secondary-black-icon": "var(--rebtel-button-secondary-black-icon)",
+  "color.button-secondary-black-icon-disabled": "var(--rebtel-button-secondary-black-icon-disabled)",
+  "color.button-secondary-white-bg": "var(--rebtel-button-secondary-white-bg)",
+  "color.button-secondary-white-bg-pressed": "var(--rebtel-button-secondary-white-bg-pressed)",
+  "color.button-secondary-white-bg-disabled": "var(--rebtel-button-secondary-white-bg-disabled)",
+  "color.button-secondary-white-bg-focus": "var(--rebtel-button-secondary-white-bg-focus)",
+  "color.button-secondary-white-border": "var(--rebtel-button-secondary-white-border)",
+  "color.button-secondary-white-border-disabled": "var(--rebtel-button-secondary-white-border-disabled)",
+  "color.button-secondary-white-border-focus": "var(--rebtel-button-secondary-white-border-focus)",
+  "color.button-secondary-white-text": "var(--rebtel-button-secondary-white-text)",
+  "color.button-secondary-white-text-disabled": "var(--rebtel-button-secondary-white-text-disabled)",
+  "color.button-secondary-white-icon": "var(--rebtel-button-secondary-white-icon)",
+  "color.button-secondary-white-icon-disabled": "var(--rebtel-button-secondary-white-icon-disabled)",
+  "color.button-secondary-grey-bg": "var(--rebtel-button-secondary-grey-bg)",
+  "color.button-secondary-grey-bg-pressed": "var(--rebtel-button-secondary-grey-bg-pressed)",
+  "color.button-secondary-grey-bg-disabled": "var(--rebtel-button-secondary-grey-bg-disabled)",
+  "color.button-secondary-grey-bg-focus": "var(--rebtel-button-secondary-grey-bg-focus)",
+  "color.button-secondary-grey-border": "var(--rebtel-button-secondary-grey-border)",
+  "color.button-secondary-grey-border-disabled": "var(--rebtel-button-secondary-grey-border-disabled)",
+  "color.button-secondary-grey-border-focus": "var(--rebtel-button-secondary-grey-border-focus)",
+  "color.button-secondary-grey-text": "var(--rebtel-button-secondary-grey-text)",
+  "color.button-secondary-grey-text-disabled": "var(--rebtel-button-secondary-grey-text-disabled)",
+  "color.button-secondary-grey-icon": "var(--rebtel-button-secondary-grey-icon)",
+  "color.button-secondary-grey-icon-disabled": "var(--rebtel-button-secondary-grey-icon-disabled)",
+  "color.button-ghost-bg": "var(--rebtel-button-ghost-bg)",
+  "color.button-ghost-bg-pressed": "var(--rebtel-button-ghost-bg-pressed)",
+  "color.button-ghost-bg-disabled": "var(--rebtel-button-ghost-bg-disabled)",
+  "color.button-ghost-bg-focus": "var(--rebtel-button-ghost-bg-focus)",
+  "color.button-ghost-border": "var(--rebtel-button-ghost-border)",
+  "color.button-ghost-border-disabled": "var(--rebtel-button-ghost-border-disabled)",
+  "color.button-ghost-border-focus": "var(--rebtel-button-ghost-border-focus)",
+  "color.button-ghost-text": "var(--rebtel-button-ghost-text)",
+  "color.button-ghost-text-disabled": "var(--rebtel-button-ghost-text-disabled)",
+  "color.button-ghost-icon": "var(--rebtel-button-ghost-icon)",
+  "color.button-ghost-icon-disabled": "var(--rebtel-button-ghost-icon-disabled)",
+
+  // ── Figma 3.0 Component: Input Tokens ──
+
+  "color.input-bg": "var(--rebtel-input-bg)",
+  "color.input-bg-focus": "var(--rebtel-input-bg-focus)",
+  "color.input-bg-disabled": "var(--rebtel-input-bg-disabled)",
+  "color.input-bg-error": "var(--rebtel-input-bg-error)",
+  "color.input-border": "var(--rebtel-input-border)",
+  "color.input-border-focus": "var(--rebtel-input-border-focus)",
+  "color.input-border-disabled": "var(--rebtel-input-border-disabled)",
+  "color.input-border-error": "var(--rebtel-input-border-error)",
+  "color.input-text": "var(--rebtel-input-text)",
+  "color.input-text-placeholder": "var(--rebtel-input-text-placeholder)",
+  "color.input-text-disabled": "var(--rebtel-input-text-disabled)",
+  "color.input-label": "var(--rebtel-input-label)",
+  "color.input-label-focus": "var(--rebtel-input-label-focus)",
+  "color.input-label-error": "var(--rebtel-input-label-error)",
+  "color.input-icon": "var(--rebtel-input-icon)",
+  "color.input-icon-focus": "var(--rebtel-input-icon-focus)",
+  "color.input-icon-disabled": "var(--rebtel-input-icon-disabled)",
+  "color.input-icon-error": "var(--rebtel-input-icon-error)",
+
+  // ── Figma 3.0 Component: Card Tokens ──
+
+  "color.card-bg": "var(--rebtel-card-bg)",
+  "color.card-bg-pressed": "var(--rebtel-card-bg-pressed)",
+  "color.card-border": "var(--rebtel-card-border)",
+  "color.card-border-pressed": "var(--rebtel-card-border-pressed)",
+  "color.card-elevated-bg": "var(--rebtel-card-elevated-bg)",
+  "color.card-elevated-border": "var(--rebtel-card-elevated-border)",
+
+  // ── Figma 3.0 Component: Label Tokens ──
+
+  "color.label-neutral-bg": "var(--rebtel-label-neutral-bg)",
+  "color.label-neutral-border": "var(--rebtel-label-neutral-border)",
+  "color.label-neutral-text": "var(--rebtel-label-neutral-text)",
+  "color.label-brand-bg": "var(--rebtel-label-brand-bg)",
+  "color.label-brand-border": "var(--rebtel-label-brand-border)",
+  "color.label-brand-text": "var(--rebtel-label-brand-text)",
+  "color.label-accent-bg": "var(--rebtel-label-accent-bg)",
+  "color.label-accent-border": "var(--rebtel-label-accent-border)",
+  "color.label-accent-text": "var(--rebtel-label-accent-text)",
+  "color.label-success-bg": "var(--rebtel-label-success-bg)",
+  "color.label-success-border": "var(--rebtel-label-success-border)",
+  "color.label-success-text": "var(--rebtel-label-success-text)",
+  "color.label-warning-bg": "var(--rebtel-label-warning-bg)",
+  "color.label-warning-border": "var(--rebtel-label-warning-border)",
+  "color.label-warning-text": "var(--rebtel-label-warning-text)",
+  "color.label-error-bg": "var(--rebtel-label-error-bg)",
+  "color.label-error-border": "var(--rebtel-label-error-border)",
+  "color.label-error-text": "var(--rebtel-label-error-text)",
+  "color.label-purple-bg": "var(--rebtel-label-purple-bg)",
+  "color.label-purple-border": "var(--rebtel-label-purple-border)",
+  "color.label-purple-text": "var(--rebtel-label-purple-text)",
+
+  // ── Figma 3.0 Component: Tab Tokens ──
+
+  "color.tab-bg": "var(--rebtel-tab-bg)",
+  "color.tab-bg-active": "var(--rebtel-tab-bg-active)",
+  "color.tab-border": "var(--rebtel-tab-border)",
+  "color.tab-border-active": "var(--rebtel-tab-border-active)",
+  "color.tab-text": "var(--rebtel-tab-text)",
+  "color.tab-text-active": "var(--rebtel-tab-text-active)",
+  "color.tab-text-disabled": "var(--rebtel-tab-text-disabled)",
+  "color.tab-icon": "var(--rebtel-tab-icon)",
+  "color.tab-icon-active": "var(--rebtel-tab-icon-active)",
+  "color.tab-icon-disabled": "var(--rebtel-tab-icon-disabled)",
+  "color.tab-indicator-active": "var(--rebtel-tab-indicator-active)",
+
+  // ── Figma 3.0 Component: Navigation Tokens ──
+
+  "color.nav-bar-bg": "var(--rebtel-nav-bar-bg)",
+  "color.nav-bar-border": "var(--rebtel-nav-bar-border)",
+  "color.nav-bar-icon": "var(--rebtel-nav-bar-icon)",
+  "color.nav-bar-icon-active": "var(--rebtel-nav-bar-icon-active)",
+  "color.nav-bar-text": "var(--rebtel-nav-bar-text)",
+  "color.nav-bar-text-active": "var(--rebtel-nav-bar-text-active)",
+
+  // ── Figma 3.0 Component: Home Card Tokens ──
+
+  "color.home-card-calling-bg": "var(--rebtel-home-card-calling-bg)",
+  "color.home-card-mtu-bg": "var(--rebtel-home-card-mtu-bg)",
+
+  // ── Figma 3.0 Scale: Icon Size ──
+
+  "icon-size.xxs": "var(--rebtel-icon-size-xxs)",
+  "icon-size.xs": "var(--rebtel-icon-size-xs)",
+  "icon-size.sm": "var(--rebtel-icon-size-sm)",
+  "icon-size.md": "var(--rebtel-icon-size-md)",
+  "icon-size.lg": "var(--rebtel-icon-size-lg)",
+  "icon-size.xl": "var(--rebtel-icon-size-xl)",
+  "icon-size.xxl": "var(--rebtel-icon-size-xxl)",
+
+  // ── Figma 3.0 Scale: Stroke ──
+
+  "stroke.md": "var(--rebtel-stroke-md)",
+  "stroke.lg": "var(--rebtel-stroke-lg)",
+  "stroke.xl": "var(--rebtel-stroke-xl)",
+  "stroke.xxl": "var(--rebtel-stroke-xxl)",
+
+  // ── Spacing: none ──
+
+  "spacing.none": "var(--rebtel-spacing-none)",
+
+  // ── Font Size Tokens (referenced by boundVariables on text nodes) ──
+
+  "font-size.headline-md": "var(--rebtel-headline-md-size)",
+  "font-size.label-xl": "var(--rebtel-label-xl-size)",
+  "font-size.label-lg": "var(--rebtel-label-lg-size)",
+  "font-size.label-md": "var(--rebtel-label-md-size)",
+  "font-size.label-sm": "var(--rebtel-label-sm-size)",
+  "font-size.label-xs": "var(--rebtel-label-xs-size)",
+  "font-size.paragraph-lg": "var(--rebtel-paragraph-lg-size)",
+  "font-size.paragraph-md": "var(--rebtel-paragraph-md-size)",
+  "font-size.paragraph-xs": "var(--rebtel-paragraph-xs-size)",
+
+  // ── Additional Mapped Color Tokens (from Alias layer IDs) ──
+
+  "color.surface-button-secondary-black": "var(--rebtel-button-secondary-black-bg)",
+  "color.text-white-constant": "var(--rebtel-content-inverse)",
+  "color.surface-primary-lighter": "var(--rebtel-surface-primary-lighter)",
+  "color.icon-lightest": "var(--rebtel-icon-inverse)",
+  "color.border-tertiary": "var(--rebtel-border-default)",
+  "color.surface-primary-transparent": "var(--rebtel-surface-overlay-transparent)",
+  "color.surface-button-primary": "var(--rebtel-button-primary-bg)",
+  "color.surface-label-black": "var(--rebtel-surface-page-overlay)",
+
   // Shadows (Figma 3.0 audited)
   "shadow.sm": "0 1px 2px rgba(50,50,93,0.04)",
   "shadow.card": "4px 5px 10px 2px rgba(0,0,0,0.02)",

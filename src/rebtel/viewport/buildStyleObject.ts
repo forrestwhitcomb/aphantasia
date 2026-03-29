@@ -7,7 +7,7 @@
 // ============================================================
 
 import type { CSSProperties } from "react";
-import type { ComponentSpec, PaddingSpec, SizeValue, TextSpec } from "../spec/types";
+import type { ComponentSpec, PaddingSpec, SizeValue, TextSpec, BorderSpec } from "../spec/types";
 import { isTokenRef } from "../spec/types";
 import { resolveToken, resolveTextStyle } from "../spec/tokens";
 
@@ -50,6 +50,15 @@ function resolvePadding(p: PaddingSpec): CSSProperties {
   return style;
 }
 
+// ── Border Resolution ────────────────────────────────────────
+
+function resolveBorder(b: BorderSpec): string {
+  const bw = b.width ?? "1px";
+  const bs = b.style ?? "solid";
+  const bc = b.color ? resolveToken(b.color) : "transparent";
+  return `${bw} ${bs} ${bc}`;
+}
+
 // ── Style Builder ────────────────────────────────────────────
 
 export function buildStyleObject(spec: ComponentSpec): CSSProperties {
@@ -71,26 +80,34 @@ export function buildStyleObject(spec: ComponentSpec): CSSProperties {
   if (layout.flex) style.flex = layout.flex;
   if (layout.overflow) style.overflow = layout.overflow;
   if (layout.position) style.position = layout.position;
+  if (layout.top !== undefined) style.top = resolveSizeValue(layout.top);
+  if (layout.right !== undefined) style.right = resolveSizeValue(layout.right);
+  if (layout.bottom !== undefined) style.bottom = resolveSizeValue(layout.bottom);
+  if (layout.left !== undefined) style.left = resolveSizeValue(layout.left);
   if (layout.borderRadius) style.borderRadius = resolveToken(layout.borderRadius);
   if (layout.flexShrink !== undefined) style.flexShrink = layout.flexShrink;
+  if (layout.flexGrow !== undefined) style.flexGrow = layout.flexGrow;
   if (layout.flexWrap) style.flexWrap = layout.flexWrap;
   if (layout.boxSizing) style.boxSizing = layout.boxSizing;
+  if (layout.alignSelf) style.alignSelf = layout.alignSelf;
 
   // Style
   if (s.background) style.background = resolveToken(s.background);
   if (s.color) style.color = resolveToken(s.color);
-  if (s.border) {
-    const bw = s.border.width ?? "1px";
-    const bs = s.border.style ?? "solid";
-    const bc = s.border.color ? resolveToken(s.border.color) : "transparent";
-    style.border = `${bw} ${bs} ${bc}`;
-  }
+  if (s.border) style.border = resolveBorder(s.border);
+  if (s.borderTop) style.borderTop = resolveBorder(s.borderTop);
+  if (s.borderBottom) style.borderBottom = resolveBorder(s.borderBottom);
   if (s.shadow) style.boxShadow = resolveToken(s.shadow);
   if (s.opacity !== undefined) style.opacity = s.opacity;
   if (s.cursor) style.cursor = s.cursor;
   if (s.textOverflow) style.textOverflow = s.textOverflow;
   if (s.whiteSpace) style.whiteSpace = s.whiteSpace;
   if (s.overflowText) style.overflow = s.overflowText;
+  if (s.textAlign) style.textAlign = s.textAlign;
+  if (s.fontSize) style.fontSize = typeof s.fontSize === "number" ? `${s.fontSize}px` : s.fontSize;
+  if (s.fontFamily) style.fontFamily = s.fontFamily;
+  if (s.letterSpacing) style.letterSpacing = s.letterSpacing;
+  if (s.lineHeight) style.lineHeight = typeof s.lineHeight === "number" ? `${s.lineHeight}px` : s.lineHeight;
 
   return style;
 }

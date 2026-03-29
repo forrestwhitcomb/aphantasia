@@ -18,7 +18,8 @@ import {
 import type { ComponentSpec } from "../spec/types";
 import { drawnShapeToPrimitive } from "../spec/inference";
 import { resolveTemplate } from "../templates";
-import { editText } from "../spec/operations";
+import { editText, findByKey, setStyle, setLayout, removeChild } from "../spec/operations";
+import { mergeChildSpecs } from "../spec/merge";
 import { renderSpec } from "../spec/render";
 import { REBTEL_EXTRA_CSS, REBTEL_VIEWPORT_CSS } from "../designSystem";
 import { PhoneChrome } from "@/ui-mode/viewport/PhoneChrome";
@@ -26,6 +27,7 @@ import { VariantPicker } from "@/ui-mode/viewport/VariantPicker";
 import { CopyToFigmaButton } from "@/ui-mode/viewport/CopyToFigmaButton";
 import { ScreenNavigator } from "./ScreenNavigator";
 import { SpecRenderer } from "./SpecRenderer";
+import { NodePropertyPanel } from "./NodePropertyPanel";
 import { rebtelDesignStore } from "../store/RebtelDesignStore";
 
 interface ShapeSpec {
@@ -51,6 +53,11 @@ export function RebtelViewportPane() {
   const [shapeSpecs, setShapeSpecs] = useState<ShapeSpec[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedComponent, setSelectedComponent] = useState<ComponentSelection | null>(null);
+  const [selectedNode, setSelectedNode] = useState<{
+    shapeId: string;
+    nodeKey: string;
+    spec: ComponentSpec;
+  } | null>(null);
   const [viewportMode, setViewportMode] = useState<"design" | "preview">("design");
   const [screens, setScreens] = useState(rebtelDesignStore.getScreens());
   const [activeScreenId, setActiveScreenId] = useState(rebtelDesignStore.getActiveScreenId());
@@ -76,17 +83,17 @@ export function RebtelViewportPane() {
     return () => obs.disconnect();
   }, []);
 
-  // Build specs from canvas shapes
+  // Build specs from canvas shapes (with composition support)
   const buildSpecs = useCallback(() => {
     const doc = canvasEngine.getDocument();
     const fw = doc.frame.width;
     const fh = doc.frame.height;
-    const specs: ShapeSpec[] = [];
+    const allSpecs: ShapeSpec[] = [];
 
     for (const shape of doc.shapes) {
       // If shape already has a stored spec, use it
       if (shape.spec) {
-        specs.push({
+        allSpecs.push({
           spec: shape.spec as ComponentSpec,
           primitive: (shape.primitive as string) ?? "card",
           template: (shape.template as string) ?? "blank",
@@ -106,7 +113,7 @@ export function RebtelViewportPane() {
           primitive: inferred.primitive,
           template: inferred.template,
         } as any);
-        specs.push({
+        allSpecs.push({
           spec,
           primitive: inferred.primitive,
           template: inferred.template,
@@ -116,9 +123,42 @@ export function RebtelViewportPane() {
       }
     }
 
+    // Composition: partition into parent and child shapes
+    const childMap = new Map<string, ShapeSpec[]>();
+    const topLevel: ShapeSpec[] = [];
+
+    for (const ss of allSpecs) {
+      const shape = doc.shapes.find((s: { id: string }) => s.id === ss.shapeId);
+      const parentId = shape?.parentId as string | undefined;
+      if (parentId) {
+        const existing = childMap.get(parentId) ?? [];
+        existing.push(ss);
+        childMap.set(parentId, existing);
+      } else {
+        topLevel.push(ss);
+      }
+    }
+
+    // Merge children into parents
+    const merged = topLevel.map((parent) => {
+      const children = childMap.get(parent.shapeId);
+      if (children && children.length > 0) {
+        // Sort children by y
+        children.sort((a, b) => a.y - b.y);
+        return {
+          ...parent,
+          spec: mergeChildSpecs(
+            parent.spec,
+            children.map((c) => c.spec),
+          ),
+        };
+      }
+      return parent;
+    });
+
     // Sort by y-position (top to bottom)
-    specs.sort((a, b) => a.y - b.y);
-    setShapeSpecs(specs);
+    merged.sort((a, b) => a.y - b.y);
+    setShapeSpecs(merged);
   }, []);
 
   // Subscribe to canvas changes
@@ -153,15 +193,14 @@ export function RebtelViewportPane() {
     buildSpecs();
   }, [buildSpecs]);
 
-  // Component selection in design mode
-  const handleSelect = useCallback((key: string, spec: ComponentSpec) => {
+  // Deep component selection in design mode (includes shapeId)
+  const handleSelect = useCallback((shapeId: string, key: string, spec: ComponentSpec) => {
     setSelectedKey(key);
+    setSelectedNode({ shapeId, nodeKey: key, spec });
 
-    // Find the shape that owns this spec to populate variant picker
-    const ownerShape = shapeSpecs.find(ss =>
-      ss.spec.key === key || ss.spec === spec
-    );
-    if (ownerShape) {
+    // Only show VariantPicker for top-level shape selection
+    const ownerShape = shapeSpecs.find(ss => ss.shapeId === shapeId);
+    if (ownerShape && ownerShape.spec.key === key) {
       setSelectedComponent({
         shapeId: ownerShape.shapeId,
         componentType: ownerShape.primitive,
@@ -173,22 +212,74 @@ export function RebtelViewportPane() {
           height: 100,
         },
       });
+    } else {
+      // Deep node selected — hide variant picker
+      setSelectedComponent(null);
     }
   }, [shapeSpecs]);
 
-  // Text editing in design mode
-  const handleTextChange = useCallback((key: string, newText: string) => {
-    // Find the shape that owns this spec and mutate it
-    for (const ss of shapeSpecs) {
-      if (editText(ss.spec, key, newText)) {
-        // Persist the updated spec back to the canvas shape
-        canvasEngine.updateShape(ss.shapeId, {
-          spec: ss.spec as unknown,
-        } as any);
-        break;
-      }
+  // Text editing in design mode (includes shapeId)
+  const handleTextChange = useCallback((shapeId: string, key: string, newText: string) => {
+    const ss = shapeSpecs.find(s => s.shapeId === shapeId);
+    if (ss && editText(ss.spec, key, newText)) {
+      canvasEngine.updateShape(ss.shapeId, {
+        spec: ss.spec as unknown,
+      } as any);
     }
   }, [shapeSpecs]);
+
+  // Node property editing (Phase 4)
+  const handleNodeEdit = useCallback((shapeId: string, key: string, updates: {
+    style?: Partial<ComponentSpec["style"]>;
+    layout?: Partial<ComponentSpec["layout"]>;
+    text?: Partial<NonNullable<ComponentSpec["text"]>>;
+  }) => {
+    const ss = shapeSpecs.find(s => s.shapeId === shapeId);
+    if (!ss) return;
+
+    if (updates.style) setStyle(ss.spec, key, updates.style);
+    if (updates.layout) setLayout(ss.spec, key, updates.layout);
+    if (updates.text) {
+      const node = findByKey(ss.spec, key);
+      if (node?.text) Object.assign(node.text, updates.text);
+    }
+
+    canvasEngine.updateShape(shapeId, { spec: ss.spec as unknown } as any);
+    buildSpecs();
+  }, [shapeSpecs, buildSpecs]);
+
+  // Delete a deep node
+  const handleNodeDelete = useCallback((shapeId: string, key: string) => {
+    const ss = shapeSpecs.find(s => s.shapeId === shapeId);
+    if (!ss) return;
+    // Don't delete the root node
+    if (ss.spec.key === key) return;
+    removeChild(ss.spec, key);
+    canvasEngine.updateShape(shapeId, { spec: ss.spec as unknown } as any);
+    setSelectedNode(null);
+    setSelectedKey(null);
+    buildSpecs();
+  }, [shapeSpecs, buildSpecs]);
+
+  // Keyboard shortcuts for deep editing
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedNode) return;
+      if (e.key === "Escape") {
+        setSelectedNode(null);
+        setSelectedKey(null);
+        setSelectedComponent(null);
+      }
+      if ((e.key === "Delete" || e.key === "Backspace") && !e.metaKey) {
+        // Only delete if not editing text
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || (active as HTMLElement).contentEditable === "true")) return;
+        handleNodeDelete(selectedNode.shapeId, selectedNode.nodeKey);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedNode, handleNodeDelete]);
 
   // Variant picker callbacks
   const handleVariantChange = useCallback((shapeId: string, variant: string) => {
@@ -317,6 +408,7 @@ ${bodyHtml}
                 <SpecRenderer
                   key={ss.shapeId}
                   spec={ss.spec}
+                  shapeId={ss.shapeId}
                   selectedKey={selectedKey}
                   onSelect={handleSelect}
                   onTextChange={handleTextChange}
@@ -393,6 +485,22 @@ ${bodyHtml}
               .find(s => s.id === selectedComponent.shapeId)
               ?.meta as any)?.figmaComponentEntry ?? null
           }
+        />
+      )}
+
+      {/* Node property panel (deep editing) */}
+      {selectedNode && viewportMode === "design" && !selectedComponent && (
+        <NodePropertyPanel
+          shapeId={selectedNode.shapeId}
+          nodeKey={selectedNode.nodeKey}
+          spec={selectedNode.spec}
+          onEdit={handleNodeEdit}
+          onDelete={handleNodeDelete}
+          onClose={() => {
+            setSelectedNode(null);
+            setSelectedKey(null);
+          }}
+          isRoot={shapeSpecs.some(ss => ss.spec.key === selectedNode.nodeKey)}
         />
       )}
     </div>

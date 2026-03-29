@@ -1,5 +1,10 @@
-// Empty Card — White rounded rect, just a container
+// ============================================================
+// Blank Card — Empty card shell, Figma pixel-perfect
+// ============================================================
 // Figma: 5405:106588 — 358×122
+// White bg, radius 16px, 1px solid #DCDCE1, padding 16px
+// Shadow: 4px 5px 10px 2px rgba(0,0,0,0.02)
+// ============================================================
 
 import type { ComponentSpec } from "../../spec/types";
 
@@ -13,13 +18,16 @@ export function blankCardTemplate(props?: Record<string, unknown>): ComponentSpe
       direction: "column",
       width: "100%",
       minHeight: height,
-      padding: { all: { token: "spacing.md" } },
-      borderRadius: { token: "radius.lg" },
+      padding: { all: "16px" },
+      borderRadius: "16px",
       boxSizing: "border-box",
     },
     style: {
-      background: { token: "color.surface-primary" },
-      border: { width: "1px", style: "solid", color: { token: "color.border-secondary" } },
+      background: "#FFFFFF",
+      border: { width: "1px", style: "solid", color: "#DCDCE1" },
+      shadow: "4px 5px 10px 2px rgba(0,0,0,0.02)",
+      fontFamily: "'KH Teka'",
+      letterSpacing: "0.02em",
     },
     data: { component: "blankCard", "content-area": "true" },
   };

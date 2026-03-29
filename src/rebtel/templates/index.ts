@@ -159,6 +159,16 @@ const TEMPLATE_REGISTRY: Record<string, Record<string, TemplateFactory>> = {
   },
 };
 
+// ── Merge auto-generated templates (overlay on hand-written) ──
+
+import { GENERATED_REGISTRY } from "./generated";
+for (const [primitive, templates] of Object.entries(GENERATED_REGISTRY)) {
+  if (!TEMPLATE_REGISTRY[primitive]) TEMPLATE_REGISTRY[primitive] = {};
+  for (const [name, factory] of Object.entries(templates)) {
+    TEMPLATE_REGISTRY[primitive][name] = factory;
+  }
+}
+
 // ── Public API ───────────────────────────────────────────────
 
 export function hasTemplate(primitive: string, template?: string): boolean {

@@ -1,9 +1,16 @@
-// Search Bar — Search input with icon, pill shape
-// Figma: 5405:106293 (empty), 5405:106294 (filled)
+// ============================================================
+// Search Bar — Pixel-perfect from Figma 3.0
+// ============================================================
+// Pill shape (radius 24px), height 52px, white bg
+// Border: 1px solid #DCDCE1, padding 16px horizontal + 8px vertical
+// Icon: 24x24, stroke #2D2D32
+// Placeholder: KH Teka 18px, #B9B9BE, 0.02em, line-height 18px
+// Gap: 4px between icon and text
+// ============================================================
 
 import type { ComponentSpec } from "../../spec/types";
 
-const ICON_SEARCH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--rebtel-grey-400)" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+const ICON_SEARCH = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2D2D32" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
 
 export function searchBarTemplate(props?: Record<string, unknown>): ComponentSpec {
   const placeholder = (props?.placeholder as string) ?? "Search country";
@@ -15,30 +22,51 @@ export function searchBarTemplate(props?: Record<string, unknown>): ComponentSpe
     layout: {
       display: "flex",
       align: "center",
-      gap: { token: "spacing.xs" },
+      gap: "4px",
       width: "100%",
-      height: { token: "height.xl" },
-      padding: { x: { token: "spacing.md" } },
-      borderRadius: { token: "radius.full" },
+      height: 52,
+      padding: { left: "16px", right: "16px", top: "8px", bottom: "8px" },
+      borderRadius: "24px",
       boxSizing: "border-box",
     },
     style: {
-      background: { token: "color.surface-light" },
-      border: { width: "1px", style: "solid", color: { token: "color.border-secondary" } },
+      background: "#FFFFFF",
+      border: { width: "1px", style: "solid", color: "#DCDCE1" },
+      fontFamily: "'KH Teka'",
     },
     interactive: { type: "input" },
     data: { component: "searchBar" },
     children: [
-      { key: "search-icon", tag: "div", layout: { display: "inline-flex", flexShrink: 0 }, style: {}, data: { innerHTML: ICON_SEARCH } },
+      {
+        key: "search-icon",
+        tag: "div",
+        layout: {
+          display: "flex",
+          align: "center",
+          justify: "center",
+          width: 24,
+          height: 24,
+          flexShrink: 0,
+          overflow: "hidden",
+        },
+        style: {},
+        data: { innerHTML: ICON_SEARCH },
+      },
       {
         key: "search-text",
         tag: "span",
         layout: { display: "block", flex: "1" },
-        style: {},
+        style: {
+          fontSize: 18,
+          letterSpacing: "0.02em",
+          lineHeight: "18px",
+          fontFamily: "'KH Teka'",
+        },
         text: {
           content: value || placeholder,
           style: "paragraph-md",
-          color: value ? { token: "color.text-primary" } : { token: "color.text-tertiary" },
+          weight: 400,
+          color: value ? "#111111" : "#B9B9BE",
           editable: true,
         },
       },

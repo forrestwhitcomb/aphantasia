@@ -16,15 +16,17 @@ import { TextNode } from "./TextNode";
 
 export interface SpecRendererProps {
   spec: ComponentSpec;
+  shapeId: string;
   selectedKey: string | null;
-  onSelect: (key: string, spec: ComponentSpec) => void;
-  onTextChange: (key: string, newText: string) => void;
+  onSelect: (shapeId: string, key: string, spec: ComponentSpec) => void;
+  onTextChange: (shapeId: string, key: string, newText: string) => void;
   onNavigate?: (screenId: string) => void;
   isDesignMode: boolean;
 }
 
 export function SpecRenderer({
   spec,
+  shapeId,
   selectedKey,
   onSelect,
   onTextChange,
@@ -57,6 +59,7 @@ export function SpecRenderer({
   return (
     <SpecNode
       spec={spec}
+      shapeId={shapeId}
       selectedKey={selectedKey}
       onSelect={onSelect}
       onTextChange={onTextChange}
@@ -74,9 +77,10 @@ export function SpecRenderer({
 
 interface SpecNodeProps {
   spec: ComponentSpec;
+  shapeId: string;
   selectedKey: string | null;
-  onSelect: (key: string, spec: ComponentSpec) => void;
-  onTextChange: (key: string, newText: string) => void;
+  onSelect: (shapeId: string, key: string, spec: ComponentSpec) => void;
+  onTextChange: (shapeId: string, key: string, newText: string) => void;
   onNavigate?: (screenId: string) => void;
   isDesignMode: boolean;
   pressedKeys: Set<string>;
@@ -87,6 +91,7 @@ interface SpecNodeProps {
 
 function SpecNode({
   spec,
+  shapeId,
   selectedKey,
   onSelect,
   onTextChange,
@@ -131,7 +136,7 @@ function SpecNode({
     e.stopPropagation();
 
     if (isDesignMode) {
-      onSelect(spec.key, spec);
+      onSelect(shapeId, spec.key, spec);
       return;
     }
 
@@ -196,7 +201,7 @@ function SpecNode({
         text={spec.text}
         specKey={spec.key}
         isDesignMode={isDesignMode}
-        onTextChange={onTextChange}
+        onTextChange={(key, newText) => onTextChange(shapeId, key, newText)}
       />
     );
   }
@@ -208,6 +213,7 @@ function SpecNode({
         <SpecNode
           key={child.key}
           spec={child}
+          shapeId={shapeId}
           selectedKey={selectedKey}
           onSelect={onSelect}
           onTextChange={onTextChange}

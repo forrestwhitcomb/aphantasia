@@ -66,10 +66,17 @@ export interface LayoutSpec {
   flex?: string;
   overflow?: "hidden" | "auto" | "visible";
   position?: "relative" | "absolute" | "sticky";
+  top?: SizeValue;
+  right?: SizeValue;
+  bottom?: SizeValue;
+  left?: SizeValue;
   borderRadius?: TokenRef | string;
   flexShrink?: number;
+  flexGrow?: number;
   flexWrap?: "wrap" | "nowrap";
   boxSizing?: "border-box" | "content-box";
+  /** Alignment of self within parent flex container */
+  alignSelf?: "start" | "center" | "end" | "stretch" | "auto";
 }
 
 // ── Style ────────────────────────────────────────────────────
@@ -84,12 +91,19 @@ export interface StyleSpec {
   background?: TokenRef | string;
   color?: TokenRef | string;
   border?: BorderSpec;
+  borderTop?: BorderSpec;
+  borderBottom?: BorderSpec;
   shadow?: TokenRef | string;
   opacity?: number;
   cursor?: string;
   textOverflow?: "ellipsis";
   whiteSpace?: "nowrap" | "normal";
   overflowText?: "hidden";
+  textAlign?: "left" | "center" | "right";
+  fontSize?: string | number;
+  fontFamily?: string;
+  letterSpacing?: string;
+  lineHeight?: string | number;
 }
 
 // ── Text ─────────────────────────────────────────────────────
