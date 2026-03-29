@@ -394,7 +394,11 @@ export const TOKEN_MAP: Record<string, string> = {
   // ── Additional Mapped Color Tokens (from Alias layer IDs) ──
 
   "color.surface-button-secondary-black": "var(--rebtel-button-secondary-black-bg)",
+  "color.surface-button-secondary-white": "var(--rebtel-button-secondary-white-bg)",
+  "color.surface-button-secondary-grey": "var(--rebtel-button-secondary-grey-bg)",
   "color.text-white-constant": "var(--rebtel-content-inverse)",
+  "color.text-black-constant": "var(--rebtel-content-primary)",
+  "color.surface-primary-light": "var(--rebtel-surface-primary-light)",
   "color.surface-primary-lighter": "var(--rebtel-surface-primary-lighter)",
   "color.icon-lightest": "var(--rebtel-icon-inverse)",
   "color.border-tertiary": "var(--rebtel-border-default)",

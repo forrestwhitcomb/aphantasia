@@ -389,6 +389,8 @@ ${bodyHtml}
                 height: MOBILE_FRAME_HEIGHT,
                 overflow: "auto",
                 background: "#FFFFFF",
+                boxSizing: "border-box",
+                position: "relative",
                 transform: `scale(${scale})`,
                 transformOrigin: "top left",
               }}
@@ -403,18 +405,35 @@ ${bodyHtml}
               {/* Inject Rebtel CSS custom properties */}
               <style dangerouslySetInnerHTML={{ __html: REBTEL_VIEWPORT_CSS }} />
 
-              {/* Render each shape's spec */}
-              {shapeSpecs.map((ss) => (
-                <SpecRenderer
-                  key={ss.shapeId}
-                  spec={ss.spec}
-                  shapeId={ss.shapeId}
-                  selectedKey={selectedKey}
-                  onSelect={handleSelect}
-                  onTextChange={handleTextChange}
-                  onNavigate={handleScreenNavigate}
-                  isDesignMode={viewportMode === "design"}
-                />
+              {/* Scrollable content area (everything except tab bar) */}
+              <div style={{ flex: 1, paddingLeft: 16, paddingRight: 16, paddingBottom: shapeSpecs.some(ss => ss.primitive === "bar" && ss.template === "tab-bar") ? 90 : 0 }}>
+                {shapeSpecs.filter(ss => !(ss.primitive === "bar" && ss.template === "tab-bar")).map((ss) => (
+                  <SpecRenderer
+                    key={ss.shapeId}
+                    spec={ss.spec}
+                    shapeId={ss.shapeId}
+                    selectedKey={selectedKey}
+                    onSelect={handleSelect}
+                    onTextChange={handleTextChange}
+                    onNavigate={handleScreenNavigate}
+                    isDesignMode={viewportMode === "design"}
+                  />
+                ))}
+              </div>
+
+              {/* Tab bar — sticky to bottom, no side padding */}
+              {shapeSpecs.filter(ss => ss.primitive === "bar" && ss.template === "tab-bar").map((ss) => (
+                <div key={ss.shapeId} style={{ position: "sticky", bottom: 0, left: 0, width: "100%", zIndex: 10 }}>
+                  <SpecRenderer
+                    spec={ss.spec}
+                    shapeId={ss.shapeId}
+                    selectedKey={selectedKey}
+                    onSelect={handleSelect}
+                    onTextChange={handleTextChange}
+                    onNavigate={handleScreenNavigate}
+                    isDesignMode={viewportMode === "design"}
+                  />
+                </div>
               ))}
             </div>
           ) : (

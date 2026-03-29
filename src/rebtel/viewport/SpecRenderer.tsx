@@ -176,7 +176,7 @@ function SpecNode({
   if (spec.data) {
     for (const [k, v] of Object.entries(spec.data)) {
       if (k === "innerHTML") continue;
-      dataAttrs[`data-${k}`] = v;
+      dataAttrs[`data-${k.toLowerCase()}`] = v;
     }
   }
 
@@ -208,10 +208,14 @@ function SpecNode({
 
   // Child specs
   if (spec.children) {
+    const keyCounts: Record<string, number> = {};
     for (const child of spec.children) {
+      const count = keyCounts[child.key] ?? 0;
+      keyCounts[child.key] = count + 1;
+      const uniqueKey = count === 0 ? child.key : `${child.key}__${count}`;
       children.push(
         <SpecNode
-          key={child.key}
+          key={uniqueKey}
           spec={child}
           shapeId={shapeId}
           selectedKey={selectedKey}

@@ -193,7 +193,7 @@ export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPicker
         >
           {COMPONENTS.map((entry) => (
             <button
-              key={`${entry.primitive}-${entry.template}`}
+              key={`${entry.primitive}-${entry.template}-${entry.label}`}
               onClick={() => handleSelect(entry)}
               style={{
                 display: "flex",

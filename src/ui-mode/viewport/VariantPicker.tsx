@@ -31,37 +31,7 @@ interface VariantPickerProps {
   figmaEntry?: FigmaComponentEntry | null;
 }
 
-/** Available variants per component type */
-const VARIANT_OPTIONS: Record<string, string[]> = {
-  button: ["primary", "secondary", "outline", "ghost", "destructive", "icon-only"],
-  navBar: ["standard", "large-title", "search", "segmented"],
-  tabBar: ["icon-only", "icon-label", "pill-active"],
-  card: ["elevated", "bordered", "filled", "image-top"],
-  bottomSheet: ["handle", "full", "scrollable"],
-  listItem: ["simple", "subtitle", "icon-left", "chevron", "toggle", "destructive"],
-  listGroup: ["inset", "plain", "separated"],
-  header: ["large", "medium", "small"],
-  sectionHeader: ["plain", "with-action"],
-  avatar: ["circle", "rounded", "initials"],
-  badge: ["default", "destructive", "outline", "count"],
-  tag: ["default", "selected", "removable"],
-  emptyState: ["icon-top", "illustration", "minimal"],
-  textInput: ["default", "with-icon", "with-label", "multiline"],
-  searchBar: ["default", "with-cancel", "with-filter"],
-  segmentedControl: ["default", "pill"],
-  imagePlaceholder: ["rounded", "sharp", "circle"],
-  carousel: ["full-width", "peek", "dots", "progress-bar"],
-  progressBar: ["linear", "circular", "steps"],
-  divider: ["full", "inset", "with-text"],
-  alert: ["info", "success", "warning", "error"],
-  toast: ["default", "with-action"],
-  modal: ["alert", "action-sheet", "full-screen"],
-  floatingActionButton: ["default", "extended"],
-  profileHeader: ["centered", "left-aligned", "with-cover"],
-  messageBubble: ["sent", "received", "with-avatar"],
-  feedItem: ["social", "news", "minimal"],
-  settingsRow: ["toggle", "navigation", "value", "destructive"],
-};
+import { getTemplatesForPrimitive } from "../../rebtel/templates";
 
 export function VariantPicker({
   shapeId,
@@ -123,7 +93,7 @@ export function VariantPicker({
         values.map(v => `${prop}: ${v}`)
       );
     }
-    return VARIANT_OPTIONS[componentType] ?? [];
+    return getTemplatesForPrimitive(componentType);
   }, [figmaEntry, componentType]);
 
   const handleVariant = useCallback(
