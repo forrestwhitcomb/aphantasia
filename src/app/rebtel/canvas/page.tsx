@@ -8,7 +8,7 @@
 // Chat floats as a glass panel on the left side of the canvas.
 // ============================================================
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CanvasView } from "@/engine";
 import { Toolbar } from "@/components/Toolbar";
@@ -22,6 +22,43 @@ function CanvasWorkspaceInner() {
   const searchParams = useSearchParams();
   const [ready, setReady] = useState(false);
   const initialPrompt = searchParams.get("prompt") || "";
+  const blobRef = useRef<HTMLDivElement>(null);
+  const targetRef = useRef({ x: 0.7, y: 0.3 });
+  const currentRef = useRef({ x: 0.7, y: 0.3 });
+  const rafRef = useRef<number>(0);
+
+  // Smooth blob animation loop — lerps toward mouse position
+  const animateBlob = useCallback(() => {
+    const lerp = 0.03;
+    const cur = currentRef.current;
+    const tgt = targetRef.current;
+    cur.x += (tgt.x - cur.x) * lerp;
+    cur.y += (tgt.y - cur.y) * lerp;
+    if (blobRef.current) {
+      const bx = cur.x * 100 - 20;
+      const by = cur.y * 100 - 20;
+      blobRef.current.style.right = `${-bx + 50}%`;
+      blobRef.current.style.top = `${by - 10}%`;
+    }
+    rafRef.current = requestAnimationFrame(animateBlob);
+  }, []);
+
+  useEffect(() => {
+    rafRef.current = requestAnimationFrame(animateBlob);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [animateBlob]);
+
+  // Track mouse position
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => {
+      targetRef.current = {
+        x: e.clientX / window.innerWidth,
+        y: e.clientY / window.innerHeight,
+      };
+    };
+    window.addEventListener("mousemove", handleMove);
+    return () => window.removeEventListener("mousemove", handleMove);
+  }, []);
 
   useEffect(() => {
     const engine = getCustomEngine();
@@ -34,9 +71,15 @@ function CanvasWorkspaceInner() {
 
   return (
     <>
-      {/* Gradient background */}
+      {/* Gradient background + grain */}
       <div className="rebtel-bg">
-        <div className="rebtel-bg__blob" />
+        <div ref={blobRef} className="rebtel-bg__blob" />
+        <svg className="rebtel-bg__grain" width="100%" height="100%">
+          <filter id="grain-canvas">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#grain-canvas)" />
+        </svg>
       </div>
 
       <div className="rebtel-workspace-layout">
@@ -59,7 +102,8 @@ function CanvasWorkspaceInner() {
               style={{
                 position: "relative",
                 zIndex: 1,
-                width: "100%",
+                width: 360,
+                maxWidth: 360,
                 height: "100%",
                 padding: "3% 0",
                 boxSizing: "border-box",

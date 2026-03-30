@@ -14,28 +14,31 @@
 .rebtel-bg {
   position: fixed;
   inset: 0;
-  background: #F2E6DC;
+  background: #E2E0E0;
   overflow: hidden;
   z-index: 0;
 }
 
 .rebtel-bg__blob {
   position: absolute;
-  top: -10%;
-  right: -5%;
-  width: 55%;
-  height: 70%;
-  background: radial-gradient(
-    circle at 50% 50%,
-    #E84393 0%,
-    #F77FB1 30%,
-    #FBAA8E 55%,
-    transparent 75%
-  );
-  filter: blur(80px);
-  opacity: 0.85;
+  top: -15%;
+  right: -10%;
+  width: 78%;
+  height: 102%;
+  background: url('/gradient.png') center/contain no-repeat;
+  opacity: 0.9;
   pointer-events: none;
   will-change: top, right;
+}
+
+/* Grain texture overlay */
+.rebtel-bg__grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.45;
+  mix-blend-mode: overlay;
+  z-index: 1;
 }
 
 /* ── Landing Page ──────────────────────────────────────────── */
@@ -103,16 +106,18 @@
 /* Input area — glass card */
 .rebtel-landing__input-card {
   width: 100%;
-  background: rgba(210, 180, 170, 0.35);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(80px);
+  -webkit-backdrop-filter: blur(80px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 20px;
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  position: relative;
+  z-index: 2;
 }
 
 .rebtel-landing__textarea {
@@ -176,7 +181,7 @@
   align-items: center;
   justify-content: center;
   background: #1a1a2e;
-  color: #F2E6DC;
+  color: #E2E0E0;
   border: none;
   border-radius: 12px;
   cursor: pointer;
@@ -199,7 +204,7 @@
 .rebtel-landing__draw-btn {
   padding: 16px 40px;
   background: #1a1a2e;
-  color: #F2E6DC;
+  color: #E2E0E0;
   border: none;
   border-radius: 100px;
   font-size: 16px;
@@ -221,7 +226,7 @@
 .rebtel-workspace-layout {
   position: fixed;
   inset: 0;
-  overflow: hidden;
+  overflow: visible;
   font-family: var(--font-poppins), 'Inter', -apple-system, sans-serif;
   z-index: 1;
 }
@@ -233,6 +238,7 @@
   height: 100%;
   gap: 0;
   box-sizing: border-box;
+  padding-right: 0;
 }
 
 /* ── Canvas Pane ──────────────────────────────────────────── */
@@ -247,7 +253,7 @@
 
 /* Make the actual canvas drawing area semi-transparent in rebtel mode */
 [data-output-type="rebtel"] {
-  background: rgba(242, 230, 220, 0.75) !important;
+  background: rgba(226, 224, 224, 0.75) !important;
 }
 
 /* ── Floating Chat Panel ──────────────────────────────────── */
@@ -274,7 +280,8 @@
 /* Viewport — phone floats directly on gradient, pushed right */
 .rebtel-viewport-pane {
   flex: 0;
-  width: 360px;
+  width: 405px;
+  min-width: 405px;
   flex-shrink: 0;
   position: relative;
   display: flex;
@@ -284,7 +291,7 @@
   overflow: visible;
   background: transparent;
   border-radius: 0;
-  margin: 0 16px;
-  padding: 24px 0;
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }

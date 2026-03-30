@@ -36,7 +36,7 @@ export function GradientBackground() {
         inset: 0,
         zIndex: 0,
         overflow: "hidden",
-        backgroundColor: "#F0EEE6",
+        backgroundColor: "#E2E0E0",
       }}
     >
       <img

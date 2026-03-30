@@ -245,9 +245,7 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps = {}) {
         {isEmpty && (
           <div style={styles.emptyState}>
             <div style={styles.emptyIcon}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E63946" strokeWidth="1.5">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
+              <img src="/character.png" alt="" width={144} height={144} style={{ objectFit: "contain", marginBottom: -28 }} />
             </div>
             <div style={styles.emptyTitle}>Start designing</div>
             <div style={styles.emptyDesc}>
@@ -364,9 +362,9 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps = {}) {
           onClick={() => sendMessage(input)}
           disabled={!input.trim() || isLoading}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
           </svg>
         </button>
       </div>
@@ -425,13 +423,13 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
-    padding: "32px 16px",
+    padding: "8px 16px",
     textAlign: "center",
-    gap: 8,
+    gap: 2,
     opacity: 0.8,
   },
   emptyIcon: {
-    marginBottom: 4,
+    marginBottom: 0,
   },
   emptyTitle: {
     fontSize: 15,
@@ -450,7 +448,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   userBubble: {
     background: "#1a1a2e",
-    color: "#F2E6DC",
+    color: "#E2E0E0",
     borderRadius: "14px 14px 4px 14px",
     padding: "8px 14px",
     maxWidth: "85%",
@@ -480,7 +478,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 8,
     padding: "6px 12px",
     background: "#1a1a2e",
-    color: "#F2E6DC",
+    color: "#E2E0E0",
     border: "none",
     borderRadius: 8,
     fontSize: 12,
@@ -498,7 +496,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: 6,
     height: 6,
     borderRadius: "50%",
-    background: "#E84393",
+    background: "#6B5CE7",
     display: "inline-block",
     animation: "rebtelChatDotBounce 1s ease-in-out infinite",
   },
@@ -592,7 +590,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     background: "#1a1a2e",
-    color: "#F2E6DC",
+    color: "#E2E0E0",
     border: "none",
     borderRadius: 10,
     cursor: "pointer",

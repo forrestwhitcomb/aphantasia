@@ -11,7 +11,12 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import gsap from "gsap";
+import { MorphSVGPlugin } from "gsap/MorphSVGPlugin";
+import opentype from "opentype.js";
 import "./rebtel.css";
+
+gsap.registerPlugin(MorphSVGPlugin);
 
 const SUGGESTIONS = [
   "Create a new flow for sending an MTU to Cuba",
@@ -24,6 +29,7 @@ export default function RebtelLandingPage() {
   const [projectFile, setProjectFile] = useState<{ name: string; content: string } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const svgHeadingRef = useRef<SVGSVGElement>(null);
   const blobRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef({ x: 0.7, y: 0.3 }); // normalized 0-1 (default top-right)
   const currentRef = useRef({ x: 0.7, y: 0.3 });
@@ -64,6 +70,125 @@ export default function RebtelLandingPage() {
     };
     window.addEventListener("mousemove", handleMove);
     return () => window.removeEventListener("mousemove", handleMove);
+  }, []);
+
+  // GSAP morph-from-shapes: opentype.js extracts real glyph paths, MorphSVGPlugin morphs from random shapes
+  useEffect(() => {
+    const svg = svgHeadingRef.current;
+    if (!svg) return;
+
+    // Random geometric shapes characters morph FROM
+    const shapes = [
+      "M0,0 L16,0 L16,16 L0,16 Z",                              // square
+      "M8,0 L16,16 L0,16 Z",                                     // triangle up
+      "M8,0 L16,8 L8,16 L0,8 Z",                                 // diamond
+      "M8,0 A8,8 0 1,1 8,16 A8,8 0 1,1 8,0 Z",                  // circle
+      "M0,0 L16,0 L12,16 L4,16 Z",                               // trapezoid
+      "M4,0 L12,0 L16,8 L12,16 L4,16 L0,8 Z",                   // hexagon
+      "M0,16 L8,0 L16,16 Z",                                     // triangle down
+      "M0,8 L8,0 L16,8 L8,16 Z",                                 // rotated square
+    ];
+
+    const line1 = "What do you want to make";
+    const line2 = "today, Rebby?";
+    const fontSize = 38;
+
+    async function runMorph() {
+      // Load font with opentype.js to get real glyph outlines
+      const font = await opentype.load("/fonts/rebtel/KHTeka-Bold.ttf");
+
+      // Clear SVG
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+      // Get line widths for centering (opentype measures in font units, scale to fontSize)
+      const scale = fontSize / font.unitsPerEm;
+      const line1Glyphs = font.stringToGlyphs(line1);
+      const line2Glyphs = font.stringToGlyphs(line2);
+
+      const measureLine = (glyphs: opentype.Glyph[]) =>
+        glyphs.reduce((w, g) => w + (g.advanceWidth || 0) * scale, 0);
+
+      const line1Width = measureLine(line1Glyphs);
+      const line2Width = measureLine(line2Glyphs);
+
+      const baselineY1 = 36;
+      const baselineY2 = 80;
+
+      let globalIdx = 0;
+
+      const layoutLine = (
+        text: string,
+        glyphs: opentype.Glyph[],
+        lineWidth: number,
+        baselineY: number,
+      ) => {
+        let x = 340 - lineWidth / 2;
+
+        for (let i = 0; i < glyphs.length; i++) {
+          const glyph = glyphs[i];
+          const char = text[i];
+          const advW = (glyph.advanceWidth || 0) * scale;
+
+          if (char === " ") {
+            x += advW;
+            continue;
+          }
+
+          // Get SVG path data from glyph — opentype y-axis is flipped (up = positive)
+          const glyphPath = glyph.getPath(x, baselineY, fontSize);
+          const pathData = glyphPath.toPathData(2);
+
+          if (!pathData || pathData.trim() === "") {
+            x += advW;
+            continue;
+          }
+
+          // Create the SVG path for the final letter
+          const letterPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          letterPath.setAttribute("d", pathData);
+          letterPath.setAttribute("fill", "#1a1a2e");
+          svg.appendChild(letterPath);
+
+          // Build a random start shape aligned to the baseline
+          const bbox = letterPath.getBBox();
+          const cx2 = bbox.x + bbox.width / 2;
+          // Anchor vertically to a consistent line (baseline - half cap height)
+          const cy2 = baselineY - fontSize * 0.35;
+          const s = 10; // uniform size for all shapes
+
+          // Generate shape path translated to character position
+          const shapeTemplates = [
+            `M${cx2-s},${cy2-s} L${cx2+s},${cy2-s} L${cx2+s},${cy2+s} L${cx2-s},${cy2+s} Z`,  // square
+            `M${cx2},${cy2-s} L${cx2+s},${cy2+s} L${cx2-s},${cy2+s} Z`,                          // triangle
+            `M${cx2},${cy2-s} L${cx2+s},${cy2} L${cx2},${cy2+s} L${cx2-s},${cy2} Z`,            // diamond
+            `M${cx2-s*0.6},${cy2-s} L${cx2+s*0.6},${cy2-s} L${cx2+s},${cy2} L${cx2+s*0.6},${cy2+s} L${cx2-s*0.6},${cy2+s} L${cx2-s},${cy2} Z`, // hexagon
+          ];
+          const randomShape = shapeTemplates[Math.floor(Math.random() * shapeTemplates.length)];
+
+          // Morph from shape to letter
+          gsap.set(letterPath, {
+            morphSVG: randomShape,
+            opacity: 1,
+          });
+
+          gsap.to(letterPath, {
+            morphSVG: pathData,
+            opacity: 1,
+            duration: 1.0,
+            ease: "power2.inOut",
+            delay: 0.3 + globalIdx * 0.025,
+          });
+
+          globalIdx++;
+          x += advW;
+        }
+      };
+
+      layoutLine(line1, line1Glyphs, line1Width, baselineY1);
+      layoutLine(line2, line2Glyphs, line2Width, baselineY2);
+    }
+
+    runMorph();
   }, []);
 
   // Auto-resize textarea
@@ -111,16 +236,35 @@ export default function RebtelLandingPage() {
 
   return (
     <>
-      {/* Gradient background with mouse-following blob */}
+      {/* Gradient background with mouse-following blob + grain */}
       <div className="rebtel-bg">
         <div ref={blobRef} className="rebtel-bg__blob" />
+        <svg className="rebtel-bg__grain" width="100%" height="100%">
+          <filter id="grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#grain)" />
+        </svg>
       </div>
 
       <div className="rebtel-landing">
         <div className="rebtel-landing__content">
-          <h1 className="rebtel-landing__heading">
-            What do you want to make today, Rebby?
-          </h1>
+          <img
+            src="/character.png"
+            alt=""
+            width={80}
+            height={80}
+            style={{ objectFit: "contain", marginBottom: -12 }}
+          />
+          <div className="rebtel-landing__heading" style={{ minHeight: "2.4em" }}>
+            <svg
+              ref={svgHeadingRef}
+              viewBox="0 0 680 92"
+              width="680"
+              height="92"
+              style={{ overflow: "visible" }}
+            />
+          </div>
 
           {/* Suggestion chips */}
           <div className="rebtel-landing__chips">
