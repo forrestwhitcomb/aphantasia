@@ -79,7 +79,9 @@ const COMPONENTS: PickerEntry[] = [
   { label: "Button Ghost", legacyType: "button", primitive: "button", template: "borderless", w: 358, h: 64, props: { variant: "ghost" } },
 
   // Text + Media
-  { label: "Text Block", legacyType: "sectionText", primitive: "text", template: "paragraph-md", w: 353, h: 40 },
+  { label: "Hero Text", legacyType: "heroText", primitive: "text", template: "hero-text", w: 358, h: 108, props: { headline: "Which country do you want to connect to?", body: "Picking a region will help us find the best product for your needs." } },
+  { label: "Section Text", legacyType: "sectionText", primitive: "text", template: "section-text", w: 358, h: 36, props: { title: "Plans", description: "Short Product description about Plans" } },
+  { label: "Text", legacyType: "sectionText", primitive: "text", template: "body-text", w: 358, h: 24 },
   { label: "Divider", legacyType: "divider", primitive: "divider", template: "default", w: 393, h: 1 },
 ];
 

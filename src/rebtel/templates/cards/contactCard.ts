@@ -34,7 +34,7 @@ function avatar(key: string): ComponentSpec {
       flexShrink: 0,
       overflow: "hidden",
     },
-    style: { background: "#F3F3F3" },
+    style: { background: { token: "color.surface-neutral" } },
     data: { innerHTML: ICON_USER },
   };
 }
@@ -83,13 +83,13 @@ function callingCard(props: Record<string, unknown>): ComponentSpec {
     layout: {
       display: "flex",
       direction: "column",
-      gap: "12px",
-      padding: { all: "12px" },
-      borderRadius: "12px",
+      gap: { token: "spacing.sm" },
+      padding: { all: { token: "spacing.sm" } },
+      borderRadius: { token: "radius.md" },
       boxSizing: "border-box",
     },
     style: {
-      background: "#EDEADD",
+      background: { token: "color.surface-feature-calling" },
       shadow: "4px 5px 10px 2px rgba(0,0,0,0.02)",
       fontFamily: "'KH Teka'",
       letterSpacing: "0.02em",
@@ -106,7 +106,7 @@ function callingCard(props: Record<string, unknown>): ComponentSpec {
           {
             key: "header-left",
             tag: "div",
-            layout: { display: "flex", align: "center", gap: "8px" },
+            layout: { display: "flex", align: "center", gap: { token: "spacing.xs" } },
             style: {},
             children: [
               badge("badge", "Calling"),
@@ -115,7 +115,7 @@ function callingCard(props: Record<string, unknown>): ComponentSpec {
                 tag: "span",
                 layout: { display: "inline-flex" },
                 style: { letterSpacing: "0.02em", lineHeight: "11px" },
-                text: { content: "10 minutes ago", style: "label-xs", weight: 400, color: "#737378" },
+                text: { content: "10 minutes ago", style: "label-xs", weight: 400, color: { token: "color.text-secondary" } },
               },
             ],
           },
@@ -132,14 +132,14 @@ function callingCard(props: Record<string, unknown>): ComponentSpec {
       {
         key: "identity",
         tag: "div",
-        layout: { display: "flex", align: "center", gap: "8px" },
+        layout: { display: "flex", align: "center", gap: { token: "spacing.xs" } },
         style: {},
         children: [
           avatar("avatar"),
           {
             key: "name-col",
             tag: "div",
-            layout: { display: "flex", flex: "1", minWidth: 0, align: "center", gap: "8px" },
+            layout: { display: "flex", flex: "1", minWidth: 0, align: "center", gap: { token: "spacing.xs" } },
             style: {},
             children: [
               {
@@ -166,7 +166,7 @@ function callingCard(props: Record<string, unknown>): ComponentSpec {
                   content: name,
                   style: "paragraph-md",
                   weight: 700,
-                  color: "#111111",
+                  color: { token: "color.text-primary" },
                   editable: true,
                 },
               },
@@ -191,14 +191,14 @@ function callingCard(props: Record<string, unknown>): ComponentSpec {
                 key: "green-dot",
                 tag: "div",
                 layout: { display: "block", width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
-                style: { background: "#09BC09" },
+                style: { background: { token: "color.success" } },
               },
               {
                 key: "minutes",
                 tag: "span",
                 layout: { display: "inline-flex" },
                 style: { letterSpacing: "0.02em", lineHeight: "18px" },
-                text: { content: minutesLeft, style: "paragraph-sm", weight: 400, color: "#737378" },
+                text: { content: minutesLeft, style: "paragraph-sm", weight: 400, color: { token: "color.text-secondary" } },
               },
             ],
           },
@@ -213,14 +213,14 @@ function callingCard(props: Record<string, unknown>): ComponentSpec {
                 tag: "span",
                 layout: { display: "inline-flex" },
                 style: { letterSpacing: "0.02em", lineHeight: "11px" },
-                text: { content: "Local time", style: "label-xs", weight: 400, color: "#737378" },
+                text: { content: "Local time", style: "label-xs", weight: 400, color: { token: "color.text-secondary" } },
               },
               {
                 key: "time-value",
                 tag: "span",
                 layout: { display: "inline-flex" },
                 style: { letterSpacing: "0.02em", lineHeight: "18px" },
-                text: { content: localTime, style: "paragraph-sm", weight: 400, color: "#737378" },
+                text: { content: localTime, style: "paragraph-sm", weight: 400, color: { token: "color.text-secondary" } },
               },
             ],
           },
@@ -241,8 +241,8 @@ function callingCard(props: Record<string, unknown>): ComponentSpec {
           boxSizing: "border-box",
         },
         style: {
-          background: "#111111",
-          color: "#FFFFFF",
+          background: { token: "color.surface-button-secondary-black" },
+          color: { token: "color.text-white-constant" },
           cursor: "pointer",
           border: { width: "0", style: "none", color: "transparent" },
           fontFamily: "'KH Teka'",
@@ -264,7 +264,7 @@ function callingCard(props: Record<string, unknown>): ComponentSpec {
             tag: "span",
             layout: { display: "inline-flex" },
             style: { letterSpacing: "0.02em", lineHeight: "14px" },
-            text: { content: "Call", style: "paragraph-sm", weight: 400, color: "#FFFFFF", editable: true },
+            text: { content: "Call", style: "paragraph-sm", weight: 400, color: { token: "color.text-white-constant" }, editable: true },
           },
         ],
       },
@@ -286,13 +286,13 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
     layout: {
       display: "flex",
       direction: "column",
-      gap: "12px",
-      padding: { all: "12px" },
-      borderRadius: "12px",
+      gap: { token: "spacing.sm" },
+      padding: { all: { token: "spacing.sm" } },
+      borderRadius: { token: "radius.md" },
       boxSizing: "border-box",
     },
     style: {
-      background: "#DAE2F4",
+      background: { token: "color.surface-feature-mtu" },
       shadow: "4px 5px 10px 2px rgba(0,0,0,0.02)",
       fontFamily: "'KH Teka'",
       letterSpacing: "0.02em",
@@ -309,7 +309,7 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
           {
             key: "header-left",
             tag: "div",
-            layout: { display: "flex", align: "center", gap: "8px" },
+            layout: { display: "flex", align: "center", gap: { token: "spacing.xs" } },
             style: {},
             children: [
               badge("badge", "Top-up"),
@@ -318,7 +318,7 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
                 tag: "span",
                 layout: { display: "inline-flex" },
                 style: { letterSpacing: "0.02em", lineHeight: "11px" },
-                text: { content: "10 minutes ago", style: "label-xs", weight: 400, color: "#737378" },
+                text: { content: "10 minutes ago", style: "label-xs", weight: 400, color: { token: "color.text-secondary" } },
               },
             ],
           },
@@ -335,14 +335,14 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
       {
         key: "identity",
         tag: "div",
-        layout: { display: "flex", align: "center", gap: "8px" },
+        layout: { display: "flex", align: "center", gap: { token: "spacing.xs" } },
         style: {},
         children: [
           avatar("avatar"),
           {
             key: "name-col",
             tag: "div",
-            layout: { display: "flex", flex: "1", minWidth: 0, align: "center", gap: "8px" },
+            layout: { display: "flex", flex: "1", minWidth: 0, align: "center", gap: { token: "spacing.xs" } },
             style: {},
             children: [
               {
@@ -365,7 +365,7 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
                   letterSpacing: "0.02em",
                   lineHeight: "20px",
                 },
-                text: { content: name, style: "paragraph-md", weight: 700, color: "#111111", editable: true },
+                text: { content: name, style: "paragraph-md", weight: 700, color: { token: "color.text-primary" }, editable: true },
               },
             ],
           },
@@ -389,14 +389,14 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
                 tag: "span",
                 layout: { display: "block" },
                 style: { letterSpacing: "0.02em", lineHeight: "11px" },
-                text: { content: "You sent", style: "label-xs", weight: 400, color: "#737378" },
+                text: { content: "You sent", style: "label-xs", weight: 400, color: { token: "color.text-secondary" } },
               },
               {
                 key: "sent-amount",
                 tag: "div",
                 layout: { display: "block" },
                 style: { letterSpacing: "0.02em", lineHeight: "18px" },
-                text: { content: amountSent, style: "paragraph-sm", weight: 400, color: "#111111", editable: true },
+                text: { content: amountSent, style: "paragraph-sm", weight: 400, color: { token: "color.text-primary" }, editable: true },
               },
             ],
           },
@@ -411,7 +411,7 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
                 tag: "span",
                 layout: { display: "block" },
                 style: { letterSpacing: "0.02em", lineHeight: "11px", textAlign: "right" },
-                text: { content: "They received", style: "label-xs", weight: 400, color: "#737378", align: "right" },
+                text: { content: "They received", style: "label-xs", weight: 400, color: { token: "color.text-secondary" }, align: "right" },
               },
               {
                 key: "received-amount",
@@ -425,7 +425,7 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
                   lineHeight: "18px",
                   textAlign: "right",
                 },
-                text: { content: theyReceived, style: "paragraph-sm", weight: 400, color: "#111111", align: "right", editable: true },
+                text: { content: theyReceived, style: "paragraph-sm", weight: 400, color: { token: "color.text-primary" }, align: "right", editable: true },
               },
             ],
           },
@@ -435,7 +435,7 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
       {
         key: "actions",
         tag: "div",
-        layout: { display: "flex", gap: "8px" },
+        layout: { display: "flex", gap: { token: "spacing.xs" } },
         style: {},
         children: [
           {
@@ -451,8 +451,8 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
               boxSizing: "border-box",
             },
             style: {
-              background: "#FFFFFF",
-              color: "#111111",
+              background: { token: "color.surface-button-secondary-white" },
+              color: { token: "color.text-primary" },
               cursor: "pointer",
               border: { width: "0", style: "none", color: "transparent" },
               fontFamily: "'KH Teka'",
@@ -477,8 +477,8 @@ function topupCard(props: Record<string, unknown>): ComponentSpec {
               boxSizing: "border-box",
             },
             style: {
-              background: "#FFFFFF",
-              color: "#111111",
+              background: { token: "color.surface-button-secondary-white" },
+              color: { token: "color.text-primary" },
               cursor: "pointer",
               border: { width: "0", style: "none", color: "transparent" },
               fontFamily: "'KH Teka'",
@@ -523,8 +523,8 @@ function compactCard(props: Record<string, unknown>): ComponentSpec {
     layout: {
       display: "flex",
       align: "center",
-      gap: "8px",
-      padding: { y: "12px" },
+      gap: { token: "spacing.xs" },
+      padding: { y: { token: "spacing.sm" } },
       height: 44,
       boxSizing: "border-box",
     },
@@ -548,14 +548,14 @@ function compactCard(props: Record<string, unknown>): ComponentSpec {
         tag: "span",
         layout: { display: "block", flex: "1" },
         style: { letterSpacing: "0.02em", lineHeight: "20px" },
-        text: { content: name, style: "paragraph-md", weight: 400, color: "#111111", editable: true },
+        text: { content: name, style: "paragraph-md", weight: 400, color: { token: "color.text-primary" }, editable: true },
       },
       {
         key: "count",
         tag: "span",
         layout: { display: "inline-flex" },
         style: { letterSpacing: "0.02em", lineHeight: "18px" },
-        text: { content: `${contactCount} contacts here`, style: "paragraph-sm", color: "#737378" },
+        text: { content: `${contactCount} contacts here`, style: "paragraph-sm", color: { token: "color.text-secondary" } },
       },
       {
         key: "chevron",

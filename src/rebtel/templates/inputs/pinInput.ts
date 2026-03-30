@@ -20,15 +20,15 @@ function pinBox(key: string, value: string, active: boolean, filled: boolean): C
       justify: "center",
       width: 52,
       height: 52,
-      borderRadius: "8px",
+      borderRadius: { token: "radius.sm" },
       boxSizing: "border-box",
     },
     style: {
-      background: "#FFFFFF",
+      background: { token: "color.surface-primary" },
       border: {
         width: active ? "2px" : "1px",
         style: "solid",
-        color: active ? "#E31B3B" : "#DCDCE1",
+        color: active ? { token: "color.border-error" } : { token: "color.border-default" },
       },
       fontFamily: "'KH Teka'",
     },
@@ -44,12 +44,12 @@ function pinBox(key: string, value: string, active: boolean, filled: boolean): C
         textAlign: "center",
         fontFamily: "'KH Teka'",
       },
-      text: { content: value, style: "headline-sm", weight: 400, color: "#111111", align: "center" },
+      text: { content: value, style: "headline-sm", weight: 400, color: { token: "color.text-primary" }, align: "center" },
     }] : active ? [{
       key: `${key}-cursor`,
       tag: "div",
       layout: { display: "block", width: 2, height: 24 },
-      style: { background: "#E31B3B" },
+      style: { background: { token: "color.border-error" } },
     }] : undefined,
   };
 }
@@ -71,7 +71,7 @@ export function pinInputTemplate(props?: Record<string, unknown>): ComponentSpec
     tag: "div",
     layout: {
       display: "flex",
-      gap: "8px",
+      gap: { token: "spacing.xs" },
       justify: "center",
       width: "100%",
     },

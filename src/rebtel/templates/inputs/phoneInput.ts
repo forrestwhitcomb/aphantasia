@@ -55,7 +55,7 @@ export function phoneInputTemplate(props?: Record<string, unknown>): ComponentSp
       tag: "span",
       layout: { display: "inline-flex" },
       style: { fontSize: 16, letterSpacing: "0.02em", lineHeight: "16px", fontFamily: "'KH Teka'" },
-      text: { content: prefix, style: "label-md", weight: 400, color: "#111111" },
+      text: { content: prefix, style: "label-md", weight: 400, color: { token: "color.text-primary" } },
     });
   }
 
@@ -75,13 +75,13 @@ export function phoneInputTemplate(props?: Record<string, unknown>): ComponentSp
       align: "center",
       width: "100%",
       height: 52,
-      borderRadius: "8px",
+      borderRadius: { token: "radius.sm" },
       boxSizing: "border-box",
       overflow: "hidden",
     },
     style: {
-      background: "#FFFFFF",
-      border: { width: "1px", style: "solid", color: "#DCDCE1" },
+      background: { token: "color.surface-primary" },
+      border: { width: "1px", style: "solid", color: { token: "color.border-default" } },
       fontFamily: "'KH Teka'",
     },
     data: { component: "phoneInput" },
@@ -93,8 +93,8 @@ export function phoneInputTemplate(props?: Record<string, unknown>): ComponentSp
         layout: {
           display: "flex",
           align: "center",
-          gap: "8px",
-          padding: { all: "12px" },
+          gap: { token: "spacing.xs" },
+          padding: { all: { token: "spacing.sm" } },
           flexShrink: 0,
         },
         style: { cursor: "pointer" },
@@ -106,7 +106,7 @@ export function phoneInputTemplate(props?: Record<string, unknown>): ComponentSp
         key: "divider",
         tag: "div",
         layout: { display: "block", width: 1, height: "100%" },
-        style: { background: "#DCDCE1" },
+        style: { background: { token: "color.border-default" } },
       },
       // Phone number input
       {
@@ -116,7 +116,7 @@ export function phoneInputTemplate(props?: Record<string, unknown>): ComponentSp
           display: "flex",
           align: "center",
           flex: "1",
-          padding: { all: "12px" },
+          padding: { all: { token: "spacing.sm" } },
         },
         style: {
           fontSize: 16,
@@ -129,7 +129,7 @@ export function phoneInputTemplate(props?: Record<string, unknown>): ComponentSp
           content: filled ? (prefix ? `${prefix} ${value}` : value) : placeholder,
           style: "paragraph-md",
           weight: 400,
-          color: filled ? "#111111" : "#B9B9BE",
+          color: filled ? { token: "color.text-primary" } : { token: "color.text-tertiary" },
           editable: true,
         },
       },

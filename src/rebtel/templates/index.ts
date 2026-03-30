@@ -48,7 +48,7 @@ import { successTemplate } from "./status/success";
 import { loadingTemplate } from "./status/loading";
 
 // Text
-import { textBlockTemplate } from "./text/textBlock";
+import { textBlockTemplate, heroTextTemplate, sectionTextTemplate } from "./text/textBlock";
 
 // ── Registry ─────────────────────────────────────────────────
 
@@ -135,8 +135,13 @@ const TEMPLATE_REGISTRY: Record<string, Record<string, TemplateFactory>> = {
   text: {
     "paragraph-md": textBlockTemplate,
     "display-lg": (p) => textBlockTemplate({ ...p, style: "display-lg" }),
+    "headline-sm": (p) => textBlockTemplate({ ...p, style: "headline-sm", weight: 600 }),
     "headline-xs": (p) => textBlockTemplate({ ...p, style: "headline-xs" }),
     "label-md": (p) => textBlockTemplate({ ...p, style: "label-md" }),
+    // Figma-accurate compound text components
+    "hero-text": heroTextTemplate,
+    "section-text": sectionTextTemplate,
+    "body-text": textBlockTemplate,
     balance: (p) => textBlockTemplate({ ...p, style: "display-md", content: (p?.content as string) ?? "$24.00" }),
   },
   media: {

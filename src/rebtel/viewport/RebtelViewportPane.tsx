@@ -387,8 +387,10 @@ ${bodyHtml}
               style={{
                 width: MOBILE_FRAME_WIDTH,
                 height: MOBILE_FRAME_HEIGHT,
-                overflow: "auto",
-                background: "#FFFFFF",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                background: "#FAFAFC",
                 boxSizing: "border-box",
                 position: "relative",
                 transform: `scale(${scale})`,
@@ -405,9 +407,27 @@ ${bodyHtml}
               {/* Inject Rebtel CSS custom properties */}
               <style dangerouslySetInnerHTML={{ __html: REBTEL_VIEWPORT_CSS }} />
 
-              {/* Scrollable content area (everything except tab bar) */}
-              <div style={{ flex: 1, paddingLeft: 16, paddingRight: 16, paddingBottom: shapeSpecs.some(ss => ss.primitive === "bar" && ss.template === "tab-bar") ? 90 : 0 }}>
-                {shapeSpecs.filter(ss => !(ss.primitive === "bar" && ss.template === "tab-bar")).map((ss) => (
+              {/* Dynamic island safe-area spacer — 59px keeps content below the notch */}
+              <div style={{ width: "100%", height: 59, flexShrink: 0 }} />
+
+              {/* App bar — pinned to top, full width (no side padding) */}
+              {shapeSpecs.filter(ss => ss.primitive === "bar" && ss.template === "app-bar").map((ss) => (
+                <div key={ss.shapeId} style={{ width: "100%", flexShrink: 0, zIndex: 10 }}>
+                  <SpecRenderer
+                    spec={ss.spec}
+                    shapeId={ss.shapeId}
+                    selectedKey={selectedKey}
+                    onSelect={handleSelect}
+                    onTextChange={handleTextChange}
+                    onNavigate={handleScreenNavigate}
+                    isDesignMode={viewportMode === "design"}
+                  />
+                </div>
+              ))}
+
+              {/* Scrollable content area (everything except app bar and tab bar) */}
+              <div style={{ flex: 1, overflowY: "auto", paddingLeft: 16, paddingRight: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                {shapeSpecs.filter(ss => !(ss.primitive === "bar" && (ss.template === "tab-bar" || ss.template === "app-bar"))).map((ss) => (
                   <SpecRenderer
                     key={ss.shapeId}
                     spec={ss.spec}
@@ -421,9 +441,9 @@ ${bodyHtml}
                 ))}
               </div>
 
-              {/* Tab bar — sticky to bottom, no side padding */}
+              {/* Tab bar — pinned to bottom, full width (no side padding) */}
               {shapeSpecs.filter(ss => ss.primitive === "bar" && ss.template === "tab-bar").map((ss) => (
-                <div key={ss.shapeId} style={{ position: "sticky", bottom: 0, left: 0, width: "100%", zIndex: 10 }}>
+                <div key={ss.shapeId} style={{ width: "100%", flexShrink: 0, zIndex: 10 }}>
                   <SpecRenderer
                     spec={ss.spec}
                     shapeId={ss.shapeId}
@@ -445,7 +465,7 @@ ${bodyHtml}
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                background: "#fff",
+                background: "#FAFAFC",
                 gap: 10,
               }}
             >

@@ -22,14 +22,14 @@ export function serviceTypeTemplate(props?: Record<string, unknown>): ComponentS
     layout: {
       display: "flex",
       direction: "column",
-      gap: "12px",
+      gap: { token: "spacing.sm" },
       width: "100%",
-      padding: { all: "16px" },
-      borderRadius: "16px",
+      padding: { all: { token: "spacing.md" } },
+      borderRadius: { token: "radius.lg" },
       boxSizing: "border-box",
     },
     style: {
-      background: "#FFFFFF",
+      background: { token: "color.surface-primary" },
       fontFamily: "'KH Teka'",
       letterSpacing: "0.02em",
     },
@@ -39,7 +39,7 @@ export function serviceTypeTemplate(props?: Record<string, unknown>): ComponentS
       {
         key: "header",
         tag: "div",
-        layout: { display: "flex", align: "center", gap: "12px" },
+        layout: { display: "flex", align: "center", gap: { token: "spacing.sm" } },
         style: {},
         children: [
           {
@@ -54,7 +54,7 @@ export function serviceTypeTemplate(props?: Record<string, unknown>): ComponentS
             tag: "span",
             layout: { display: "block" },
             style: { fontSize: "16px", letterSpacing: "0.02em", lineHeight: "20px" },
-            text: { content: title, style: "paragraph-md", weight: 700, color: "#111111", editable: true },
+            text: { content: title, style: "paragraph-md", weight: 700, color: { token: "color.text-primary" }, editable: true },
           },
         ],
       },
@@ -68,11 +68,11 @@ export function serviceTypeTemplate(props?: Record<string, unknown>): ComponentS
           justify: "center",
           width: "100%",
           height: 40,
-          borderRadius: "32px",
+          borderRadius: { token: "radius.xxl" },
           boxSizing: "border-box",
         },
         style: {
-          background: "#F3F3F3",
+          background: { token: "color.surface-neutral" },
           cursor: "pointer",
           fontFamily: "'KH Teka'",
           fontSize: "14px",
@@ -80,7 +80,7 @@ export function serviceTypeTemplate(props?: Record<string, unknown>): ComponentS
           lineHeight: "14px",
         },
         interactive: { type: "button" },
-        text: { content: ctaLabel, style: "paragraph-sm", weight: 400, color: "#111111", align: "center", editable: true },
+        text: { content: ctaLabel, style: "paragraph-sm", weight: 400, color: { token: "color.text-primary" }, align: "center", editable: true },
       },
     ],
   };

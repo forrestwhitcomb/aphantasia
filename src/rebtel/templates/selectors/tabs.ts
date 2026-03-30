@@ -29,7 +29,7 @@ function tabSegment(key: string, label: string, active: boolean): ComponentSpec 
       letterSpacing: "0.02em",
       lineHeight: "18px",
       borderBottom: active
-        ? { width: "2px", style: "solid", color: "#E31B3B" }
+        ? { width: "2px", style: "solid", color: { token: "color.brand-red" } }
         : undefined,
     },
     interactive: { type: "tab" },
@@ -47,7 +47,7 @@ function tabSegment(key: string, label: string, active: boolean): ComponentSpec 
           content: label,
           style: "label-sm",
           weight: 400,
-          color: active ? "#111111" : "#737378",
+          color: active ? { token: "color.text-primary" } : { token: "color.text-secondary" },
           editable: true,
         },
       },
@@ -68,7 +68,7 @@ export function tabsTemplate(props?: Record<string, unknown>): ComponentSpec {
       boxSizing: "border-box",
     },
     style: {
-      borderBottom: { width: "1px", style: "solid", color: "#DCDCE1" },
+      borderBottom: { width: "1px", style: "solid", color: { token: "color.border-default" } },
       fontFamily: "'KH Teka'",
     },
     data: { component: "tabs" },

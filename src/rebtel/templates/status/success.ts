@@ -32,7 +32,7 @@ export function successTemplate(props?: Record<string, unknown>): ComponentSpec 
       boxSizing: "border-box",
     },
     style: {
-      background: "#FFFFFF",
+      background: { token: "color.surface-primary" },
       fontFamily: "'KH Teka'",
     },
     data: { component: "successState" },
@@ -50,7 +50,7 @@ export function successTemplate(props?: Record<string, unknown>): ComponentSpec 
           borderRadius: "50%",
           flexShrink: 0,
         },
-        style: { background: "#09BC09" },
+        style: { background: { token: "color.success" } },
         children: [
           {
             key: "check-icon",
@@ -83,7 +83,7 @@ export function successTemplate(props?: Record<string, unknown>): ComponentSpec 
           content: title,
           style: "headline-md",
           weight: 400,
-          color: "#111111",
+          color: { token: "color.text-primary" },
           align: "center",
           editable: true,
         },
@@ -104,7 +104,7 @@ export function successTemplate(props?: Record<string, unknown>): ComponentSpec 
           content: subtitle,
           style: "paragraph-md",
           weight: 400,
-          color: "#737378",
+          color: { token: "color.text-secondary" },
           align: "center",
           editable: true,
         },
@@ -119,10 +119,10 @@ export function successTemplate(props?: Record<string, unknown>): ComponentSpec 
           justify: "center",
           width: "100%",
           height: 64,
-          borderRadius: "32px",
+          borderRadius: { token: "radius.xxl" },
           boxSizing: "border-box",
         },
-        style: { background: "#E31B3B", cursor: "pointer" },
+        style: { background: { token: "color.surface-button-primary" }, cursor: "pointer" },
         interactive: { type: "button" },
         children: [
           {
@@ -138,7 +138,7 @@ export function successTemplate(props?: Record<string, unknown>): ComponentSpec 
               content: ctaLabel,
               style: "label-xl",
               weight: 400,
-              color: "#FFFFFF",
+              color: { token: "color.text-white-constant" },
               align: "center",
               editable: true,
             },

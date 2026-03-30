@@ -20,16 +20,16 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
       direction: "column",
       align: "start",
       width: "100%",
-      padding: { top: "24px", left: "16px", right: "16px", bottom: "52px" },
+      padding: { top: "24px", left: { token: "spacing.md" }, right: { token: "spacing.md" }, bottom: "52px" },
       boxSizing: "border-box",
       overflow: "hidden",
     },
     style: {
-      background: "#FFFFFF",
-      borderTop: { width: "1px", style: "solid", color: "#DCDCE1" },
+      background: { token: "color.surface-primary" },
+      borderTop: { width: "1px", style: "solid", color: { token: "color.border-default" } },
       textAlign: "left",
       fontSize: 16,
-      color: "#737378",
+      color: { token: "color.text-secondary" },
       fontFamily: "'KH Teka'",
     },
     data: { component: "paymentSheet" },
@@ -43,7 +43,7 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
           direction: "column",
           align: "start",
           width: "100%",
-          gap: "16px",
+          gap: { token: "spacing.md" },
         },
         style: {},
         children: [
@@ -56,7 +56,7 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
               align: "center",
               justify: "space-between",
               width: "100%",
-              gap: "20px",
+              gap: { token: "spacing.lg" },
             },
             style: {},
             children: [
@@ -69,7 +69,7 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
                   content: "Use Rebtel Credits",
                   style: "label-md",
                   weight: 400,
-                  color: "#737378",
+                  color: { token: "color.text-secondary" },
                   editable: true,
                 },
               },
@@ -77,7 +77,7 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
               {
                 key: "credits-right",
                 tag: "div",
-                layout: { display: "flex", align: "center", justify: "end", gap: "8px" },
+                layout: { display: "flex", align: "center", justify: "end", gap: { token: "spacing.xs" } },
                 style: {},
                 children: [
                   {
@@ -89,7 +89,7 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
                       content: credits,
                       style: "label-md",
                       weight: 400,
-                      color: "#737378",
+                      color: { token: "color.text-secondary" },
                       editable: true,
                     },
                   },
@@ -108,7 +108,7 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
                       overflow: "hidden",
                       flexShrink: 0,
                     },
-                    style: { background: "#DCDCE1", cursor: "pointer" },
+                    style: { background: { token: "color.border-default" }, cursor: "pointer" },
                     interactive: { type: "toggle" },
                     children: [
                       {
@@ -140,8 +140,8 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
                       boxSizing: "border-box",
                     },
                     style: {
-                      background: "#FFFFFF",
-                      border: { width: "1px", style: "solid", color: "#B9B9BE" },
+                      background: { token: "color.surface-primary" },
+                      border: { width: "1px", style: "solid", color: { token: "color.text-tertiary" } },
                     },
                     children: [
                       {
@@ -168,13 +168,13 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
               width: "100%",
               height: 52,
               borderRadius: "8px",
-              padding: { all: "12px" },
+              padding: { all: { token: "spacing.sm" } },
               boxSizing: "border-box",
               overflow: "hidden",
               flexShrink: 0,
             },
             style: {
-              border: { width: "1px", style: "solid", color: "#DCDCE1" },
+              border: { width: "1px", style: "solid", color: { token: "color.border-default" } },
               cursor: "pointer",
             },
             interactive: { type: "button" },
@@ -183,7 +183,7 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
               {
                 key: "payment-info",
                 tag: "div",
-                layout: { display: "flex", align: "center", gap: "12px", flex: "1", flexShrink: 0 },
+                layout: { display: "flex", align: "center", gap: { token: "spacing.sm" }, flex: "1", flexShrink: 0 },
                 style: {},
                 children: [
                   // Payment provider card icon (Visa)
@@ -218,7 +218,7 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
                             tag: "span",
                             layout: { display: "inline-flex" },
                             style: {},
-                            text: { content: "VISA", style: "label-xs", weight: 700, color: "#FFFFFF" },
+                            text: { content: "VISA", style: "label-xs", weight: 700, color: { token: "color.text-white-constant" } },
                           },
                         ],
                       },
@@ -234,7 +234,7 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
                       content: `**** ${cardLast4}`,
                       style: "label-md",
                       weight: 400,
-                      color: "#2D2D32",
+                      color: { token: "color.text-primary" },
                       editable: true,
                     },
                   },
@@ -270,11 +270,11 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
           justify: "center",
           width: "100%",
           height: 64,
-          borderRadius: "32px",
+          borderRadius: { token: "radius.xxl" },
           padding: { x: "32px" },
           boxSizing: "border-box",
         },
-        style: { background: "#E31B3B", cursor: "pointer" },
+        style: { background: { token: "color.surface-button-primary" }, cursor: "pointer" },
         interactive: { type: "button" },
         children: [
           {
@@ -286,7 +286,7 @@ export function paymentSheetTemplate(props?: Record<string, unknown>): Component
               content: `Pay ${amount}`,
               style: "label-xl",
               weight: 400,
-              color: "#FFFFFF",
+              color: { token: "color.text-white-constant" },
               editable: true,
             },
           },

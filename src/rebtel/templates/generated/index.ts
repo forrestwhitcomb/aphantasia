@@ -42,53 +42,9 @@ import { paymentSheetTemplate } from "./paymentSheet";
 import { textBlockTemplate } from "./textBlock";
 
 // ── Registry ─────────────────────────────────────────────────
+// Disabled: generated templates have structural problems (hardcoded pixel
+// widths, missing interactivity, lost variant logic). Hand-authored
+// templates are the sole source of truth. Generated files kept for
+// token-reference lookup only.
 
-export const GENERATED_REGISTRY: Record<string, Record<string, TemplateFactory>> = {
-  bar: {
-    "app-bar": appBarTemplate,
-    "tab-bar": tabBarTemplate,
-  },
-  button: {
-    "primary": (p) => buttonTemplate({ ...p, variant: "primary" }),
-    "secondary": (p) => buttonTemplate({ ...p, variant: "secondary" }),
-    "secondary-white": (p) => buttonTemplate({ ...p, variant: "secondary-white" }),
-    "secondary-grey": (p) => buttonTemplate({ ...p, variant: "secondary-grey" }),
-    "outlined": (p) => buttonTemplate({ ...p, variant: "secondary-grey" }),
-    "red": (p) => buttonTemplate({ ...p, variant: "primary" }),
-    "white": (p) => buttonTemplate({ ...p, variant: "secondary-white" }),
-    "black": (p) => buttonTemplate({ ...p, variant: "secondary" }),
-  },
-  card: {
-    "blank": blankCardTemplate,
-    "contact": contactCardTemplate,
-    "contact-calling": (p) => contactCardTemplate({ ...p, variant: "calling" }),
-    "contact-topup": (p) => contactCardTemplate({ ...p, variant: "topup" }),
-    "credits-collapsed": (p) => creditsCardTemplate({ ...p, variant: "collapsed" }),
-    "credits-expanded": (p) => creditsCardTemplate({ ...p, variant: "expanded" }),
-    "info": infoCardTemplate,
-    "info-icon": infoCardTemplate,
-    "order-summary": orderSummaryTemplate,
-    "product-credits": productCreditsTemplate,
-    "product-mtu": productMtuTemplate,
-    "promo": promoCardTemplate,
-    "service-type": serviceTypeTemplate,
-  },
-  input: {
-    "phone": phoneInputTemplate,
-    "pin": pinInputTemplate,
-    "search": searchBarTemplate,
-    "text-field": textFieldTemplate,
-  },
-  selector: {
-    "tabs": tabsTemplate,
-    "segmented": tabsTemplate,
-  },
-  sheet: {
-    "action-sheet": actionSheetTemplate,
-    "dialog": dialogTemplate,
-    "payment": paymentSheetTemplate,
-  },
-  text: {
-    "balance": textBlockTemplate,
-  },
-};
+export const GENERATED_REGISTRY: Record<string, Record<string, TemplateFactory>> = {};

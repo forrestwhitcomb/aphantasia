@@ -51,7 +51,7 @@ function spacer(key: string): ComponentSpec {
 export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
   const variant = (props?.variant as string) ?? "back";
   const title = (props?.title as string) ?? (props?.label as string) ?? "Mobile Top-up";
-  const bg = (props?.background as string) ?? "#FFFFFF";
+  const bg = (props?.background as string) ?? "transparent";
 
   const navChildren: ComponentSpec[] = [];
 
@@ -69,7 +69,7 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
             content: "Rebtel",
             style: "display-xs",
             weight: 700,
-            color: "#E31B3B",
+            color: { token: "color.brand-red" },
             align: "center",
             editable: true,
           },
@@ -91,7 +91,7 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
             content: title,
             style: "label-lg",
             weight: 400,
-            color: "#111111",
+            color: { token: "color.text-primary" },
             align: "center",
             editable: true,
           },
@@ -113,7 +113,7 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
             content: title,
             style: "label-lg",
             weight: 400,
-            color: "#111111",
+            color: { token: "color.text-primary" },
             align: "center",
             editable: true,
           },
@@ -133,13 +133,13 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
             display: "flex",
             flex: "1",
             align: "center",
-            gap: "8px",
+            gap: { token: "spacing.xs" },
             height: 36,
-            padding: { x: "12px" },
+            padding: { x: { token: "spacing.sm" } },
             borderRadius: "32px",
             boxSizing: "border-box",
           },
-          style: { background: "#F3F3F3" },
+          style: { background: { token: "color.surface-neutral" } },
           interactive: { type: "input" },
           children: [
             {
@@ -158,7 +158,7 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
                 content: "Search contacts, countries...",
                 style: "paragraph-sm",
                 weight: 400,
-                color: "#737378",
+                color: { token: "color.text-secondary" },
                 editable: true,
               },
             },
@@ -193,9 +193,9 @@ export function appBarTemplate(props?: Record<string, unknown>): ComponentSpec {
           justify: "space-between",
           height: 48,
           width: "100%",
-          padding: { left: "16px", right: "16px" },
+          padding: { left: { token: "spacing.md" }, right: { token: "spacing.md" } },
           boxSizing: "border-box",
-          gap: variant === "search" ? "8px" : undefined,
+          gap: variant === "search" ? { token: "spacing.xs" } : undefined,
         },
         style: {},
         children: navChildren,

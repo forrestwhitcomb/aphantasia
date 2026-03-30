@@ -3,10 +3,12 @@
 // ============================================================
 // When a user draws a rectangle on canvas, infer what primitive
 // it should be based on position, size, and label.
+// Uses DS_RULES for snapping drawn dimensions to token values.
 // ============================================================
 
 import type { PrimitiveType } from "./types";
 import { DEFAULT_TEMPLATE } from "./primitives";
+import { DS_RULES, snapToHeight, snapToSpacing, snapToRadius } from "../dsRules";
 
 interface ShapeRect {
   x: number;
@@ -128,4 +130,42 @@ export function drawnShapeToPrimitive(
   }
 
   return null;
+}
+
+// ── DS Rules Integration ──────────────────────────────────
+
+type ComponentType = keyof typeof DS_RULES.componentDefaults;
+
+/**
+ * Get design system defaults for an inferred component type.
+ * Returns token paths for height, radius, padding, gap, text style, etc.
+ */
+export function getComponentDefaults(primitive: PrimitiveType): typeof DS_RULES.componentDefaults[ComponentType] | null {
+  const map: Partial<Record<PrimitiveType, ComponentType>> = {
+    button: "button",
+    card: "card",
+    input: "input",
+    sheet: "sheet",
+    bar: "bar",
+    divider: "divider",
+    row: "row",
+  };
+  const key = map[primitive];
+  return key ? DS_RULES.componentDefaults[key] : null;
+}
+
+/**
+ * Snap a drawn shape's raw pixel dimensions to the nearest design system tokens.
+ * Returns token-aware overrides that can be applied to a resolved template spec.
+ */
+export function snapShapeDimensions(shape: { width: number; height: number }): {
+  height: { value: number; token: string };
+  borderRadius: { value: number; token: string };
+  paddingX: { value: number; token: string };
+} {
+  return {
+    height: snapToHeight(shape.height),
+    borderRadius: snapToRadius(Math.min(shape.height / 2, 32)),
+    paddingX: snapToSpacing(Math.max(12, Math.round(shape.width * 0.08))),
+  };
 }

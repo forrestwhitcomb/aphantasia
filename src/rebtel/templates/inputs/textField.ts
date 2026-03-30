@@ -15,8 +15,8 @@ export function textFieldTemplate(props?: Record<string, unknown>): ComponentSpe
   const value = (props?.value as string) ?? "";
   const state = (props?.state as string) ?? "default";
 
-  const borderColor = state === "error" ? "#E31B3B" :
-    state === "focused" ? "#111111" : "#DCDCE1";
+  const borderColor = state === "error" ? { token: "color.border-error" } :
+    state === "focused" ? { token: "color.border-strong" } : { token: "color.border-default" };
 
   return {
     key: "text-field",
@@ -36,7 +36,7 @@ export function textFieldTemplate(props?: Record<string, unknown>): ComponentSpe
       {
         key: "tf-label",
         tag: "span",
-        layout: { display: "block", padding: { bottom: "8px" } },
+        layout: { display: "block", padding: { bottom: { token: "spacing.xs" } } },
         style: {
           fontSize: 14,
           letterSpacing: "0.02em",
@@ -47,7 +47,7 @@ export function textFieldTemplate(props?: Record<string, unknown>): ComponentSpe
           content: label,
           style: "label-sm",
           weight: 400,
-          color: "#737378",
+          color: { token: "color.text-secondary" },
           editable: true,
         },
       },
@@ -60,25 +60,25 @@ export function textFieldTemplate(props?: Record<string, unknown>): ComponentSpe
           align: "center",
           width: "100%",
           height: 52,
-          borderRadius: "8px",
-          padding: { all: "12px" },
+          borderRadius: { token: "radius.sm" },
+          padding: { all: { token: "spacing.sm" } },
           boxSizing: "border-box",
         },
         style: {
-          background: "#FFFFFF",
+          background: { token: "color.surface-primary" },
           border: { width: "1px", style: "solid", color: borderColor },
           fontSize: 16,
           letterSpacing: "0.02em",
           lineHeight: "16px",
           fontFamily: "'KH Teka'",
-          color: value ? "#111111" : "#B9B9BE",
+          color: value ? { token: "color.text-primary" } : { token: "color.text-tertiary" },
         },
         interactive: { type: "input" },
         text: {
           content: value || placeholder,
           style: "paragraph-md",
           weight: 400,
-          color: value ? "#111111" : "#B9B9BE",
+          color: value ? { token: "color.text-primary" } : { token: "color.text-tertiary" },
           editable: true,
         },
       },

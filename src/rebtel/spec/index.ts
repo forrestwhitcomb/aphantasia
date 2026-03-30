@@ -19,5 +19,5 @@ export { TOKEN_MAP, TEXT_STYLE_MAP, resolveToken, resolveTextStyle } from "./tok
 export { renderSpec } from "./render";
 export { findByKey, walkTree, editText, removeChild, addChild, setStyle, setLayout, cloneSpec } from "./operations";
 export { mergeChildSpecs } from "./merge";
-export { drawnShapeToPrimitive } from "./inference";
+export { drawnShapeToPrimitive, getComponentDefaults, snapShapeDimensions } from "./inference";
 export { DEFAULT_TEMPLATE, LEGACY_TO_PRIMITIVE, hasLegacyMapping, getLegacyMapping } from "./primitives";

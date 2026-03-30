@@ -61,6 +61,14 @@ const CATEGORIES: ComponentCategory[] = [
     ],
   },
   {
+    name: "Text",
+    items: [
+      { type: "heroText", label: "Hero Text", defaultWidth: 358, defaultHeight: 48 },
+      { type: "sectionText", label: "Section Text", defaultWidth: 358, defaultHeight: 32 },
+      { type: "bodyText", label: "Text", defaultWidth: 358, defaultHeight: 24 },
+    ],
+  },
+  {
     name: "Media",
     items: [
       { type: "imagePlaceholder", label: "Image", defaultWidth: 353, defaultHeight: 200 },

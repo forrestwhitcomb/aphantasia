@@ -176,7 +176,10 @@ export type UIComponentType =
   | "feedItem"
   | "settingsRow"
   // Text
-  | "header";
+  | "header"
+  | "heroText"
+  | "sectionText"
+  | "bodyText";
 
 // ── Variant Maps ────────────────────────────────────────────
 // Per-component variant options for the build plan's component inventory.

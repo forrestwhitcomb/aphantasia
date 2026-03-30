@@ -48,8 +48,8 @@ export const LEGACY_TO_PRIMITIVE: Record<
   promoCard: { primitive: "card", template: "promo" },
   productCard: { primitive: "card", template: "product" },
   orderSummary: { primitive: "card", template: "order-summary" },
-  heroText: { primitive: "text", template: "display-lg" },
-  sectionText: { primitive: "text", template: "paragraph-md" },
+  heroText: { primitive: "text", template: "hero-text" },
+  sectionText: { primitive: "text", template: "section-text" },
   label: { primitive: "text", template: "label-md" },
 
   // Inputs

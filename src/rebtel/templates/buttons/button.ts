@@ -7,7 +7,7 @@
 // Border radius: 32px (all sizes)
 // ============================================================
 
-import type { ComponentSpec, BorderSpec } from "../../spec/types";
+import type { ComponentSpec, BorderSpec, TokenRef } from "../../spec/types";
 
 type ButtonVariant =
   | "primary"       // red bg, white text
@@ -28,27 +28,27 @@ type ButtonVariant =
 type ButtonSize = "xs" | "sm" | "md" | "lg";
 
 interface VariantStyle {
-  bg: string;
-  textColor: string;
+  bg: TokenRef | string;
+  textColor: TokenRef | string;
   border?: BorderSpec;
 }
 
-// Figma 3.0: exact hex values from component boundVariables (resolved)
+// Figma 3.0: token references from design system
 const VARIANT_STYLES: Record<string, VariantStyle> = {
-  primary:          { bg: "#E31B3B", textColor: "#FFFFFF" },
-  secondary:        { bg: "#111111", textColor: "#FFFFFF" },
-  "secondary-white": { bg: "#FFFFFF", textColor: "#111111" },
-  "secondary-grey": { bg: "#F3F3F3", textColor: "#111111", border: { width: "1px", style: "solid", color: "#DCDCE1" } },
-  outlined:         { bg: "transparent", textColor: "#2D2D32", border: { width: "1px", style: "solid", color: "#DCDCE1" } },
-  ghost:            { bg: "transparent", textColor: "#E31B3B" },
-  green:            { bg: "#09BC09", textColor: "#FFFFFF" },
-  destructive:      { bg: "#E31B3B", textColor: "#FFFFFF" },
-  "icon-only":      { bg: "#F3F3F3", textColor: "#111111" },
-  red:              { bg: "#E31B3B", textColor: "#FFFFFF" },
-  white:            { bg: "#FFFFFF", textColor: "#111111" },
-  black:            { bg: "#111111", textColor: "#FFFFFF" },
-  dropdown:         { bg: "#F3F3F3", textColor: "#111111", border: { width: "1px", style: "solid", color: "#DCDCE1" } },
-  borderless:       { bg: "transparent", textColor: "#E31B3B" },
+  primary:          { bg: { token: "color.surface-button-primary" }, textColor: { token: "color.text-white-constant" } },
+  secondary:        { bg: { token: "color.surface-button-secondary-black" }, textColor: { token: "color.text-white-constant" } },
+  "secondary-white": { bg: { token: "color.surface-button-secondary-white" }, textColor: { token: "color.text-primary" } },
+  "secondary-grey": { bg: { token: "color.surface-button-secondary-grey" }, textColor: { token: "color.text-primary" }, border: { width: "1px", style: "solid", color: { token: "color.border-default" } } },
+  outlined:         { bg: "transparent", textColor: { token: "color.text-primary" }, border: { width: "1px", style: "solid", color: { token: "color.border-default" } } },
+  ghost:            { bg: "transparent", textColor: { token: "color.brand-red" } },
+  green:            { bg: { token: "color.success" }, textColor: { token: "color.text-white-constant" } },
+  destructive:      { bg: { token: "color.surface-button-primary" }, textColor: { token: "color.text-white-constant" } },
+  "icon-only":      { bg: { token: "color.surface-button-secondary-grey" }, textColor: { token: "color.text-primary" } },
+  red:              { bg: { token: "color.surface-button-primary" }, textColor: { token: "color.text-white-constant" } },
+  white:            { bg: { token: "color.surface-button-secondary-white" }, textColor: { token: "color.text-primary" } },
+  black:            { bg: { token: "color.surface-button-secondary-black" }, textColor: { token: "color.text-white-constant" } },
+  dropdown:         { bg: { token: "color.surface-button-secondary-grey" }, textColor: { token: "color.text-primary" }, border: { width: "1px", style: "solid", color: { token: "color.border-default" } } },
+  borderless:       { bg: "transparent", textColor: { token: "color.brand-red" } },
 };
 
 // Figma 3.0 exact heights: xs=32, sm=40, md=52, lg=64
@@ -67,12 +67,12 @@ const SIZE_FONT: Record<ButtonSize, { style: "label-sm" | "label-md" | "label-lg
   lg: { style: "label-xl", size: 20 },
 };
 
-// Figma 3.0 exact horizontal padding per size
-const SIZE_PADDING: Record<ButtonSize, number> = {
-  xs: 16,
-  sm: 24,
-  md: 24,
-  lg: 32,
+// Figma 3.0 horizontal padding per size — token refs
+const SIZE_PADDING: Record<ButtonSize, TokenRef> = {
+  xs: { token: "spacing.md" },
+  sm: { token: "spacing.xl" },
+  md: { token: "spacing.xl" },
+  lg: { token: "spacing.xxl" },
 };
 
 export function buttonTemplate(props?: Record<string, unknown>): ComponentSpec {
@@ -87,7 +87,7 @@ export function buttonTemplate(props?: Record<string, unknown>): ComponentSpec {
   const isIconOnly = variant === "icon-only";
   const h = SIZE_HEIGHT[size] ?? 64;
   const font = SIZE_FONT[size] ?? SIZE_FONT.lg;
-  const px = SIZE_PADDING[size] ?? 32;
+  const px = SIZE_PADDING[size] ?? SIZE_PADDING.lg;
 
   const children: ComponentSpec[] = [];
 
@@ -145,13 +145,13 @@ export function buttonTemplate(props?: Record<string, unknown>): ComponentSpec {
       display: "flex",
       align: "center",
       justify: "center",
-      gap: "8px",
+      gap: { token: "spacing.xs" },
       height: h,
       width: fullWidth ? "100%" : undefined,
       padding: isIconOnly
-        ? { all: "8px" }
-        : { left: `${px}px`, right: `${px}px` },
-      borderRadius: "32px",
+        ? { all: { token: "spacing.xs" } }
+        : { left: px, right: px },
+      borderRadius: { token: "radius.xxl" },
       boxSizing: "border-box",
     },
     style: {
