@@ -102,6 +102,7 @@ function SpecNode({
   onPress,
   onToggle,
 }: SpecNodeProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const style = buildStyleObject(spec);
   const isSelected = selectedKey === spec.key;
   const isPressed = pressedKeys.has(spec.key);
@@ -111,6 +112,12 @@ function SpecNode({
   if (isSelected) {
     style.outline = "2px solid #3B82F6";
     style.outlineOffset = "-2px";
+  }
+
+  // Hover highlight in design mode
+  if (isDesignMode && isHovered && !isSelected) {
+    style.outline = "1px dashed rgba(59,130,246,0.3)";
+    style.outlineOffset = "-1px";
   }
 
   // Button press animation in preview mode
@@ -237,6 +244,8 @@ function SpecNode({
     {
       style,
       onClick: handleClick,
+      onMouseEnter: isDesignMode ? (e: React.MouseEvent) => { e.stopPropagation(); setIsHovered(true); } : undefined,
+      onMouseLeave: isDesignMode ? () => setIsHovered(false) : undefined,
       ...dataAttrs,
     },
     children.length > 0 ? children : undefined

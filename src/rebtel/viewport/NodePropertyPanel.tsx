@@ -24,6 +24,7 @@ interface NodePropertyPanelProps {
   onDelete: (shapeId: string, key: string) => void;
   onClose: () => void;
   isRoot: boolean;
+  onSwapComponent?: (shapeId: string, nodeKey: string, primitive: string, template: string) => void;
 }
 
 const TEXT_STYLE_OPTIONS: TextStyleToken[] = [
@@ -47,6 +48,16 @@ const RADIUS_TOKENS = [
 const HEIGHT_TOKENS = [
   "height.xs", "height.sm", "height.md", "height.lg",
   "height.xl", "height.xxl", "height.xxxl",
+];
+
+const SUB_COMPONENT_OPTIONS = [
+  { label: "Button Primary", primitive: "button", template: "primary" },
+  { label: "Button Secondary", primitive: "button", template: "secondary-white" },
+  { label: "Button Ghost", primitive: "button", template: "ghost" },
+  { label: "Text Field", primitive: "input", template: "text-field" },
+  { label: "Search Bar", primitive: "input", template: "search" },
+  { label: "Divider", primitive: "divider", template: "default" },
+  { label: "Text Block", primitive: "text", template: "paragraph-md" },
 ];
 
 function tokenDisplay(val: TokenRef | string | number | undefined): string {
@@ -118,6 +129,7 @@ export function NodePropertyPanel({
   onDelete,
   onClose,
   isRoot,
+  onSwapComponent,
 }: NodePropertyPanelProps) {
   const [showBgPalette, setShowBgPalette] = useState(false);
   const [showTextColorPalette, setShowTextColorPalette] = useState(false);
@@ -260,6 +272,33 @@ export function NodePropertyPanel({
               ))}
             </div>
           </Row>
+        </>
+      )}
+
+      {/* Change To Section (sub-components only) */}
+      {!isRoot && onSwapComponent && (
+        <>
+          <SectionHeader>Change to</SectionHeader>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+            {SUB_COMPONENT_OPTIONS.map((opt) => (
+              <button
+                key={`${opt.primitive}-${opt.template}`}
+                onClick={() => onSwapComponent(shapeId, nodeKey, opt.primitive, opt.template)}
+                style={{
+                  padding: "3px 8px",
+                  fontSize: 10,
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 4,
+                  color: "#fff",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </>
       )}
 

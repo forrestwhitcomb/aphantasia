@@ -16,6 +16,7 @@ interface ShapeRect {
   width: number;
   height: number;
   label?: string;
+  type?: string;
 }
 
 /**
@@ -26,10 +27,15 @@ export function drawnShapeToPrimitive(
   shape: ShapeRect,
   frameWidth: number,
   frameHeight: number,
+  parentPrimitive?: string,
 ): { primitive: PrimitiveType; template: string } | null {
   const { x, y, width, height, label } = shape;
   const isFullWidth = width >= frameWidth * 0.8;
   const relY = y / frameHeight;
+
+  // ── Text tool shapes → always text ─────────────────────────
+  if (shape.type === "text")
+    return { primitive: "text", template: "body-text" };
 
   // ── Label-based inference (highest priority) ───────────────
   if (label) {
@@ -80,6 +86,28 @@ export function drawnShapeToPrimitive(
     // Divider
     if (/^(divider|separator|line|hr)$/i.test(l))
       return { primitive: "divider", template: "default" };
+  }
+
+  // ── Nested inference (when inside a parent component) ──────
+  if (parentPrimitive) {
+    // Thin line → divider
+    if (height <= 3 && width > 50)
+      return { primitive: "divider", template: "default" };
+
+    // Standard button height range
+    if (height >= 32 && height <= 72 && width > 60)
+      return { primitive: "button", template: "primary" };
+
+    // Input-like (wider, medium height)
+    if (height >= 40 && height <= 60 && width > 150)
+      return { primitive: "input", template: "text-field" };
+
+    // Small square → icon/media placeholder
+    if (width < 60 && height < 60 && Math.abs(width - height) < 15)
+      return { primitive: "media", template: "image" };
+
+    // Default nested shape → button
+    return { primitive: "button", template: "primary" };
   }
 
   // ── Geometry-based inference ────────────────────────────────

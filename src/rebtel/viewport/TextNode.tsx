@@ -6,7 +6,7 @@
 // via contentEditable. On blur, fires onTextChange callback.
 // ============================================================
 
-import { useRef, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import type { TextSpec } from "../spec/types";
 import { buildTextStyle } from "./buildStyleObject";
 
@@ -19,6 +19,7 @@ interface TextNodeProps {
 
 export function TextNode({ text, specKey, isDesignMode, onTextChange }: TextNodeProps) {
   const spanRef = useRef<HTMLSpanElement>(null);
+  const [hovered, setHovered] = useState(false);
   const style = buildTextStyle(text);
 
   const handleBlur = useCallback(() => {
@@ -34,11 +35,20 @@ export function TextNode({ text, specKey, isDesignMode, onTextChange }: TextNode
   return (
     <span
       ref={isEditable ? spanRef : undefined}
-      style={style}
+      style={{
+        ...style,
+        cursor: isEditable ? "text" : undefined,
+        borderBottom: isEditable && hovered ? "1px dashed rgba(59,130,246,0.4)" : undefined,
+      }}
       contentEditable={isEditable || undefined}
       suppressContentEditableWarning={isEditable || undefined}
       onBlur={isEditable ? handleBlur : undefined}
-      onClick={isEditable ? (e) => e.stopPropagation() : undefined}
+      onClick={isEditable ? (e) => {
+        e.stopPropagation();
+        spanRef.current?.focus();
+      } : undefined}
+      onMouseEnter={isEditable ? () => setHovered(true) : undefined}
+      onMouseLeave={isEditable ? () => setHovered(false) : undefined}
     >
       {text.content}
     </span>

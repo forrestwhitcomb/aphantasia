@@ -235,5 +235,9 @@ export function RebtelComponentPicker({ isOpen, onClose }: RebtelComponentPicker
   );
 }
 
+// Export components list for use in tag dropdown
+export { COMPONENTS as REBTEL_COMPONENTS };
+export type { PickerEntry as RebtelPickerEntry };
+
 // Keep export for backwards compat
 export const REBTEL_CATEGORIES = [] as { name: string; items: { type: string; label: string; defaultWidth: number; defaultHeight: number }[] }[];

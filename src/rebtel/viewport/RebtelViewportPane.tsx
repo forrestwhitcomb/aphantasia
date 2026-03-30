@@ -8,7 +8,7 @@
 // with SpecRenderer for direct DOM rendering.
 // ============================================================
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { canvasEngine } from "@/engine";
 import {
   MOBILE_FRAME_WIDTH,
@@ -18,16 +18,16 @@ import {
 import type { ComponentSpec } from "../spec/types";
 import { drawnShapeToPrimitive } from "../spec/inference";
 import { resolveTemplate } from "../templates";
-import { editText, findByKey, setStyle, setLayout, removeChild } from "../spec/operations";
+import { editText, findByKey, replaceChildByKey } from "../spec/operations";
 import { mergeChildSpecs } from "../spec/merge";
+import { buildContainmentTree } from "@/spatial";
 import { renderSpec } from "../spec/render";
 import { REBTEL_EXTRA_CSS, REBTEL_VIEWPORT_CSS } from "../designSystem";
 import { PhoneChrome } from "@/ui-mode/viewport/PhoneChrome";
-import { VariantPicker } from "@/ui-mode/viewport/VariantPicker";
 import { CopyToFigmaButton } from "@/ui-mode/viewport/CopyToFigmaButton";
 import { ScreenNavigator } from "./ScreenNavigator";
 import { SpecRenderer } from "./SpecRenderer";
-import { NodePropertyPanel } from "./NodePropertyPanel";
+import { ComponentPopover } from "./ComponentPopover";
 import { rebtelDesignStore } from "../store/RebtelDesignStore";
 
 interface ShapeSpec {
@@ -35,6 +35,7 @@ interface ShapeSpec {
   primitive: string;
   template: string;
   shapeId: string;
+  x: number;
   y: number;
 }
 
@@ -43,6 +44,24 @@ interface ComponentSelection {
   componentType: string;
   currentVariant: string;
   bounds: { x: number; y: number; width: number; height: number };
+  spec: ComponentSpec;
+  isSubComponent?: boolean;
+  subNodeKey?: string;
+}
+
+/** Detect if a sub-node is a switchable component type */
+function detectSubComponentType(spec: ComponentSpec): { primitive: string; template: string } | null {
+  if (spec.data?.component === "button" || spec.interactive?.type === "button")
+    return { primitive: "button", template: "primary" };
+  if (spec.data?.component === "textField" || spec.interactive?.type === "input")
+    return { primitive: "input", template: "text-field" };
+  if (spec.data?.component === "divider")
+    return { primitive: "divider", template: "default" };
+  if (spec.style.cursor === "pointer" && spec.layout.borderRadius)
+    return { primitive: "button", template: "primary" };
+  if (spec.text && !spec.children?.length)
+    return { primitive: "text", template: spec.text.style ?? "paragraph-md" };
+  return null;
 }
 
 export function RebtelViewportPane() {
@@ -51,13 +70,11 @@ export function RebtelViewportPane() {
   const [scale, setScale] = useState(1);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shapeSpecs, setShapeSpecs] = useState<ShapeSpec[]>([]);
+  // Maps composed child spec key → canvas child shapeId
+  // so sub-component edits update the child shape, not the parent's merged spec
+  const composedChildMapRef = useRef<Map<string, string>>(new Map());
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedComponent, setSelectedComponent] = useState<ComponentSelection | null>(null);
-  const [selectedNode, setSelectedNode] = useState<{
-    shapeId: string;
-    nodeKey: string;
-    spec: ComponentSpec;
-  } | null>(null);
   const [viewportMode, setViewportMode] = useState<"design" | "preview">("design");
   const [screens, setScreens] = useState(rebtelDesignStore.getScreens());
   const [activeScreenId, setActiveScreenId] = useState(rebtelDesignStore.getActiveScreenId());
@@ -90,24 +107,38 @@ export function RebtelViewportPane() {
     const fh = doc.frame.height;
     const allSpecs: ShapeSpec[] = [];
 
+    // ── Containment detection (shared spatial primitive) ──────
+    const childrenMap = buildContainmentTree(doc.shapes);
+    const childToParent = new Map<string, string>();
+    for (const [parentId, childIds] of childrenMap) {
+      for (const childId of childIds) {
+        const shape = doc.shapes.find((s: { id: string }) => s.id === childId);
+        if (shape && !(shape as any).parentId) {
+          (shape as any).parentId = parentId;
+        }
+        childToParent.set(childId, parentId);
+      }
+    }
+
+    // ── Pass 1: Infer top-level shapes (no parent) ───────────
     for (const shape of doc.shapes) {
-      // If shape already has a stored spec, use it
+      if (childToParent.has(shape.id)) continue; // skip children for now
+
       if (shape.spec) {
         allSpecs.push({
           spec: shape.spec as ComponentSpec,
           primitive: (shape.primitive as string) ?? "card",
           template: (shape.template as string) ?? "blank",
           shapeId: shape.id,
+          x: shape.x,
           y: shape.y,
         });
         continue;
       }
 
-      // Infer from geometry/label
       const inferred = drawnShapeToPrimitive(shape, fw, fh);
       if (inferred) {
         const spec = resolveTemplate(inferred.primitive, inferred.template);
-        // Persist spec to shape so it survives re-renders
         canvasEngine.updateShape(shape.id, {
           spec: spec as unknown,
           primitive: inferred.primitive,
@@ -118,12 +149,59 @@ export function RebtelViewportPane() {
           primitive: inferred.primitive,
           template: inferred.template,
           shapeId: shape.id,
+          x: shape.x,
           y: shape.y,
         });
       }
     }
 
-    // Composition: partition into parent and child shapes
+    // ── Pass 2: Infer child shapes (with parent context) ─────
+    // Primitives that are only valid at top-level — if a shape was
+    // previously inferred as one of these but is now detected as a
+    // child, re-infer it with parent context.
+    const TOP_LEVEL_PRIMITIVES = new Set(["card", "sheet", "bar", "row"]);
+
+    for (const shape of doc.shapes) {
+      if (!childToParent.has(shape.id)) continue; // only children
+
+      const parentId = childToParent.get(shape.id)!;
+      const parentSS = allSpecs.find((s) => s.shapeId === parentId);
+      const storedPrimitive = shape.primitive as string | undefined;
+
+      // Use cached spec only if it was already inferred as a child type
+      if (shape.spec && storedPrimitive && !TOP_LEVEL_PRIMITIVES.has(storedPrimitive)) {
+        allSpecs.push({
+          spec: shape.spec as ComponentSpec,
+          primitive: storedPrimitive ?? "button",
+          template: (shape.template as string) ?? "primary",
+          shapeId: shape.id,
+          x: shape.x,
+          y: shape.y,
+        });
+        continue;
+      }
+
+      // (Re-)infer with parent context
+      const inferred = drawnShapeToPrimitive(shape, fw, fh, parentSS?.primitive);
+      if (inferred) {
+        const spec = resolveTemplate(inferred.primitive, inferred.template);
+        canvasEngine.updateShape(shape.id, {
+          spec: spec as unknown,
+          primitive: inferred.primitive,
+          template: inferred.template,
+        } as any);
+        allSpecs.push({
+          spec,
+          primitive: inferred.primitive,
+          template: inferred.template,
+          shapeId: shape.id,
+          x: shape.x,
+          y: shape.y,
+        });
+      }
+    }
+
+    // ── Composition: partition into parent and child shapes ───
     const childMap = new Map<string, ShapeSpec[]>();
     const topLevel: ShapeSpec[] = [];
 
@@ -139,22 +217,40 @@ export function RebtelViewportPane() {
       }
     }
 
+    // Build composed child map: spec key → canvas child shapeId
+    const newChildMap = new Map<string, string>();
+
     // Merge children into parents
     const merged = topLevel.map((parent) => {
       const children = childMap.get(parent.shapeId);
       if (children && children.length > 0) {
-        // Sort children by y
+        // Only compose canvas children into "blank" template parents.
+        // Non-blank templates already define their own children — merging
+        // canvas shapes on top of them would create duplicates.
+        // For blank templates, always regenerate from a fresh base spec so that
+        // stale merged specs stored by previous edit operations don't accumulate.
+        if (parent.template !== "blank") return parent;
+
+        // Track which spec keys map to which canvas child shapes
+        for (const child of children) {
+          newChildMap.set(child.spec.key, child.shapeId);
+        }
+
+        const freshBase = resolveTemplate(parent.primitive, parent.template);
         children.sort((a, b) => a.y - b.y);
         return {
           ...parent,
           spec: mergeChildSpecs(
-            parent.spec,
+            freshBase,
             children.map((c) => c.spec),
+            children.map((c) => ({ x: c.x, y: c.y })),
           ),
         };
       }
       return parent;
     });
+
+    composedChildMapRef.current = newChildMap;
 
     // Sort by y-position (top to bottom)
     merged.sort((a, b) => a.y - b.y);
@@ -194,17 +290,19 @@ export function RebtelViewportPane() {
   }, [buildSpecs]);
 
   // Deep component selection in design mode (includes shapeId)
-  const handleSelect = useCallback((shapeId: string, key: string, spec: ComponentSpec) => {
+  const handleSelect = useCallback((shapeId: string, key: string, nodeSpec: ComponentSpec) => {
     setSelectedKey(key);
-    setSelectedNode({ shapeId, nodeKey: key, spec });
 
-    // Only show VariantPicker for top-level shape selection
     const ownerShape = shapeSpecs.find(ss => ss.shapeId === shapeId);
-    if (ownerShape && ownerShape.spec.key === key) {
+    if (!ownerShape) return;
+
+    if (ownerShape.spec.key === key) {
+      // Top-level selection — show popover for whole component
       setSelectedComponent({
         shapeId: ownerShape.shapeId,
         componentType: ownerShape.primitive,
         currentVariant: ownerShape.template,
+        spec: nodeSpec,
         bounds: {
           x: 0,
           y: ownerShape.y,
@@ -213,8 +311,22 @@ export function RebtelViewportPane() {
         },
       });
     } else {
-      // Deep node selected — hide variant picker
-      setSelectedComponent(null);
+      // Sub-node — detect if it's a switchable component
+      const subType = detectSubComponentType(nodeSpec);
+      setSelectedComponent({
+        shapeId: ownerShape.shapeId,
+        componentType: subType?.primitive ?? ownerShape.primitive,
+        currentVariant: subType?.template ?? ownerShape.template,
+        spec: nodeSpec,
+        bounds: {
+          x: 0,
+          y: ownerShape.y,
+          width: MOBILE_FRAME_WIDTH,
+          height: 100,
+        },
+        isSubComponent: true,
+        subNodeKey: key,
+      });
     }
   }, [shapeSpecs]);
 
@@ -228,80 +340,138 @@ export function RebtelViewportPane() {
     }
   }, [shapeSpecs]);
 
-  // Node property editing (Phase 4)
-  const handleNodeEdit = useCallback((shapeId: string, key: string, updates: {
-    style?: Partial<ComponentSpec["style"]>;
-    layout?: Partial<ComponentSpec["layout"]>;
-    text?: Partial<NonNullable<ComponentSpec["text"]>>;
-  }) => {
-    const ss = shapeSpecs.find(s => s.shapeId === shapeId);
-    if (!ss) return;
 
-    if (updates.style) setStyle(ss.spec, key, updates.style);
-    if (updates.layout) setLayout(ss.spec, key, updates.layout);
-    if (updates.text) {
-      const node = findByKey(ss.spec, key);
-      if (node?.text) Object.assign(node.text, updates.text);
-    }
-
-    canvasEngine.updateShape(shapeId, { spec: ss.spec as unknown } as any);
-    buildSpecs();
-  }, [shapeSpecs, buildSpecs]);
-
-  // Delete a deep node
-  const handleNodeDelete = useCallback((shapeId: string, key: string) => {
-    const ss = shapeSpecs.find(s => s.shapeId === shapeId);
-    if (!ss) return;
-    // Don't delete the root node
-    if (ss.spec.key === key) return;
-    removeChild(ss.spec, key);
-    canvasEngine.updateShape(shapeId, { spec: ss.spec as unknown } as any);
-    setSelectedNode(null);
-    setSelectedKey(null);
-    buildSpecs();
-  }, [shapeSpecs, buildSpecs]);
-
-  // Keyboard shortcuts for deep editing
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectedNode) return;
+      if (!selectedComponent) return;
       if (e.key === "Escape") {
-        setSelectedNode(null);
         setSelectedKey(null);
         setSelectedComponent(null);
       }
       if ((e.key === "Delete" || e.key === "Backspace") && !e.metaKey) {
-        // Only delete if not editing text
+        // Don't delete if user is editing text
         const active = document.activeElement;
         if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || (active as HTMLElement).contentEditable === "true")) return;
-        handleNodeDelete(selectedNode.shapeId, selectedNode.nodeKey);
+
+        // Delete the selected shape from canvas
+        const isRoot = shapeSpecs.some(ss => ss.spec.key === (selectedComponent.subNodeKey ?? selectedComponent.spec.key) && ss.shapeId === selectedComponent.shapeId);
+        if (isRoot || !selectedComponent.isSubComponent) {
+          // Top-level: remove the canvas shape entirely
+          canvasEngine.deleteShape(selectedComponent.shapeId);
+        } else if (selectedComponent.subNodeKey) {
+          // Sub-component: check if it's a composed canvas child
+          const childShapeId = composedChildMapRef.current.get(selectedComponent.subNodeKey);
+          if (childShapeId) {
+            canvasEngine.deleteShape(childShapeId);
+          }
+        }
+        setSelectedKey(null);
+        setSelectedComponent(null);
+        buildSpecs();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedNode, handleNodeDelete]);
+  }, [selectedComponent, shapeSpecs, buildSpecs]);
 
   // Variant picker callbacks
   const handleVariantChange = useCallback((shapeId: string, variant: string) => {
-    // Re-resolve the template with the new variant
     const ss = shapeSpecs.find(s => s.shapeId === shapeId);
-    if (ss) {
+    if (!ss) return;
+
+    if (selectedComponent?.isSubComponent && selectedComponent?.subNodeKey) {
+      // Check if this sub-node is a composed canvas child
+      const childShapeId = composedChildMapRef.current.get(selectedComponent.subNodeKey);
+      if (childShapeId) {
+        // Update the canvas child shape directly (so fresh composition picks it up)
+        const newSubSpec = resolveTemplate(selectedComponent.componentType, variant);
+        canvasEngine.updateShape(childShapeId, {
+          spec: newSubSpec as unknown,
+          primitive: selectedComponent.componentType,
+          template: variant,
+        } as any);
+      } else {
+        // Non-composed sub-component: replace in parent spec tree
+        const newSubSpec = resolveTemplate(selectedComponent.componentType, variant);
+        replaceChildByKey(ss.spec, selectedComponent.subNodeKey, newSubSpec);
+        canvasEngine.updateShape(shapeId, { spec: ss.spec as unknown } as any);
+      }
+    } else {
+      // Top-level: replace entire component
       const newSpec = resolveTemplate(ss.primitive, variant);
       canvasEngine.updateShape(shapeId, {
         spec: newSpec as unknown,
         template: variant,
       } as any);
     }
+
+    setSelectedComponent(null);
+    setSelectedKey(null);
+    buildSpecs();
+  }, [shapeSpecs, selectedComponent, buildSpecs]);
+
+  // Text style change from ComponentPopover "Modify" view
+  const handleTextStyleChange = useCallback((shapeId: string, nodeKey: string, style: string) => {
+    // Check if this is a composed canvas child
+    const childShapeId = composedChildMapRef.current.get(nodeKey);
+    if (childShapeId) {
+      // Update the canvas child shape's spec directly
+      const doc = canvasEngine.getDocument();
+      const childShape = doc.shapes.find((s: { id: string }) => s.id === childShapeId);
+      if (childShape?.spec) {
+        const spec = childShape.spec as ComponentSpec;
+        if (spec.text) {
+          spec.text.style = style as any;
+          canvasEngine.updateShape(childShapeId, { spec: spec as unknown } as any);
+        }
+      }
+    } else {
+      const ss = shapeSpecs.find(s => s.shapeId === shapeId);
+      if (!ss) return;
+      const node = findByKey(ss.spec, nodeKey);
+      if (node?.text) {
+        node.text.style = style as any;
+        canvasEngine.updateShape(shapeId, { spec: ss.spec as unknown } as any);
+      }
+    }
+    buildSpecs();
+  }, [shapeSpecs, buildSpecs]);
+
+  // Swap component type from ComponentPopover "Change" view
+  const handleSwapComponent = useCallback((shapeId: string, nodeKey: string, primitive: string, template: string) => {
+    const newSubSpec = resolveTemplate(primitive, template);
+
+    // Check if this is a composed canvas child
+    const childShapeId = composedChildMapRef.current.get(nodeKey);
+    if (childShapeId) {
+      // Update the canvas child shape directly
+      canvasEngine.updateShape(childShapeId, {
+        spec: newSubSpec as unknown,
+        primitive,
+        template,
+      } as any);
+    } else {
+      const ss = shapeSpecs.find(s => s.shapeId === shapeId);
+      if (!ss) return;
+      if (ss.spec.key === nodeKey) {
+        // Top-level swap: replace entire spec
+        canvasEngine.updateShape(shapeId, {
+          spec: newSubSpec as unknown,
+          primitive,
+          template,
+        } as any);
+      } else {
+        replaceChildByKey(ss.spec, nodeKey, newSubSpec);
+        canvasEngine.updateShape(shapeId, { spec: ss.spec as unknown } as any);
+      }
+    }
     setSelectedComponent(null);
     setSelectedKey(null);
     buildSpecs();
   }, [shapeSpecs, buildSpecs]);
 
-  const handleDarkModeToggle = useCallback((_shapeId: string, _darkMode: boolean) => {
-    // Dark mode toggle — future enhancement
-  }, []);
-
-  const handlePickerDismiss = useCallback(() => {
+  const handlePopoverDismiss = useCallback(() => {
     setSelectedComponent(null);
     setSelectedKey(null);
   }, []);
@@ -507,39 +677,22 @@ ${bodyHtml}
         </div>
       </div>
 
-      {/* Variant picker popover */}
-      {selectedComponent && (
-        <VariantPicker
+      {/* Unified component popover */}
+      {selectedComponent && viewportMode === "design" && (
+        <ComponentPopover
           shapeId={selectedComponent.shapeId}
           componentType={selectedComponent.componentType}
           currentVariant={selectedComponent.currentVariant}
+          spec={selectedComponent.spec}
           bounds={selectedComponent.bounds}
           scale={scale}
-          iframeEl={viewportRef.current as any}
+          iframeEl={viewportRef.current}
+          isSubComponent={selectedComponent.isSubComponent}
+          subNodeKey={selectedComponent.subNodeKey}
           onVariantChange={handleVariantChange}
-          onDarkModeToggle={handleDarkModeToggle}
-          onDismiss={handlePickerDismiss}
-          figmaEntry={
-            (canvasEngine.getDocument().shapes
-              .find(s => s.id === selectedComponent.shapeId)
-              ?.meta as any)?.figmaComponentEntry ?? null
-          }
-        />
-      )}
-
-      {/* Node property panel (deep editing) */}
-      {selectedNode && viewportMode === "design" && !selectedComponent && (
-        <NodePropertyPanel
-          shapeId={selectedNode.shapeId}
-          nodeKey={selectedNode.nodeKey}
-          spec={selectedNode.spec}
-          onEdit={handleNodeEdit}
-          onDelete={handleNodeDelete}
-          onClose={() => {
-            setSelectedNode(null);
-            setSelectedKey(null);
-          }}
-          isRoot={shapeSpecs.some(ss => ss.spec.key === selectedNode.nodeKey)}
+          onSwapComponent={handleSwapComponent}
+          onTextStyleChange={handleTextStyleChange}
+          onDismiss={handlePopoverDismiss}
         />
       )}
     </div>

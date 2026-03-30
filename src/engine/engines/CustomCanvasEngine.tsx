@@ -26,6 +26,8 @@ import { CanvasReferenceWidget } from "@/components/CanvasReferenceWidget";
 import { ReferencePanel } from "@/ui-mode/reference/ReferencePanel";
 import { ShapeTagDropdown } from "@/components/ShapeTagDropdown";
 import { UIShapeTagDropdown } from "@/ui-mode/canvas/UIShapeTagDropdown";
+import { RebtelShapeTagDropdown } from "@/rebtel/canvas/RebtelShapeTagDropdown";
+import { resolveTemplate as resolveRebtelTemplate } from "@/rebtel/templates";
 import type { ComponentCatalogEntry } from "@/lib/componentCatalogData";
 import type { UIComponentType } from "@/ui-mode/types";
 
@@ -1364,8 +1366,8 @@ export function CustomCanvasView() {
                 </div>
               )}
 
-              {/* Tag as section/component — in-frame rectangles and roundedRects, visible on hover or selected */}
-              {(s.type === "rectangle" || s.type === "roundedRect") && engine.isInFrame(s) ? (
+              {/* Tag as section/component — in-frame shapes, visible on hover or selected */}
+              {(s.type === "rectangle" || s.type === "roundedRect" || s.type === "text") && engine.isInFrame(s) ? (
                 <div
                   data-tag-trigger
                   role="button"
@@ -1787,7 +1789,41 @@ export function CustomCanvasView() {
       {/* Per-shape tag dropdown (portal to body) */}
       {typeof document !== "undefined" &&
         createPortal(
-          <>{(engine.getDocument().outputType === "ui" || engine.getDocument().outputType === "rebtel") ? (
+          <>{engine.getDocument().outputType === "rebtel" ? (
+            <RebtelShapeTagDropdown
+              open={!!tagDropdownShapeId}
+              onClose={() => {
+                setTagDropdownShapeId(null);
+                setTagDropdownAnchor(null);
+              }}
+              anchorRect={tagDropdownAnchor}
+              currentPrimitive={
+                tagDropdownShapeId
+                  ? (engine.getShape(tagDropdownShapeId)?.primitive as string | undefined)
+                  : undefined
+              }
+              currentTemplate={
+                tagDropdownShapeId
+                  ? (engine.getShape(tagDropdownShapeId)?.template as string | undefined)
+                  : undefined
+              }
+              onSelect={(entry) => {
+                if (!tagDropdownShapeId) return;
+                const shape = engine.getShape(tagDropdownShapeId);
+                if (!shape) return;
+                const spec = resolveRebtelTemplate(entry.primitive, entry.template, entry.props);
+                engine.updateShape(tagDropdownShapeId, {
+                  label: entry.label,
+                  primitive: entry.primitive,
+                  template: entry.template,
+                  spec: spec as unknown,
+                  meta: { ...(shape.meta || {}), uiComponentType: entry.legacyType },
+                });
+                setTagDropdownShapeId(null);
+                setTagDropdownAnchor(null);
+              }}
+            />
+          ) : engine.getDocument().outputType === "ui" ? (
             <UIShapeTagDropdown
               open={!!tagDropdownShapeId}
               onClose={() => {

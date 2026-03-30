@@ -109,6 +109,28 @@ export function setLayout(
   return true;
 }
 
+// ── Replace ─────────────────────────────────────────────────
+
+/** Replace a child node by key with a new spec, preserving position in parent */
+export function replaceChildByKey(
+  root: ComponentSpec,
+  targetKey: string,
+  replacement: ComponentSpec,
+): boolean {
+  let replaced = false;
+  walkTree(root, (node) => {
+    if (node.children) {
+      const idx = node.children.findIndex((c) => c.key === targetKey);
+      if (idx !== -1) {
+        replacement.key = targetKey;
+        node.children[idx] = replacement;
+        replaced = true;
+      }
+    }
+  });
+  return replaced;
+}
+
 // ── Clone ────────────────────────────────────────────────────
 
 /** Deep clone a spec tree (for merge operations that shouldn't mutate originals) */
