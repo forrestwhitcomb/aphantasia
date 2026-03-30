@@ -13,7 +13,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import gsap from "gsap";
 import { MorphSVGPlugin } from "gsap/MorphSVGPlugin";
-import opentype from "opentype.js";
+import opentype, { type Glyph } from "opentype.js";
 import "./rebtel.css";
 
 gsap.registerPlugin(MorphSVGPlugin);
@@ -98,14 +98,15 @@ export default function RebtelLandingPage() {
       const font = await opentype.load("/fonts/rebtel/KHTeka-Bold.ttf");
 
       // Clear SVG
-      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      const svgEl = svg!;
+      while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
 
       // Get line widths for centering (opentype measures in font units, scale to fontSize)
       const scale = fontSize / font.unitsPerEm;
       const line1Glyphs = font.stringToGlyphs(line1);
       const line2Glyphs = font.stringToGlyphs(line2);
 
-      const measureLine = (glyphs: opentype.Glyph[]) =>
+      const measureLine = (glyphs: Glyph[]) =>
         glyphs.reduce((w, g) => w + (g.advanceWidth || 0) * scale, 0);
 
       const line1Width = measureLine(line1Glyphs);
@@ -118,7 +119,7 @@ export default function RebtelLandingPage() {
 
       const layoutLine = (
         text: string,
-        glyphs: opentype.Glyph[],
+        glyphs: Glyph[],
         lineWidth: number,
         baselineY: number,
       ) => {
@@ -147,7 +148,7 @@ export default function RebtelLandingPage() {
           const letterPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
           letterPath.setAttribute("d", pathData);
           letterPath.setAttribute("fill", "#1a1a2e");
-          svg.appendChild(letterPath);
+          svgEl.appendChild(letterPath);
 
           // Build a random start shape aligned to the baseline
           const bbox = letterPath.getBBox();
