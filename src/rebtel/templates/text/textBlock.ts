@@ -80,7 +80,7 @@ export function heroTextTemplate(props?: Record<string, unknown>): ComponentSpec
     layout: {
       display: "flex",
       direction: "column",
-      align: "flex-start",
+      align: "start",
       width: "100%",
       boxSizing: "border-box",
     },
