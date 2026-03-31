@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getAnthropicClient } from "@/lib/anthropic";
 import { aiCallTracker } from "@/lib/aiCallTracker";
-import { buildRebtelSystemPrompt, buildRebtelUserPrompt } from "@/rebtel/chat/prompts";
+import { buildRebtelSystemPrompt, buildRebtelUserPrompt, type GenerationMode } from "@/rebtel/chat/prompts";
 import type { RebtelFlow } from "@/rebtel/types";
 
 // POST /api/rebtel/generate — Generate Rebtel flow from natural language
@@ -9,10 +9,12 @@ import type { RebtelFlow } from "@/rebtel/types";
 // Returns: SSE stream — final event contains { done: true, text: string, flow: RebtelFlow }
 
 export async function POST(req: NextRequest) {
-  const { message, currentFlow, projectContext } = (await req.json()) as {
+  const { message, currentFlow, projectContext, image, activeScreenId } = (await req.json()) as {
     message: string;
     currentFlow?: RebtelFlow;
     projectContext?: string;
+    image?: { base64: string; mimeType: string };
+    activeScreenId?: string;
   };
 
   if (!message?.trim()) {
@@ -22,8 +24,39 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Detect generation mode
+  let mode: GenerationMode = "generate";
+  if (image) {
+    mode = "image-to-flow";
+  } else if (currentFlow && activeScreenId && /iterate|variation|alternative|try different|explore/i.test(message)) {
+    mode = "iterate";
+  } else if (currentFlow) {
+    mode = "extend";
+  }
+
   const systemMessage = buildRebtelSystemPrompt();
-  const userMessage = buildRebtelUserPrompt(message, currentFlow, projectContext);
+  const userMessage = buildRebtelUserPrompt(message, currentFlow, projectContext, mode, activeScreenId);
+
+  // Build multimodal content when image is present
+  type MessageContent = string | Array<{ type: string; source?: { type: string; media_type: string; data: string }; text?: string }>;
+  const userContent: MessageContent = image
+    ? [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: image.mimeType,
+            data: image.base64,
+          },
+        },
+        { type: "text", text: userMessage },
+      ]
+    : userMessage;
+
+  // Use Sonnet for image analysis (faster), Opus for everything else
+  const model = mode === "image-to-flow"
+    ? "claude-sonnet-4-20250514"
+    : "claude-opus-4-20250514";
 
   const client = getAnthropicClient();
   const encoder = new TextEncoder();
@@ -39,10 +72,11 @@ export async function POST(req: NextRequest) {
         aiCallTracker.trackRender();
 
         const response = await client.messages.create({
-          model: "claude-opus-4-20250514",
+          model,
           max_tokens: 8192,
           system: systemMessage,
-          messages: [{ role: "user", content: userMessage }],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          messages: [{ role: "user", content: userContent as any }],
         });
 
         // Track token usage

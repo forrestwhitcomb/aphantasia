@@ -16,14 +16,23 @@ import { rebtelDesignStore } from "../store/RebtelDesignStore";
 
 // ── Prompt Suggestions ──────────────────────────────────────
 
-const SUGGESTIONS = [
+const GENERATE_SUGGESTIONS = [
   "Create a top-up flow for Cuba",
   "Design onboarding screens",
-  "Show me a settings page",
-  "Build a calling flow",
+  "Build a calling flow to India",
   "Home screen for active user",
   "Payment method management",
+  "Credits purchase experience",
 ];
+
+const EXTEND_SUGGESTIONS = [
+  "Add a success screen after checkout",
+  "Iterate on this screen",
+  "Add an error handling screen",
+  "Extend with account settings",
+];
+
+const ACCEPTED_FILES = ".md,.txt,.markdown,.png,.jpg,.jpeg,.webp";
 
 // ── Chat Panel Component ────────────────────────────────────
 
@@ -39,6 +48,11 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps = {}) {
   const [currentFlow, setCurrentFlow] = useState<RebtelFlow | undefined>();
   const [projectContext, setProjectContext] = useState<string>("");
   const [projectFileName, setProjectFileName] = useState<string>("");
+  const [uploadedImage, setUploadedImage] = useState<{
+    base64: string;
+    mimeType: string;
+    fileName: string;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,19 +73,39 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps = {}) {
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.name.endsWith(".md") && !file.name.endsWith(".txt") && !file.name.endsWith(".markdown")) {
-      alert("Please upload a .md or .txt file");
+
+    const isImage = file.type.startsWith("image/");
+    const isText = /\.(md|txt|markdown)$/i.test(file.name);
+
+    if (!isImage && !isText) {
+      alert("Upload a .md/.txt file or an image (.png, .jpg, .webp)");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      if (text) {
-        setProjectContext(text);
-        setProjectFileName(file.name);
-      }
-    };
-    reader.readAsText(file);
+
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        const base64 = dataUrl.split(",")[1];
+        setUploadedImage({
+          base64,
+          mimeType: file.type,
+          fileName: file.name,
+        });
+      };
+      reader.readAsDataURL(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        if (text) {
+          setProjectContext(text);
+          setProjectFileName(file.name);
+        }
+      };
+      reader.readAsText(file);
+    }
+
     // Reset input so same file can be re-uploaded
     e.target.value = "";
   }, []);
@@ -103,13 +137,20 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps = {}) {
 
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
+      setUploadedImage(null);
       setIsLoading(true);
 
       try {
         const res = await fetch("/api/rebtel/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text.trim(), currentFlow, projectContext: projectContext || undefined }),
+          body: JSON.stringify({
+            message: text.trim(),
+            currentFlow,
+            projectContext: projectContext || undefined,
+            image: uploadedImage || undefined,
+            activeScreenId: rebtelDesignStore.getActiveScreenId() || undefined,
+          }),
         });
 
         if (!res.ok) {
@@ -173,7 +214,7 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps = {}) {
         setIsLoading(false);
       }
     },
-    [isLoading, currentFlow, projectContext]
+    [isLoading, currentFlow, projectContext, uploadedImage]
   );
 
   // Auto-fire initial prompt from landing page (once)
@@ -291,10 +332,10 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps = {}) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggestion Chips */}
-      {isEmpty && (
+      {/* Suggestion Chips — generate suggestions when empty, extend suggestions when flow exists */}
+      {(isEmpty || currentFlow) && (
         <div style={styles.suggestions}>
-          {SUGGESTIONS.map((s) => (
+          {(currentFlow ? EXTEND_SUGGESTIONS : GENERATE_SUGGESTIONS).map((s) => (
             <button
               key={s}
               style={styles.chip}
@@ -324,13 +365,32 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps = {}) {
         </div>
       )}
 
+      {/* Image preview indicator */}
+      {uploadedImage && (
+        <div style={styles.fileIndicator}>
+          <img
+            src={`data:${uploadedImage.mimeType};base64,${uploadedImage.base64}`}
+            alt=""
+            style={{ width: 20, height: 20, objectFit: "cover", borderRadius: 3 }}
+          />
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{uploadedImage.fileName}</span>
+          <button
+            onClick={() => setUploadedImage(null)}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "inherit", opacity: 0.5 }}
+            title="Remove image"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Input Area */}
       <div style={styles.inputArea}>
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
-          accept=".md,.txt,.markdown"
+          accept={ACCEPTED_FILES}
           onChange={handleFileUpload}
           style={{ display: "none" }}
         />
@@ -338,7 +398,7 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps = {}) {
         <button
           onClick={() => fileInputRef.current?.click()}
           style={styles.uploadButton}
-          title="Upload project brief (.md)"
+          title="Upload file (.md, .txt, .png, .jpg)"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />

@@ -74,4 +74,33 @@ Activity tab: Bought Credits/Free Credits sub-tabs + balance amounts + expiring 
 - **Recipient**: The person/number receiving the top-up
 - **Auto Top-Up**: Scheduled recurring top-ups (every 7/14/21/30 days)
 - **NPU**: New/first-time user
+
+## Business Context (for content decisions)
+
+### Key Corridors (top destination countries by volume)
+US → Cuba, US → Nigeria, US → India, US → Philippines, US → Mexico
+UK → Nigeria, UK → India, UK → Pakistan
+Canada → Philippines, Canada → India
+Australia → Philippines, Australia → India
+
+### Revenue Model
+- Calling: subscriptions ($6-15/month unlimited to one country) or credits ($5-150 pay-per-minute)
+- MTU: one-time or auto-recurring (every 7/14/21/30 days), priced in USD, delivered in local currency
+- MTU is growing fastest — strategic priority to surpass calling revenue
+
+### Competitive Positioning
+- Rebtel strengths: high-quality calls, fee-free top-ups, affordability
+- Main competitors: Boss Revolution (US→LatAm), Ding (MTU leader), Cuballama (Cuba niche)
+- Strategy: "second to WhatsApp" for calling, relationship-led (not price-led) for MTU
+- Emphasize the sender→recipient emotional connection, not just the transaction
+
+### Activation Strategy
+- NPU (new paying user) activation in first 2 months is critical
+- Welcome offers, first-call/first-topup CTAs, onboarding promo cards
+- Auto Top-Up as retention mechanic — prompted after first purchase
+
+### Content Tone
+- Warm, human, first-name basis ("Make sure Maria never runs out")
+- Trust signals: "Cancel anytime", balance visibility, Visa badge
+- Speed-first: minimal taps, pill selectors, direct-tap contacts
 `.trim();

@@ -10,6 +10,8 @@ import { REBTEL_COMPONENT_SCHEMA } from "../context/componentSchema";
 import { REBTEL_SAMPLE_FLOWS } from "../context/sampleFlows";
 import type { RebtelFlow } from "../types";
 
+export type GenerationMode = "generate" | "extend" | "iterate" | "image-to-flow";
+
 /**
  * Build the full system prompt for Rebtel flow generation.
  * Includes: role, domain context, component schema, output format,
@@ -108,12 +110,15 @@ Now respond to the user's request with a valid JSON flow.`;
 }
 
 /**
- * Build the user message, optionally including the current flow context.
+ * Build the user message with mode-specific instructions.
  */
 export function buildRebtelUserPrompt(
   message: string,
   currentFlow?: RebtelFlow,
-  projectContext?: string
+  projectContext?: string,
+  mode?: GenerationMode,
+  activeScreenId?: string,
+  imageDescription?: string
 ): string {
   const parts: string[] = [];
 
@@ -121,14 +126,64 @@ export function buildRebtelUserPrompt(
     parts.push(`## Project Brief (uploaded by user)\n\n${projectContext}`);
   }
 
+  if (imageDescription) {
+    parts.push(`## Uploaded Image Analysis\n\n${imageDescription}`);
+  }
+
   if (currentFlow) {
     parts.push(`## Current flow context\n\`\`\`json\n${JSON.stringify(currentFlow, null, 2)}\n\`\`\``);
+
+    if (activeScreenId) {
+      parts.push(`The user is currently viewing screen: "${activeScreenId}"`);
+    }
   }
 
   parts.push(`## User request\n${message}`);
 
-  if (currentFlow) {
-    parts.push("Update or extend the flow based on the user's request. Return the complete updated flow as JSON.");
+  // Mode-specific instructions
+  switch (mode) {
+    case "extend":
+      parts.push(
+        "EXTEND the existing flow by ADDING new screens. Keep all existing screens " +
+        "and their screenIds unchanged. Append new screens with new unique screenIds. " +
+        "Return the COMPLETE flow including both existing and new screens." +
+        (activeScreenId
+          ? ` The user is currently on screen "${activeScreenId}". If they ask to "add a screen after this", ` +
+            "insert the new screen(s) after the active screen in the flow order."
+          : "")
+      );
+      break;
+
+    case "iterate": {
+      const activeScreen = currentFlow?.screens.find(s => s.screenId === activeScreenId);
+      if (activeScreen) {
+        parts.push(`## Screen to iterate on\n\`\`\`json\n${JSON.stringify(activeScreen, null, 2)}\n\`\`\``);
+      }
+      parts.push(
+        "Generate 3 ALTERNATIVE VERSIONS of the currently active screen. " +
+        "Each variation should have the same functional purpose but differ in: " +
+        "layout structure, content density, component choices, or information hierarchy. " +
+        "Return a flow with 3 screens, each a distinct variation. " +
+        "Name them: 'Variation A — [description]', 'Variation B — [description]', 'Variation C — [description]'."
+      );
+      break;
+    }
+
+    case "image-to-flow":
+      parts.push(
+        "Based on the uploaded image analysis above, recreate the UI as a Rebtel screen flow " +
+        "using Rebtel components. Map the visual elements to the closest Rebtel component types. " +
+        "Adapt colors, layout, and content to match Rebtel's design system. " +
+        "For napkin sketches: interpret the intent, don't translate literally. " +
+        "For competitor screenshots: map to Rebtel equivalents, use Rebtel terminology and patterns."
+      );
+      break;
+
+    default: // "generate"
+      if (currentFlow) {
+        parts.push("Update or extend the flow based on the user's request. Return the complete updated flow as JSON.");
+      }
+      break;
   }
 
   return parts.join("\n\n");
