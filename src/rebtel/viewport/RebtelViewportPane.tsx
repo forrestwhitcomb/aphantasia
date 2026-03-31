@@ -37,6 +37,7 @@ interface ShapeSpec {
   shapeId: string;
   x: number;
   y: number;
+  meta?: Record<string, unknown>;
 }
 
 interface ComponentSelection {
@@ -127,6 +128,22 @@ export function RebtelViewportPane() {
     for (const shape of activeShapes) {
       if (childToParent.has(shape.id)) continue; // skip children for now
 
+      const shapeMeta = (shape as any).meta as Record<string, unknown> | undefined;
+
+      // Overlay shapes (bottom sheet dark bg) have no spec — pass through with meta only
+      if (shapeMeta?.isOverlay) {
+        allSpecs.push({
+          spec: {} as ComponentSpec,
+          primitive: "screen",
+          template: "overlay",
+          shapeId: shape.id,
+          x: shape.x,
+          y: shape.y,
+          meta: shapeMeta,
+        });
+        continue;
+      }
+
       if (shape.spec) {
         allSpecs.push({
           spec: shape.spec as ComponentSpec,
@@ -135,6 +152,7 @@ export function RebtelViewportPane() {
           shapeId: shape.id,
           x: shape.x,
           y: shape.y,
+          meta: shapeMeta,
         });
         continue;
       }
@@ -154,6 +172,7 @@ export function RebtelViewportPane() {
           shapeId: shape.id,
           x: shape.x,
           y: shape.y,
+          meta: shapeMeta,
         });
       }
     }
@@ -171,6 +190,8 @@ export function RebtelViewportPane() {
       const parentSS = allSpecs.find((s) => s.shapeId === parentId);
       const storedPrimitive = shape.primitive as string | undefined;
 
+      const childMeta = (shape as any).meta as Record<string, unknown> | undefined;
+
       // Use cached spec only if it was already inferred as a child type
       if (shape.spec && storedPrimitive && !TOP_LEVEL_PRIMITIVES.has(storedPrimitive)) {
         allSpecs.push({
@@ -180,6 +201,7 @@ export function RebtelViewportPane() {
           shapeId: shape.id,
           x: shape.x,
           y: shape.y,
+          meta: childMeta,
         });
         continue;
       }
@@ -200,6 +222,7 @@ export function RebtelViewportPane() {
           shapeId: shape.id,
           x: shape.x,
           y: shape.y,
+          meta: childMeta,
         });
       }
     }
@@ -583,24 +606,18 @@ ${bodyHtml}
               {/* Dynamic island safe-area spacer — 59px keeps content below the notch */}
               <div style={{ width: "100%", height: 59, flexShrink: 0 }} />
 
-              {/* App bar — pinned to top, full width (no side padding) */}
-              {shapeSpecs.filter(ss => ss.primitive === "bar" && ss.template === "app-bar").map((ss) => (
-                <div key={ss.shapeId} style={{ width: "100%", flexShrink: 0, zIndex: 10 }}>
-                  <SpecRenderer
-                    spec={ss.spec}
-                    shapeId={ss.shapeId}
-                    selectedKey={selectedKey}
-                    onSelect={handleSelect}
-                    onTextChange={handleTextChange}
-                    onNavigate={handleScreenNavigate}
-                    isDesignMode={viewportMode === "design"}
-                  />
-                </div>
-              ))}
+              {/* ── Zone classification based on shape meta ── */}
+              {(() => {
+                const getMeta = (ss: ShapeSpec) => ss.meta ?? {};
+                const appBars = shapeSpecs.filter(ss => ss.primitive === "bar" && ss.template === "app-bar");
+                const tabBars = shapeSpecs.filter(ss => ss.primitive === "bar" && ss.template === "tab-bar");
+                const overlays = shapeSpecs.filter(ss => getMeta(ss).uiComponentType === "overlay");
+                const sheetZone = shapeSpecs.filter(ss => getMeta(ss).sheetZone === true);
+                const pinnedCTAs = shapeSpecs.filter(ss => getMeta(ss).pinnedBottom === true);
+                const excludeSet = new Set([...appBars, ...tabBars, ...overlays, ...sheetZone, ...pinnedCTAs]);
+                const content = shapeSpecs.filter(ss => !excludeSet.has(ss));
 
-              {/* Scrollable content area (everything except app bar and tab bar) */}
-              <div style={{ flex: 1, overflowY: "auto", paddingLeft: 16, paddingRight: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-                {shapeSpecs.filter(ss => !(ss.primitive === "bar" && (ss.template === "tab-bar" || ss.template === "app-bar"))).map((ss) => (
+                const renderSpec = (ss: ShapeSpec) => (
                   <SpecRenderer
                     key={ss.shapeId}
                     spec={ss.spec}
@@ -611,23 +628,76 @@ ${bodyHtml}
                     onNavigate={handleScreenNavigate}
                     isDesignMode={viewportMode === "design"}
                   />
-                ))}
-              </div>
+                );
 
-              {/* Tab bar — pinned to bottom, full width (no side padding) */}
-              {shapeSpecs.filter(ss => ss.primitive === "bar" && ss.template === "tab-bar").map((ss) => (
-                <div key={ss.shapeId} style={{ width: "100%", flexShrink: 0, zIndex: 10 }}>
-                  <SpecRenderer
-                    spec={ss.spec}
-                    shapeId={ss.shapeId}
-                    selectedKey={selectedKey}
-                    onSelect={handleSelect}
-                    onTextChange={handleTextChange}
-                    onNavigate={handleScreenNavigate}
-                    isDesignMode={viewportMode === "design"}
-                  />
-                </div>
-              ))}
+                return (
+                  <>
+                    {/* 1. App bar — pinned to top, full width (no side padding) */}
+                    {appBars.map((ss) => (
+                      <div key={ss.shapeId} style={{ width: "100%", flexShrink: 0, zIndex: 10 }}>
+                        {renderSpec(ss)}
+                      </div>
+                    ))}
+
+                    {/* 2. Overlay (popup bottom sheet dark bg) */}
+                    {overlays.length > 0 && (
+                      <div style={{
+                        width: "100%",
+                        height: "45%",
+                        background: "rgba(26,26,46,0.4)",
+                        flexShrink: 0,
+                      }} />
+                    )}
+
+                    {/* 3. Scrollable content area */}
+                    <div style={{ flex: 1, overflowY: "auto", paddingLeft: 16, paddingRight: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                      {content.map(renderSpec)}
+                    </div>
+
+                    {/* 4. Bottom sheet zone — white bg, rounded top, drag handle */}
+                    {sheetZone.length > 0 && (
+                      <div style={{
+                        width: "100%",
+                        background: "#FFFFFF",
+                        borderTopLeftRadius: 24,
+                        borderTopRightRadius: 24,
+                        padding: "8px 16px 32px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 12,
+                        flexShrink: 0,
+                        borderTop: "1px solid #EBEBED",
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
+                          <div style={{ width: 36, height: 4, borderRadius: 9999, background: "#DCDCE1" }} />
+                        </div>
+                        {sheetZone.map(renderSpec)}
+                      </div>
+                    )}
+
+                    {/* 5. Pinned CTA buttons */}
+                    {pinnedCTAs.length > 0 && (
+                      <div style={{
+                        width: "100%",
+                        padding: "0 16px 32px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 12,
+                        flexShrink: 0,
+                      }}>
+                        {pinnedCTAs.map(renderSpec)}
+                      </div>
+                    )}
+
+                    {/* 6. Tab bar — pinned to bottom, full width (no side padding) */}
+                    {tabBars.map((ss) => (
+                      <div key={ss.shapeId} style={{ width: "100%", flexShrink: 0, zIndex: 10 }}>
+                        {renderSpec(ss)}
+                      </div>
+                    ))}
+                  </>
+                );
+              })()}
             </div>
           ) : (
             <div

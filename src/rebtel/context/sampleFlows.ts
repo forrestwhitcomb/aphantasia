@@ -202,4 +202,95 @@ export const REBTEL_SAMPLE_FLOWS: SampleFlowEntry[] = [
       ],
     },
   },
+  // ── Sample 5: Rebtel Credits (scrollable main screen) ──
+  {
+    prompt: "Show the Rebtel credits experience",
+    flow: {
+      name: "Rebtel Credits",
+      screens: [
+        {
+          screenId: "buy-credits",
+          title: "Buy Credits",
+          components: [
+            { type: "rebtelTabBar" },
+            { type: "segmentedNav", label: "Buy Credits | Activity", variant: "large" },
+            { type: "balanceWidget", label: "Rebtel Credits", props: { balance: "$24.00" } },
+            { type: "amountSelector", props: { amounts: ["$5", "$10", "$25", "$50", "$100", "$150"] } },
+            { type: "sectionText", label: "About Rebtel Credits", props: { description: "Credits never expire and can be used for calls and top-ups." } },
+            { type: "promoCard", label: "Get 30 minutes to call Philippines!", variant: "offer" },
+            { type: "promoCard", label: "Refer a friend, get $5 credit", variant: "inline" },
+          ],
+        },
+        {
+          screenId: "activity",
+          title: "Activity",
+          components: [
+            { type: "rebtelTabBar" },
+            { type: "segmentedNav", label: "Buy Credits | Activity", variant: "large" },
+            { type: "sectionHeader", label: "March 2026" },
+            { type: "transactionRow", label: "Jane Cooper", props: { amount: "-$10.00", time: "Mar 28" } },
+            { type: "transactionRow", label: "Emil Bergström", props: { amount: "-$5.00", time: "Mar 25" } },
+            { type: "transactionRow", label: "Credit Purchase", props: { amount: "+$50.00", time: "Mar 20" } },
+            { type: "transactionRow", label: "Jerome Bell", props: { amount: "-$10.00", time: "Mar 15" } },
+            { type: "promoCard", label: "Low on credits? Add more now", variant: "banner" },
+          ],
+        },
+      ],
+    },
+  },
+  // ── Sample 6: Auto Top-Up Prompt + Success ──
+  {
+    prompt: "Show what happens after a successful top-up",
+    flow: {
+      name: "Auto Top-Up Success",
+      screens: [
+        {
+          screenId: "auto-topup-prompt",
+          title: "Auto Top-Up",
+          components: [
+            { type: "appBar", label: "Mobile Top-up", variant: "back" },
+            { type: "contactCard", label: "Dan Cooper", variant: "compact" },
+            { type: "heroText", label: "Make sure that Dan never runs out of credit", props: { subtitle: "Don't think about it — we'll top them up automatically when they run low." } },
+            { type: "sectionText", label: "How it works", props: { description: "We'll send the same amount when their balance drops below 10%." } },
+            { type: "button", label: "Yes, set up auto top-up", variant: "primary", navigateTo: "processing" },
+            { type: "button", label: "No thanks", variant: "secondary", navigateTo: "success" },
+          ],
+        },
+        {
+          screenId: "processing",
+          title: "Processing",
+          components: [
+            { type: "loadingState", label: "Processing your top-up..." },
+          ],
+        },
+        {
+          screenId: "success",
+          title: "Success",
+          components: [
+            { type: "successScreen", label: "You sent NGN 7650 to Dan Cooper", variant: "topup", props: { subtitle: "Auto top-up is now active. We'll top up Dan when their balance is low." } },
+            { type: "promoCard", label: "Get 30 minutes to call Philippines!", variant: "offer" },
+            { type: "button", label: "Close", variant: "text-link" },
+          ],
+        },
+      ],
+    },
+  },
+  // ── Sample 7: Order Summary with Payment Sheet ──
+  {
+    prompt: "Show the checkout and payment experience",
+    flow: {
+      name: "Checkout Payment",
+      screens: [
+        {
+          screenId: "order-checkout",
+          title: "Order Summary",
+          components: [
+            { type: "appBar", label: "Order summary", variant: "back" },
+            { type: "orderSummary", props: { planName: "7GB Nigeria Bundle", planPrice: "$12.99", trialText: "7-day trial", trialPrice: "$0.00", payNow: "$0.00", afterTrial: "$12.99/month" } },
+            { type: "paymentModule", props: { cardLast4: "1000", ctaLabel: "Pay $0.00" } },
+          ],
+        },
+      ],
+    },
+  },
 ];

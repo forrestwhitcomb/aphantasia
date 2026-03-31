@@ -43,6 +43,10 @@ Every Rebtel screen follows one of these layouts:
 - Promo cross-sell card at bottom
 - "Close" text link at very bottom
 
+**E) Bottom sheet screen** (payment checkout, "low on minutes" popup, auto top-up confirm):
+- Popup variant: Dark overlay on top ~45% + white bottom sheet (24px top radius, drag handle) with content and CTA buttons. Use bottomSheet or rebtelBottomSheet component.
+- Checkout variant: Normal flow screen layout with orderSummary content scrolling above, and paymentModule pinned to bottom in a sheet zone. Renderer auto-detects this pattern.
+
 ### Spacing Rules (from Figma)
 - Screen horizontal padding: 16px (left and right)
 - Section gap (between major blocks): 24px
@@ -105,6 +109,13 @@ alert (use sectionText instead)
 from orderSummary + button rather than using paymentModule. When you need amount
 selection, use segmentedNav or compose from multiple buttons rather than
 amountSelector. The Tier 1 components have full visual fidelity.
+
+### Rule 19: For checkout screens, place orderSummary first, then paymentModule last.
+The renderer creates a bottom sheet zone for the payment area automatically.
+Do NOT place buttons after paymentModule — the pay CTA is inside the paymentModule.
+
+### Rule 20: For popup confirmations (auto top-up, low-minutes), use bottomSheet or
+rebtelBottomSheet. The renderer creates a dark overlay above it automatically.
 
 ## Navigation Components
 - **appBar** — Top navigation. Variants: "home" (no back), "back" (< + centered title + optional icon), "close" (X + centered title). Height: 52px. Title font: KH Teka 16px semibold.
