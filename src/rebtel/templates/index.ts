@@ -49,6 +49,17 @@ import { loadingTemplate } from "./status/loading";
 
 // Text
 import { textBlockTemplate, heroTextTemplate, sectionTextTemplate } from "./text/textBlock";
+import { labelPillTemplate } from "./text/labelPill";
+
+// Phase 2 templates
+import { productCardTemplate } from "./cards/productCard";
+import { paymentModuleTemplate } from "./cards/paymentModule";
+import { balanceWidgetTemplate } from "./cards/balanceWidget";
+import { rateCardTemplate } from "./rows/rateCard";
+import { transactionRowTemplate } from "./rows/transactionRow";
+import { amountPillsTemplate } from "./selectors/amountPills";
+import { toggleTemplate } from "./inputs/toggle";
+import { countryPickerTemplate } from "./inputs/countryPicker";
 
 // ── Registry ─────────────────────────────────────────────────
 
@@ -87,16 +98,23 @@ const TEMPLATE_REGISTRY: Record<string, Record<string, TemplateFactory>> = {
     info: (p) => infoCardTemplate({ ...p, showIcon: false }),
     "credits-collapsed": (p) => creditsCardTemplate({ ...p, variant: "collapsed" }),
     "credits-expanded": (p) => creditsCardTemplate({ ...p, variant: "expanded" }),
+    "product": productCardTemplate,
+    "payment-module": paymentModuleTemplate,
+    "balance": balanceWidgetTemplate,
   },
   input: {
     "text-field": textFieldTemplate,
     pin: pinInputTemplate,
     search: searchBarTemplate,
     phone: phoneInputTemplate,
+    "toggle": toggleTemplate,
+    "country-picker": countryPickerTemplate,
   },
   row: {
     country: countryRowTemplate,
     contact: contactRowTemplate,
+    "rate": rateCardTemplate,
+    "transaction": transactionRowTemplate,
   },
   sheet: {
     "action-sheet": actionSheetTemplate,
@@ -127,6 +145,7 @@ const TEMPLATE_REGISTRY: Record<string, Record<string, TemplateFactory>> = {
   selector: {
     tabs: tabsTemplate,
     segmented: tabsTemplate,
+    "pills": amountPillsTemplate,
   },
   status: {
     success: successTemplate,
@@ -138,6 +157,7 @@ const TEMPLATE_REGISTRY: Record<string, Record<string, TemplateFactory>> = {
     "headline-sm": (p) => textBlockTemplate({ ...p, style: "headline-sm", weight: 600 }),
     "headline-xs": (p) => textBlockTemplate({ ...p, style: "headline-xs" }),
     "label-md": (p) => textBlockTemplate({ ...p, style: "label-md" }),
+    "label-pill": labelPillTemplate,
     // Figma-accurate compound text components
     "hero-text": heroTextTemplate,
     "section-text": sectionTextTemplate,

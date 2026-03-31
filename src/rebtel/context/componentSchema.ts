@@ -79,11 +79,38 @@ Every Rebtel screen follows one of these layouts:
 - Promo cards have dark background with imagery, rounded corners, bottom-aligned text + CTA
 - Info cards (order details, stats) use light grey (#F4F4F5) background
 
+## Component Quality Tiers
+
+### Tier 1 — Full fidelity (use these whenever possible):
+appBar, rebtelTabBar, button, contactCard, searchBar, phoneInput, pinInput,
+heroText, sectionText, sectionHeader, label, divider, segmentedNav,
+orderSummary, promoCard, successScreen, loadingState, textField,
+bottomSheet, dialogPopup, countryRow
+
+### Tier 2 — Approximate rendering (functional but simplified):
+productCard, topUpCard, paymentModule, rateCard, balanceWidget,
+amountSelector, transactionRow, countryPicker, paymentMethod, toggle
+
+### Tier 3 — Avoid in generated flows (use Tier 1 alternatives):
+flowStepper (use segmentedNav instead)
+carrierBadge (use label instead)
+callStatus (use successScreen variant instead)
+errorBanner (use sectionText instead)
+emptyState (use heroText with subtitle instead)
+toast (use sectionText instead)
+breadcrumb (use appBar with back variant instead)
+alert (use sectionText instead)
+
+### Rule 18: PREFER Tier 1 components. When you need a payment display, compose it
+from orderSummary + button rather than using paymentModule. When you need amount
+selection, use segmentedNav or compose from multiple buttons rather than
+amountSelector. The Tier 1 components have full visual fidelity.
+
 ## Navigation Components
 - **appBar** — Top navigation. Variants: "home" (no back), "back" (< + centered title + optional icon), "close" (X + centered title). Height: 52px. Title font: KH Teka 16px semibold.
 - **rebtelTabBar** — Bottom 3-tab nav: Home (globe icon) / Services (card icon) / Account (person icon). Active=black, inactive=grey. iOS home indicator at bottom. ONLY on main screens, NEVER on flow steps.
 - **segmentedNav** — Pill-shaped button tabs. Active=black fill, inactive=grey. Variants: "large" (52px) / "small" (40px). Used for Credits/Activity toggle, Buy Credits/Activity.
-- **flowStepper** — NOT used in actual Figma flows. Omit unless specifically requested.
+- **flowStepper** — DEPRECATED. Maps to segmentedNav. Never use in generated flows.
 - **breadcrumb** — Navigation trail. Rarely used.
 
 ## Content & Data Display

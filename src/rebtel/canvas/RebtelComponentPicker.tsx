@@ -82,7 +82,22 @@ const COMPONENTS: PickerEntry[] = [
   { label: "Hero Text", legacyType: "heroText", primitive: "text", template: "hero-text", w: 358, h: 108, props: { headline: "Which country do you want to connect to?", body: "Picking a region will help us find the best product for your needs." } },
   { label: "Section Text", legacyType: "sectionText", primitive: "text", template: "section-text", w: 358, h: 36, props: { title: "Plans", description: "Short Product description about Plans" } },
   { label: "Text", legacyType: "sectionText", primitive: "text", template: "body-text", w: 358, h: 24 },
+  { label: "Label Pill", legacyType: "label", primitive: "text", template: "label-pill", w: 80, h: 24 },
   { label: "Divider", legacyType: "divider", primitive: "divider", template: "default", w: 393, h: 1 },
+
+  // Phase 2 — Cards
+  { label: "Product Card", legacyType: "productCard", primitive: "card", template: "product", w: 358, h: 280 },
+  { label: "Payment Module", legacyType: "paymentModule", primitive: "card", template: "payment-module", w: 390, h: 248 },
+  { label: "Balance Widget", legacyType: "balanceWidget", primitive: "card", template: "balance", w: 358, h: 180 },
+
+  // Phase 2 — Rows
+  { label: "Rate Card", legacyType: "rateCard", primitive: "row", template: "rate", w: 390, h: 52 },
+  { label: "Transaction Row", legacyType: "transactionRow", primitive: "row", template: "transaction", w: 390, h: 72 },
+
+  // Phase 2 — Selectors & Inputs
+  { label: "Amount Pills", legacyType: "amountSelector", primitive: "selector", template: "pills", w: 358, h: 120, props: { amounts: ["$5", "$10", "$25"], activeIndex: 0 } },
+  { label: "Toggle", legacyType: "toggle", primitive: "input", template: "toggle", w: 46, h: 24 },
+  { label: "Country Picker", legacyType: "countryPicker", primitive: "input", template: "country-picker", w: 390, h: 360 },
 ];
 
 interface RebtelComponentPickerProps {

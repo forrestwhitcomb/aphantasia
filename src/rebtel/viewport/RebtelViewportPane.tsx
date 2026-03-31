@@ -107,12 +107,15 @@ export function RebtelViewportPane() {
     const fh = doc.frame.height;
     const allSpecs: ShapeSpec[] = [];
 
+    // Only process shapes inside the active frame
+    const activeShapes = doc.shapes.filter(s => s.isInsideFrame);
+
     // ── Containment detection (shared spatial primitive) ──────
-    const childrenMap = buildContainmentTree(doc.shapes);
+    const childrenMap = buildContainmentTree(activeShapes);
     const childToParent = new Map<string, string>();
     for (const [parentId, childIds] of childrenMap) {
       for (const childId of childIds) {
-        const shape = doc.shapes.find((s: { id: string }) => s.id === childId);
+        const shape = activeShapes.find((s: { id: string }) => s.id === childId);
         if (shape && !(shape as any).parentId) {
           (shape as any).parentId = parentId;
         }
@@ -121,7 +124,7 @@ export function RebtelViewportPane() {
     }
 
     // ── Pass 1: Infer top-level shapes (no parent) ───────────
-    for (const shape of doc.shapes) {
+    for (const shape of activeShapes) {
       if (childToParent.has(shape.id)) continue; // skip children for now
 
       if (shape.spec) {
@@ -161,7 +164,7 @@ export function RebtelViewportPane() {
     // child, re-infer it with parent context.
     const TOP_LEVEL_PRIMITIVES = new Set(["card", "sheet", "bar", "row"]);
 
-    for (const shape of doc.shapes) {
+    for (const shape of activeShapes) {
       if (!childToParent.has(shape.id)) continue; // only children
 
       const parentId = childToParent.get(shape.id)!;
@@ -206,7 +209,7 @@ export function RebtelViewportPane() {
     const topLevel: ShapeSpec[] = [];
 
     for (const ss of allSpecs) {
-      const shape = doc.shapes.find((s: { id: string }) => s.id === ss.shapeId);
+      const shape = activeShapes.find((s: { id: string }) => s.id === ss.shapeId);
       const parentId = shape?.parentId as string | undefined;
       if (parentId) {
         const existing = childMap.get(parentId) ?? [];
