@@ -72,7 +72,7 @@ function ToolIcon({ tool }: { tool: CanvasTool }) {
 }
 
 export function Toolbar({ outputType }: { outputType?: string }) {
-  const isUILike = outputType === "ui" || outputType === "rebtel";
+  const isUILike = outputType === "ui" || outputType === "rebtel" || outputType === "system";
   const [activeTool, setActiveTool] = useState<CanvasTool>(canvasEngine.getTool());
   const [pickerOpen, setPickerOpen] = useState(false);
   const addBtnRef = useRef<HTMLButtonElement>(null);

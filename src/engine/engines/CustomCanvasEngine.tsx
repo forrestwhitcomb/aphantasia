@@ -73,7 +73,7 @@ export class CustomCanvasEngine implements CanvasEngine {
   private activeFrameId: string = DESKTOP_FRAME_ID;
   private handlers = new Map<CanvasEventType, Set<CanvasEventHandler>>();
   private ver = 0;
-  private _outputType: "site" | "slides" | "doodles" | "ui" | "rebtel" = "site";
+  private _outputType: "site" | "slides" | "doodles" | "ui" | "rebtel" | "system" = "site";
   private _tool: CanvasTool = "select";
   private _clipboard: CanvasShape[] = [];
   camera: Camera = { x: 0, y: 0, zoom: 1 };
@@ -105,7 +105,7 @@ export class CustomCanvasEngine implements CanvasEngine {
 
   // -- Output type ----------------------------------------------------------
 
-  setOutputType(type: "site" | "slides" | "doodles" | "ui" | "rebtel") {
+  setOutputType(type: "site" | "slides" | "doodles" | "ui" | "rebtel" | "system") {
     this._outputType = type;
     this.changed();
   }
