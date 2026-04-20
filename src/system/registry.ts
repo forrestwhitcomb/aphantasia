@@ -6,9 +6,12 @@
 // This is the Aphantasia equivalent of Figma component variants.
 // ============================================================
 
-import type { ComponentDef, SpecNode } from "./types";
+import type { ComponentDef, ComponentType, SpecNode } from "./types";
 
-let _uid = 1000;
+// Seed with Date.now() so Turbopack HMR module reinit doesn't reset the counter
+// back into the ID space of already-persisted nodes (was causing duplicate-key
+// collisions like `n1169` after editing any file).
+let _uid = Date.now();
 export const uid = () => `n${++_uid}`;
 
 function node(
@@ -568,22 +571,125 @@ export const SCREEN_ARCHETYPES: Record<string, { viewport: "mobile" | "tablet" |
   "pricing":      { viewport: "desktop", w: 1280, h: 800, description: "Pricing comparison" },
 };
 
+// ── Shape recognition (three-layer inference) ───────────────
+// Layer 1: exact label match — user told us the name, trust it.
+// Layer 2: parent context — a shape drawn INSIDE a container infers
+//          differently (tiny rects become badges/buttons, not sections).
+// Layer 3: geometry with frame awareness — uses frame dimensions for
+//          relative position (top strip → Nav, bottom strip → Tabs, etc.).
+
+const LABEL_MAP: Array<{ pattern: RegExp; type: ComponentType; variant: string }> = [
+  // Layout
+  { pattern: /^(section|block|container)$/i,        type: "Section",    variant: "features" },
+  { pattern: /^(hero)$/i,                            type: "Section",    variant: "hero" },
+  { pattern: /^(separator|divider|line|hr)$/i,       type: "Separator",  variant: "default" },
+  { pattern: /^(footer)$/i,                          type: "Footer",     variant: "default" },
+
+  // Surfaces
+  { pattern: /^(card)$/i,                            type: "Card",       variant: "info" },
+  { pattern: /^(modal|dialog|popup|overlay)$/i,      type: "Modal",      variant: "default" },
+
+  // Content
+  { pattern: /^(text|paragraph|body|copy)$/i,        type: "Text",       variant: "p" },
+  { pattern: /^(heading|title|h[1-3])$/i,            type: "Text",       variant: "h2" },
+  { pattern: /^(badge|tag|chip|pill)$/i,             type: "Badge",      variant: "default" },
+  { pattern: /^(avatar|user|profile.?pic)$/i,        type: "Avatar",     variant: "circle" },
+  { pattern: /^(image|img|photo|picture|media)$/i,   type: "Image",      variant: "default" },
+  { pattern: /^(table|data.?grid)$/i,                type: "Table",      variant: "default" },
+  { pattern: /^(toast|notification|snackbar)$/i,     type: "Toast",      variant: "default" },
+  { pattern: /^(progress|loading.?bar)$/i,           type: "Progress",   variant: "bar" },
+  { pattern: /^(chart|graph|visualization)$/i,       type: "Chart",      variant: "bar" },
+  { pattern: /^(skeleton|placeholder|shimmer)$/i,    type: "Skeleton",   variant: "default" },
+  { pattern: /^(accordion|collapse|expand|faq)$/i,   type: "Accordion",  variant: "default" },
+  { pattern: /^(alert|warning|error|info.?box|notice)$/i, type: "Alert", variant: "info" },
+
+  // Actions
+  { pattern: /^(button|btn|cta|action)$/i,           type: "Button",     variant: "primary" },
+
+  // Inputs
+  { pattern: /^(input|text.?field|form.?field|field)$/i, type: "Input",  variant: "text" },
+  { pattern: /^(dropdown|select|menu|picker)$/i,     type: "Dropdown",   variant: "default" },
+  { pattern: /^(toggle|switch)$/i,                   type: "Toggle",     variant: "default" },
+  { pattern: /^(form)$/i,                            type: "Form",       variant: "contact" },
+
+  // Navigation
+  { pattern: /^(nav|navbar|header|navigation|app.?bar|top.?bar)$/i, type: "Nav", variant: "top" },
+  { pattern: /^(tabs?|tab.?bar)$/i,                  type: "Tabs",       variant: "default" },
+  { pattern: /^(breadcrumb|crumbs?)$/i,              type: "Breadcrumb", variant: "default" },
+  { pattern: /^(sidebar|side.?bar|side.?nav)$/i,     type: "Sidebar",    variant: "default" },
+];
+
 export function recognizeShape(
   w: number,
   h: number,
-): { type: string; variant: string } {
-  const aspect = w / h;
+  options: { label?: string; parentType?: ComponentType; frameW?: number; frameH?: number } = {},
+): { type: ComponentType; variant: string } {
+  const { label, parentType, frameW, frameH } = options;
 
-  if (h < 44) return { type: "Button", variant: "primary" };
-  if (h < 56 && w > 140) return { type: "Input", variant: "text" };
-  if (aspect > 4) return { type: "Separator", variant: "default" };
-  if (w < 80 && h < 80) return { type: "Avatar", variant: "circle" };
-  if (w < 120 && h < 40) return { type: "Badge", variant: "default" };
-  if (w < 200 && h > 400) return { type: "Sidebar", variant: "default" };
+  // ── Layer 1: label match ──
+  if (label && label.trim().length > 0) {
+    const l = label.trim();
+    for (const entry of LABEL_MAP) {
+      if (entry.pattern.test(l)) return { type: entry.type, variant: entry.variant };
+    }
+  }
+
+  // ── Layer 2: parent context (nested inference) ──
+  if (parentType) {
+    if (h <= 3 && w > 50) return { type: "Separator", variant: "default" };
+    if (w < 40 && h < 40 && Math.abs(w - h) < 10) return { type: "Avatar", variant: "circle" };
+    if (w < 80 && h < 24) return { type: "Badge", variant: "default" };
+    if (h >= 32 && h <= 56 && w > 60) return { type: "Button", variant: "primary" };
+    if (h >= 40 && h <= 64 && w > 150) return { type: "Input", variant: "text" };
+    if (h > 100) return { type: "Card", variant: "info" };
+    return { type: "Text", variant: "p" };
+  }
+
+  // ── Layer 3: geometry with frame awareness ──
+  const aspect = w / h;
+  const isFullWidth = frameW ? w >= frameW * 0.8 : false;
+
+  // Full-width hairline → Separator
+  if (isFullWidth && h <= 2) return { type: "Separator", variant: "default" };
+
+  // Full-width strip that isn't hairline → Nav (common case for header bars)
+  if (isFullWidth && h >= 24 && h < 100) return { type: "Nav", variant: "top" };
+
+  // Very wide thin strip without frame context → Separator
+  if (aspect > 8 && h <= 4) return { type: "Separator", variant: "default" };
+
+  // Small square-ish → Avatar
+  if (w < 80 && h < 80 && Math.abs(w - h) < 20) return { type: "Avatar", variant: "circle" };
+
+  // Small rect → Badge
+  if (w < 120 && h < 32) return { type: "Badge", variant: "default" };
+
+  // Button-height pill
+  if (h >= 32 && h <= 56 && w >= 60 && (!frameW || w < frameW * 0.6)) {
+    return { type: "Button", variant: "primary" };
+  }
+
+  // Input-like (wider, medium height)
+  if (h >= 36 && h <= 64 && w > 140) return { type: "Input", variant: "text" };
+
+  // Tall + narrow column, likely a sidebar
+  if (w < 260 && h > (frameH ? frameH * 0.5 : 400)) return { type: "Sidebar", variant: "default" };
+
+  // Wide + medium height → Table-ish
   if (aspect > 1.5 && h > 150 && h < 300) return { type: "Table", variant: "default" };
-  if (w > 200 && w < 500 && h > 300) return { type: "Form", variant: "contact" };
+
+  // Form-ish proportions
+  if (w > 200 && w < 520 && h > 300) return { type: "Form", variant: "contact" };
+
+  // Wide image-like card
   if (aspect > 1.8 && h > 120) return { type: "Card", variant: "image" };
-  if (h > 250) return { type: "Section", variant: "hero" };
-  if (h > 150) return { type: "Card", variant: "info" };
-  return { type: "Card", variant: "info" };
+
+  // Full-width tall region → hero Section (frame-aware)
+  if ((isFullWidth && h > 180) || (!frameW && h > 250)) return { type: "Section", variant: "hero" };
+
+  // Medium-height block → info Card
+  if (h > 120) return { type: "Card", variant: "info" };
+
+  // Default: paragraph text (a small random rect is likely text)
+  return { type: "Text", variant: "p" };
 }

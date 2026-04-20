@@ -114,7 +114,9 @@ export type EditorAction =
   | { type: "SET_ACTIVE_SCREEN"; id: string }
   | { type: "UPDATE_NODE"; id: string; props: Record<string, unknown> }
   | { type: "SWAP_VARIANT"; id: string; variant: string }
+  | { type: "SWAP_TYPE"; id: string; newType: ComponentType; newVariant: string }
   | { type: "ADD_COMPONENT"; screenId: string; node: SpecNode }
+  | { type: "ADD_CHILD_COMPONENT"; parentId: string; node: SpecNode }
   | { type: "DELETE_NODE"; id: string }
   | { type: "ADD_ANNOTATION"; nodeId: string; annotation: Annotation }
   | { type: "ADD_SKETCH"; sketch: CanvasSketch }
@@ -122,6 +124,8 @@ export type EditorAction =
   | { type: "UPDATE_TOKEN"; key: string; value: string }
   | { type: "SET_TOKENS"; tokens: Record<string, string> }
   | { type: "RESIZE_SCREEN"; id: string; w: number; h: number }
+  | { type: "MOVE_SCREEN"; id: string; x: number; y: number }
+  | { type: "MOVE_SCREEN_DONE" }
   | { type: "REORDER_NODE"; nodeId: string; targetParentId: string; insertIndex: number }
   | { type: "LOAD_PROJECT"; state: EditorState }
   | { type: "NEW_PROJECT"; template?: "blank" | "landing" | "dashboard" | "mobile" }

@@ -42,16 +42,22 @@ export async function POST(req: Request) {
     const fileData = await fileRes.json();
     const fileName = fileData.name ?? "Unknown";
 
-    // If node-id is provided, fetch that specific node's subtree
+    // If node-id is provided, fetch that specific node's subtree.
+    // Figma keys response nodes by colon format (4915:90150) even when the
+    // request used hyphen format — look up both.
     let nodeData = null;
     if (nodeId) {
+      const apiId = nodeId.replace("-", ":");
       const nodeRes = await fetch(
-        `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${nodeId}`,
+        `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${apiId}`,
         { headers },
       );
       if (nodeRes.ok) {
         const nd = await nodeRes.json();
-        nodeData = nd.nodes?.[nodeId]?.document ?? null;
+        nodeData =
+          nd.nodes?.[apiId]?.document ??
+          nd.nodes?.[nodeId]?.document ??
+          null;
       }
     }
 
@@ -68,18 +74,22 @@ export async function POST(req: Request) {
     const stylesRes = await fetch(`https://api.figma.com/v1/files/${fileKey}/styles`, { headers });
     const stylesData = stylesRes.ok ? await stylesRes.json() : { meta: { styles: [] } };
 
-    // For FILL styles, fetch their actual node data to extract color values
+    // For FILL and TEXT styles, fetch their actual node data so figma.ts can
+    // extract color values (FILL) and typography (TEXT)
     const rawStyles = stylesData?.meta?.styles ?? stylesData?.styles ?? [];
     const styleArray = Array.isArray(rawStyles) ? rawStyles : Object.values(rawStyles);
-    const fillStyleNodeIds = styleArray
-      .filter((s: Record<string, unknown>) => s && s.style_type === "FILL" && s.node_id)
+    const styleNodeIds = styleArray
+      .filter(
+        (s: Record<string, unknown>) =>
+          s && (s.style_type === "FILL" || s.style_type === "TEXT" || s.style_type === "EFFECT") && s.node_id,
+      )
       .map((s: Record<string, unknown>) => s.node_id as string);
 
     let styleNodeData: Record<string, unknown> = {};
-    if (fillStyleNodeIds.length > 0) {
+    if (styleNodeIds.length > 0) {
       // Fetch in batches of 50 (Figma API limit)
-      for (let i = 0; i < fillStyleNodeIds.length; i += 50) {
-        const batch = fillStyleNodeIds.slice(i, i + 50);
+      for (let i = 0; i < styleNodeIds.length; i += 50) {
+        const batch = styleNodeIds.slice(i, i + 50);
         const ids = batch.join(",");
         try {
           const nodeRes = await fetch(
@@ -96,8 +106,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // Map to ADS tokens — pass style node data for color extraction
-    const result = mapFigmaToADS(varsData, stylesData, fileName, fileKey, styleNodeData);
+    // Map to ADS tokens — pass style node data for color extraction and the
+    // pinned nodeData subtree (if any) for autolayout/radius harvesting
+    const result = mapFigmaToADS(varsData, stylesData, fileName, fileKey, styleNodeData, nodeData);
 
     return Response.json({
       ...result,

@@ -12,12 +12,41 @@ import { callAI, type AIRequest, type SpecNodePatch } from "./ai/service";
 import { applyPatches } from "./ai/patches";
 import { generateNextJSProject } from "./export/nextjs";
 import { buildScreenPayload, buildMultiScreenPayload } from "./export/figma-export";
-import type { CanvasSketch, SpecNode } from "./types";
+import type { CanvasSketch, ComponentType, SpecNode } from "./types";
 import { MousePointer2, Square, Hand, Play, Pause, MessageSquare, Code2, Plus, Trash2, Rocket, Copy, X, Palette, ChevronRight, Sparkles, Undo2, Redo2, Monitor, Download, FolderOpen, Sun, Moon, Upload, Smartphone } from "lucide-react";
 import type { FigmaImportResult } from "./export/figma";
 
 const glass = { background:"rgba(255,255,255,0.72)", backdropFilter:"blur(24px)", WebkitBackdropFilter:"blur(24px)", border:"1px solid rgba(255,255,255,0.5)", boxShadow:"0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)" } as const;
 const darkGlass = { background:"rgba(26,26,46,0.92)", backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)", border:"1px solid rgba(255,255,255,0.08)", boxShadow:"0 8px 32px rgba(0,0,0,0.4)" } as const;
+
+// Font stack options for the font.* token dropdowns in the System panel.
+// Note: these fonts won't visually render in the editor preview unless installed
+// locally or loaded via <link> tags in the host page. The dropdown sets the token
+// value correctly and exports correctly — visual rendering is a host-page concern.
+const FONT_OPTIONS = [
+  "'Inter', system-ui, sans-serif",
+  "'Plus Jakarta Sans', system-ui, sans-serif",
+  "'DM Sans', system-ui, sans-serif",
+  "'Outfit', system-ui, sans-serif",
+  "'Poppins', system-ui, sans-serif",
+  "'Manrope', system-ui, sans-serif",
+  "'Space Grotesk', system-ui, sans-serif",
+  "'Sora', system-ui, sans-serif",
+  "system-ui, -apple-system, sans-serif",
+  "'Georgia', serif",
+  "'Playfair Display', serif",
+  "'Merriweather', serif",
+  "'Lora', serif",
+  "'JetBrains Mono', monospace",
+  "'Fira Code', monospace",
+];
+
+// Pull the first font name out of a CSS font stack for the dropdown label.
+// e.g. "'Playfair Display', serif" → "Playfair Display"; "system-ui, -apple-system, sans-serif" → "system-ui".
+function fontLabel(stack: string): string {
+  const first = stack.split(",")[0].trim();
+  return first.replace(/^['"]|['"]$/g, "");
+}
 
 export function Editor() {
   const { state, dispatch, findNode, canUndo, canRedo } = useEditor();
@@ -36,6 +65,12 @@ export function Editor() {
   const [annInput, setAnnInput] = useState("");
   const [rightPanel, setRightPanel] = useState<"props"|"variants"|"code"|"system"|null>("props");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [changeTypeOpen, setChangeTypeOpen] = useState(false);
+  // Shape tag popover — shown after drawing, lets the user confirm/override inference.
+  // screenX/screenY are in screen-local (world) coords, anchored near the drawn shape.
+  const [shapeTag, setShapeTag] = useState<{ screenId: string; nodeId: string; inferredType: string; inferredVariant: string; screenX: number; screenY: number } | null>(null);
+  const [shapeTagDropdownOpen, setShapeTagDropdownOpen] = useState(false);
+  const shapeTagTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [viewportOpen, setViewportOpen] = useState(false);
   const [showProjectPicker, setShowProjectPicker] = useState(false);
   const [showNewScreen, setShowNewScreen] = useState(false);
@@ -50,7 +85,13 @@ export function Editor() {
   const [newTokenType, setNewTokenType] = useState<"color"|"size"|"shadow"|"font">("color");
   const [figmaUrl, setFigmaUrl] = useState("");
   const [figmaToken, setFigmaToken] = useState(() => typeof window !== "undefined" ? localStorage.getItem("aphantasia-figma-token") ?? "" : "");
-  const [figmaLoading, setFigmaLoading] = useState(false);
+  const [figmaStatus, setFigmaStatus] = useState<"" | "connecting" | "extracting" | "mapping" | "error">("");
+  const figmaLoading = figmaStatus === "connecting" || figmaStatus === "extracting" || figmaStatus === "mapping";
+  const figmaStatusText =
+    figmaStatus === "connecting" ? "Connecting to Figma..."
+    : figmaStatus === "extracting" ? "Extracting styles..."
+    : figmaStatus === "mapping" ? "Mapping to design system..."
+    : "Connect & Import";
   const [figmaResult, setFigmaResult] = useState<FigmaImportResult | null>(null);
   const [figmaError, setFigmaError] = useState("");
   const [showFigmaImport, setShowFigmaImport] = useState(false);
@@ -62,6 +103,7 @@ export function Editor() {
   const [arrowLabelInput, setArrowLabelInput] = useState("");
   const [responsiveTab, setResponsiveTab] = useState<string | null>(null);
   const resizing = useRef<{ edge: "right" | "bottom" | "corner"; startX: number; startY: number; startW: number; startH: number; screenId: string } | null>(null);
+  const draggingScreen = useRef<{ id: string; startX: number; startY: number; screenStartX: number; screenStartY: number } | null>(null);
   const hasLoadedRef = useRef(false);
 
   // Autosave
@@ -136,12 +178,80 @@ export function Editor() {
   useEffect(() => { const el=canvasRef.current; if(!el) return; el.addEventListener("wheel",onWheel,{passive:false}); return()=>el.removeEventListener("wheel",onWheel); }, [onWheel]);
   const toWorld = (cx:number,cy:number) => { const r=canvasRef.current!.getBoundingClientRect(); return {x:(cx-r.left-state.pan.x)/state.zoom, y:(cy-r.top-state.pan.y)/state.zoom}; };
 
-  const onDown = (e:React.MouseEvent) => { const t=e.target as HTMLElement; if(!t.dataset.bg&&t!==canvasRef.current) return; if(state.tool==="draw"){ const p=toWorld(e.clientX,e.clientY); setDrawing({x:p.x,y:p.y,w:0,h:0}); } else { isPanning.current=true; lastMouse.current={x:e.clientX,y:e.clientY}; if(state.tool==="select") dispatch({type:"SELECT_NODE",id:null}); } };
-  const onMove = (e:React.MouseEvent) => { if(drawing){ const p=toWorld(e.clientX,e.clientY); setDrawing(d=>d&&({...d,w:p.x-d.x,h:p.y-d.y})); } if(isPanning.current){ dispatch({type:"SET_PAN",pan:{x:state.pan.x+(e.clientX-lastMouse.current.x),y:state.pan.y+(e.clientY-lastMouse.current.y)}}); lastMouse.current={x:e.clientX,y:e.clientY}; } };
-  const onUp = () => { if(drawing&&(Math.abs(drawing.w)>20||Math.abs(drawing.h)>20)){ const x=drawing.w<0?drawing.x+drawing.w:drawing.x, y=drawing.h<0?drawing.y+drawing.h:drawing.y, w=Math.abs(drawing.w), h=Math.abs(drawing.h); let inside:typeof state.project.screens[0]|null=null; for(const s of state.project.screens){ if(x>=s.x&&y>=s.y&&x+w<=s.x+s.w&&y+h<=s.y+s.h){inside=s;break} } if(inside){ const{type,variant}=recognizeShape(w,h); dispatch({type:"ADD_COMPONENT",screenId:inside.id,node:makeSpec(type,variant)}); dispatch({type:"SET_ACTIVE_SCREEN",id:inside.id}); } else { dispatch({type:"ADD_SKETCH",sketch:{id:uid(),x,y,w,h,text:"",color:"transparent",stroke:"rgba(26,26,46,0.2)"}}); } } setDrawing(null); isPanning.current=false; };
+  const onDown = (e:React.MouseEvent) => { const t=e.target as HTMLElement; if(state.tool!=="draw"&&!t.dataset.bg&&t!==canvasRef.current) return; if(shapeTag){setShapeTag(null);setShapeTagDropdownOpen(false);if(shapeTagTimeoutRef.current)clearTimeout(shapeTagTimeoutRef.current);} if(state.tool==="draw"){ const p=toWorld(e.clientX,e.clientY); setDrawing({x:p.x,y:p.y,w:0,h:0}); } else { isPanning.current=true; lastMouse.current={x:e.clientX,y:e.clientY}; if(state.tool==="select") dispatch({type:"SELECT_NODE",id:null}); } };
+  const onMove = (e:React.MouseEvent) => {
+    if (draggingScreen.current) {
+      const d = draggingScreen.current;
+      const dx = (e.clientX - d.startX) / state.zoom;
+      const dy = (e.clientY - d.startY) / state.zoom;
+      dispatch({ type: "MOVE_SCREEN", id: d.id, x: d.screenStartX + dx, y: d.screenStartY + dy });
+      return;
+    }
+    if(drawing){ const p=toWorld(e.clientX,e.clientY); setDrawing(d=>d&&({...d,w:p.x-d.x,h:p.y-d.y})); }
+    if(isPanning.current){ dispatch({type:"SET_PAN",pan:{x:state.pan.x+(e.clientX-lastMouse.current.x),y:state.pan.y+(e.clientY-lastMouse.current.y)}}); lastMouse.current={x:e.clientX,y:e.clientY}; }
+  };
+  const onUp = () => {
+    if (draggingScreen.current) {
+      dispatch({ type: "MOVE_SCREEN_DONE" });
+      draggingScreen.current = null;
+    }
+    if(drawing&&(Math.abs(drawing.w)>20||Math.abs(drawing.h)>20)){
+      const x=drawing.w<0?drawing.x+drawing.w:drawing.x, y=drawing.h<0?drawing.y+drawing.h:drawing.y, w=Math.abs(drawing.w), h=Math.abs(drawing.h);
+      let inside:typeof state.project.screens[0]|null=null;
+      for(const s of state.project.screens){ if(x>=s.x&&y>=s.y&&x+w<=s.x+s.w&&y+h<=s.y+s.h){inside=s;break} }
+      if(inside){
+        // Hit test: does the drawn shape fall inside an existing top-level child?
+        // Heuristic: split the screen's height into N equal slots (one per top-level child),
+        // and match by the drawn shape's vertical midpoint. Only treat as a child-drop if
+        // the shape is meaningfully smaller than the slot (otherwise it's a sibling).
+        const children = inside.root.children;
+        let parent: typeof children[0] | null = null;
+        if (children.length > 0) {
+          const slot = inside.h / children.length;
+          const relMidY = (y + h/2) - inside.y;
+          const idx = Math.max(0, Math.min(children.length - 1, Math.floor(relMidY / slot)));
+          const target = children[idx];
+          // Treat as child-drop only if the shape occupies less than ~60% of its slot area
+          const slotArea = inside.w * slot;
+          if (w * h < slotArea * 0.6) parent = target;
+        }
+        const { type, variant } = recognizeShape(w, h, {
+          frameW: inside.w,
+          frameH: inside.h,
+          parentType: parent ? parent.type : undefined,
+        });
+        const newNode = makeSpec(type, variant);
+        if (parent) {
+          dispatch({ type: "ADD_CHILD_COMPONENT", parentId: parent.id, node: newNode });
+        } else {
+          dispatch({ type: "ADD_COMPONENT", screenId: inside.id, node: newNode });
+        }
+        dispatch({ type: "SET_ACTIVE_SCREEN", id: inside.id });
+        // Show the shape tag popover anchored near the shape's top-right corner (screen-local coords)
+        if (shapeTagTimeoutRef.current) clearTimeout(shapeTagTimeoutRef.current);
+        setShapeTag({ screenId: inside.id, nodeId: newNode.id, inferredType: type, inferredVariant: variant, screenX: x - inside.x + w, screenY: y - inside.y + h });
+        setShapeTagDropdownOpen(false);
+        shapeTagTimeoutRef.current = setTimeout(() => { setShapeTag(null); setShapeTagDropdownOpen(false); }, 4000);
+      } else {
+        dispatch({type:"ADD_SKETCH",sketch:{id:uid(),x,y,w,h,text:"",color:"transparent",stroke:"rgba(26,26,46,0.2)"}});
+      }
+    }
+    setDrawing(null); isPanning.current=false;
+  };
 
   // Keyboard
-  useEffect(() => { const h=(e:KeyboardEvent)=>{ const t=(document.activeElement as HTMLElement)?.tagName; if(t==="INPUT"||t==="TEXTAREA") return; if((e.metaKey||e.ctrlKey)&&e.key==="z"&&!e.shiftKey){e.preventDefault();dispatch({type:"UNDO"});return;} if((e.metaKey||e.ctrlKey)&&e.key==="z"&&e.shiftKey){e.preventDefault();dispatch({type:"REDO"});return;} if(e.key==="v") dispatch({type:"SET_TOOL",tool:"select"}); if(e.key==="r") dispatch({type:"SET_TOOL",tool:"draw"}); if(e.key==="h") dispatch({type:"SET_TOOL",tool:"hand"}); if((e.key==="Delete"||e.key==="Backspace")&&state.selectedNodeId) dispatch({type:"DELETE_NODE",id:state.selectedNodeId}); }; window.addEventListener("keydown",h); return()=>window.removeEventListener("keydown",h); });
+  useEffect(() => { const h=(e:KeyboardEvent)=>{ const t=(document.activeElement as HTMLElement)?.tagName; if(t==="INPUT"||t==="TEXTAREA") return; if(e.key==="Escape"&&shapeTag){e.preventDefault();setShapeTag(null);setShapeTagDropdownOpen(false);if(shapeTagTimeoutRef.current)clearTimeout(shapeTagTimeoutRef.current);return;} if((e.metaKey||e.ctrlKey)&&e.key==="z"&&!e.shiftKey){e.preventDefault();dispatch({type:"UNDO"});return;} if((e.metaKey||e.ctrlKey)&&e.key==="z"&&e.shiftKey){e.preventDefault();dispatch({type:"REDO"});return;} if(e.key==="v") dispatch({type:"SET_TOOL",tool:"select"}); if(e.key==="r") dispatch({type:"SET_TOOL",tool:"draw"}); if(e.key==="h") dispatch({type:"SET_TOOL",tool:"hand"}); if((e.key==="Delete"||e.key==="Backspace")&&state.selectedNodeId) dispatch({type:"DELETE_NODE",id:state.selectedNodeId}); }; window.addEventListener("keydown",h); return()=>window.removeEventListener("keydown",h); });
+
+  // Dismiss shape tag popover when the user selects a different node (e.g. clicks
+  // another component in the canvas). Stays open while the just-drawn node is
+  // selected so the user has a chance to retag.
+  useEffect(() => {
+    if (shapeTag && state.selectedNodeId !== shapeTag.nodeId) {
+      setShapeTag(null);
+      setShapeTagDropdownOpen(false);
+      if (shapeTagTimeoutRef.current) clearTimeout(shapeTagTimeoutRef.current);
+    }
+  }, [state.selectedNodeId, shapeTag]);
 
   const sendChat = (override?: string) => {
     const m = (override ?? chatInput).trim();
@@ -189,13 +299,21 @@ export function Editor() {
           if (errors.length > 0) setChatMsgs(ms => [...ms, { role: "error", text: errors.join(", ") }]);
         }
       })
-      .catch(() => {
+      .catch((err) => {
         clearTimeout(timeout);
-        setChatMsgs(ms => [...ms, { role: "error", text: "Something went wrong \u2014 try again." }]);
+        const reason = err instanceof Error ? err.message : "Unknown error";
+        setChatMsgs(ms => [...ms, { role: "error", text: "Something went wrong \u2014 " + reason }]);
       })
       .finally(() => setChatLoading(false));
   };
-  const addAnnotation = () => { if(!annInput.trim()||!state.selectedNodeId) return; dispatch({type:"ADD_ANNOTATION",nodeId:state.selectedNodeId,annotation:{id:uid(),text:annInput.trim(),type:annType}}); setAnnInput(""); };
+  const addAnnotation = (autoApply = false) => {
+    if (!annInput.trim() || !state.selectedNodeId) return;
+    const id = uid();
+    const text = annInput.trim();
+    dispatch({ type: "ADD_ANNOTATION", nodeId: state.selectedNodeId, annotation: { id, text, type: annType } });
+    setAnnInput("");
+    if (autoApply && annType === "ai") applyAnnotation(id, text);
+  };
 
   const applyAnnotation = (annId: string, annText: string) => {
     if (!selectedNode || !activeScreen) return;
@@ -218,7 +336,10 @@ export function Editor() {
         }
         dispatch({ type: "MARK_ANNOTATION_APPLIED", nodeId: selectedNode.id, annotationId: annId });
       })
-      .catch(() => {})
+      .catch((err) => {
+        const reason = err instanceof Error ? err.message : "Unknown error";
+        setChatMsgs(ms => [...ms, { role: "error", text: "Annotation failed: " + reason }]);
+      })
       .finally(() => setApplyingAnnIds(s => { const n = new Set(s); n.delete(annId); return n; }));
   };
 
@@ -268,26 +389,54 @@ export function Editor() {
 
     // Create the empty screen first so it's visible on canvas
     const bps = viewport === "desktop" ? [{label:"Desktop",width:w},{label:"Tablet",width:834},{label:"Mobile",width:393}] : viewport === "tablet" ? [{label:"Tablet",width:w},{label:"Mobile",width:393}] : [{label:"Mobile",width:w}];
-    dispatch({ type: "ADD_SCREEN", screen: { id: screenId, name: screenName, x: last ? last.x + last.w + 120 : 100, y: 80, w, h, viewport, breakpoints: bps, root } });
+    const newScreen = { id: screenId, name: screenName, x: last ? last.x + last.w + 120 : 100, y: 80, w, h, viewport, breakpoints: bps, root };
+    dispatch({ type: "ADD_SCREEN", screen: newScreen });
     dispatch({ type: "SET_ACTIVE_SCREEN", id: screenId });
+
+    // applyPatches needs a state snapshot that already contains the new screen;
+    // `state` is captured from the closure BEFORE the ADD_SCREEN dispatch above.
+    const patchState = {
+      ...state,
+      project: { ...state.project, screens: [...state.project.screens, newScreen] },
+      activeScreenId: screenId,
+    };
 
     callAI({
       mode: "chat",
-      message: `Create a complete screen for: ${screenGenDesc.trim()}. Target viewport: ${w}×${h} (${viewport}). Generate a full SpecNode tree with Nav, sections, and content. The root node id is "${rootId}".`,
+      message: `Create a complete screen for: ${screenGenDesc.trim()}. Target viewport: ${w}×${h} (${viewport}). Generate a full SpecNode tree with Nav, sections, and content. IMPORTANT: use the literal string "${rootId}" as the parentId in all add patches (not a placeholder like <root id>).`,
       context: {
-        activeScreen: { id: screenId, name: screenName, x: 0, y: 0, w, h, viewport, breakpoints: bps, root },
+        activeScreen: newScreen,
         tokens: state.tokens,
         registry: Object.keys(REGISTRY),
         projectScreenNames: state.project.screens.map(s => s.name),
       },
     })
       .then(res => {
-        if (res.patches.length > 0) {
-          const { actions } = applyPatches(res.patches, { ...state, activeScreenId: screenId });
-          for (const action of actions) dispatch(action);
+        setChatMsgs(ms => [...ms, { role: "ai", text: res.explanation || "(no explanation)" }]);
+        if (res.patches.length === 0) {
+          setChatMsgs(ms => [...ms, { role: "error", text: "Screen generated but AI returned no patches — the screen is empty." }]);
+          if (!state.showChat) dispatch({ type: "TOGGLE_CHAT" });
+          return;
+        }
+        const { actions, errors } = applyPatches(res.patches, patchState);
+        for (const action of actions) dispatch(action);
+        const counts: Record<string, number> = {};
+        for (const p of res.patches) counts[p.op] = (counts[p.op] ?? 0) + 1;
+        const parts: string[] = [];
+        if (counts.add) parts.push(`Added ${counts.add} component${counts.add > 1 ? "s" : ""}`);
+        if (counts.replace) parts.push(`Replaced ${counts.replace}`);
+        if (counts.update) parts.push(`Updated ${counts.update} prop${counts.update > 1 ? "s" : ""}`);
+        if (counts.delete) parts.push(`Deleted ${counts.delete}`);
+        if (parts.length > 0) setChatMsgs(ms => [...ms, { role: "summary", text: "\u2713 " + parts.join(" \u00b7 ") }]);
+        if (errors.length > 0) {
+          setChatMsgs(ms => [...ms, { role: "error", text: `${errors.length} patch${errors.length > 1 ? "es" : ""} rejected: ${errors.join("; ")}` }]);
+          if (actions.length === 0 && !state.showChat) dispatch({ type: "TOGGLE_CHAT" });
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        setChatMsgs(ms => [...ms, { role: "error", text: "Screen generation failed: " + (err instanceof Error ? err.message : "Unknown error") }]);
+        if (!state.showChat) dispatch({ type: "TOGGLE_CHAT" });
+      })
       .finally(() => { setScreenGenLoading(false); setShowNewScreen(false); setScreenGenDesc(""); setScreenGenArch(null); });
   };
 
@@ -332,13 +481,22 @@ export function Editor() {
       </div>
 
       {/* Canvas */}
-      <div ref={canvasRef} data-bg="1" onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} style={{position:"fixed",inset:0,zIndex:1,overflow:"hidden",cursor:isPanning.current?"grabbing":cursors[state.tool]}}>
+      <div ref={canvasRef} data-bg="1" onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} style={{position:"fixed",inset:0,zIndex:1,overflow:"hidden",cursor:draggingScreen.current?"grabbing":isPanning.current?"grabbing":cursors[state.tool]}}>
         <div data-bg="1" style={{position:"absolute",left:0,top:0,transformOrigin:"0 0",transform:`translate(${state.pan.x}px,${state.pan.y}px) scale(${state.zoom})`}}>
           {state.project.sketches.map(sk=><div key={sk.id} style={{position:"absolute",left:sk.x,top:sk.y,width:sk.w,height:sk.h,background:sk.color==="transparent"?"transparent":sk.color,border:sk.stroke?`2px solid ${sk.stroke}`:"none",borderRadius:8,padding:sk.text?12:0,fontSize:13,color:"#1a1a2e",fontFamily:"'Inter',system-ui",whiteSpace:"pre-wrap",lineHeight:1.5,pointerEvents:"none"}}>{sk.text}</div>)}
           {drawing&&<div style={{position:"absolute",left:Math.min(drawing.x,drawing.x+drawing.w),top:Math.min(drawing.y,drawing.y+drawing.h),width:Math.abs(drawing.w),height:Math.abs(drawing.h),border:"2px dashed #1a1a2e",borderRadius:4,background:"rgba(26,26,46,0.04)",pointerEvents:"none"}}/>}
           {state.project.screens.map(screen=>(
-            <div key={screen.id} style={{position:"absolute",left:screen.x,top:screen.y,width:screen.w}} onMouseDown={e=>{e.stopPropagation();dispatch({type:"SET_ACTIVE_SCREEN",id:screen.id})}}>
-              <div style={{position:"absolute",top:-26/state.zoom,left:0,fontSize:13,fontFamily:"'Inter',system-ui",color:state.activeScreenId===screen.id?"#1a1a2e":"rgba(26,26,46,0.4)",fontWeight:state.activeScreenId===screen.id?600:400,display:"flex",gap:8,alignItems:"center",whiteSpace:"nowrap",userSelect:"none"}}>{screen.name}<span style={{fontSize:11,opacity:0.4}}>{screen.w}×{screen.h}</span>{state.liveMode&&<span style={{fontSize:10,background:"rgba(16,185,129,0.15)",color:"#059669",padding:"1px 8px",borderRadius:9999,fontWeight:600}}>LIVE</span>}</div>
+            <div key={screen.id} style={{position:"absolute",left:screen.x,top:screen.y,width:screen.w}} onMouseDown={e=>{ if(state.tool==="draw") return; e.stopPropagation(); dispatch({type:"SET_ACTIVE_SCREEN",id:screen.id}) }}>
+              <div onMouseDown={e=>{
+                if(state.tool!=="select"||state.liveMode) return;
+                e.stopPropagation();
+                // Snapshot the pre-drag state so one Cmd+Z restores the
+                // original position. Subsequent MOVE_SCREEN events are
+                // skip-history so they don't flood the undo stack.
+                dispatch({type:"SNAPSHOT"});
+                dispatch({type:"SET_ACTIVE_SCREEN",id:screen.id});
+                draggingScreen.current={id:screen.id,startX:e.clientX,startY:e.clientY,screenStartX:screen.x,screenStartY:screen.y};
+              }} style={{position:"absolute",top:-26/state.zoom,left:0,fontSize:13,fontFamily:"'Inter',system-ui",color:state.activeScreenId===screen.id?"#1a1a2e":"rgba(26,26,46,0.4)",fontWeight:state.activeScreenId===screen.id?600:400,display:"flex",gap:8,alignItems:"center",whiteSpace:"nowrap",userSelect:"none",cursor:state.tool==="select"&&!state.liveMode?(draggingScreen.current?.id===screen.id?"grabbing":"grab"):"default"}}>{screen.name}<span style={{fontSize:11,opacity:0.4}}>{screen.w}×{screen.h}</span>{state.liveMode&&<span style={{fontSize:10,background:"rgba(16,185,129,0.15)",color:"#059669",padding:"1px 8px",borderRadius:9999,fontWeight:600}}>LIVE</span>}</div>
               <div style={{width:screen.w,height:screen.h,background:state.tokens["bg.page"],borderRadius:12,overflow:"hidden",boxShadow:state.activeScreenId===screen.id?`0 0 0 2px ${state.tokens["brand.primary"]}, 0 12px 40px rgba(0,0,0,0.15)`:"0 4px 24px rgba(0,0,0,0.08)"}}><div style={{width:"100%",height:"100%",overflow:"auto"}}><LiveRenderer node={screen.root} tokens={state.tokens} selectedId={state.selectedNodeId} onSelect={n=>{if(!state.liveMode){dispatch({type:"SELECT_NODE",id:n.id});setRightPanel("props")}}} live={state.liveMode} editingNodeId={state.editingNodeId} editingProp={state.editingProp} dispatch={dispatch}/></div></div>
               {state.activeScreenId===screen.id&&!state.liveMode&&<>
                 <div onMouseDown={onResizeStart("right",screen.id,screen.w,screen.h)} style={{position:"absolute",top:0,right:-4,width:8,height:screen.h,cursor:"ew-resize",zIndex:5}}><div style={{position:"absolute",top:"50%",right:2,width:3,height:32,marginTop:-16,borderRadius:2,background:"rgba(37,99,235,0.3)",transition:"background 0.15s"}}/></div>
@@ -401,6 +559,57 @@ export function Editor() {
         </div>
       </div>
 
+      {/* Shape tag popover — shown briefly after drawing a component */}
+      {shapeTag && (()=>{
+        const sc = state.project.screens.find(s=>s.id===shapeTag.screenId);
+        if (!sc) return null;
+        const worldX = sc.x + shapeTag.screenX;
+        const worldY = sc.y + shapeTag.screenY;
+        const vx = worldX * state.zoom + state.pan.x;
+        const vy = worldY * state.zoom + state.pan.y;
+        // Flip above if it would go off the bottom of the viewport
+        const fitsBelow = vy + 240 < window.innerHeight;
+        const top = fitsBelow ? vy + 8 : Math.max(8, vy - 48 - 240);
+        const left = Math.min(Math.max(8, vx + 8), window.innerWidth - 220);
+        const regEntry = REGISTRY[shapeTag.inferredType];
+        const cancelDismiss = () => { if (shapeTagTimeoutRef.current) clearTimeout(shapeTagTimeoutRef.current); };
+        const closeTag = () => { setShapeTag(null); setShapeTagDropdownOpen(false); cancelDismiss(); };
+        return <div style={{position:"fixed",left,top,zIndex:150}} onMouseDown={e=>e.stopPropagation()}>
+          <div style={{display:"flex",alignItems:"center",gap:4}}>
+            <button onClick={()=>{cancelDismiss();setShapeTagDropdownOpen(o=>!o);}} style={{...glass,borderRadius:10,padding:"4px 12px",height:32,display:"flex",alignItems:"center",gap:8,border:"1px solid rgba(26,26,46,0.1)",cursor:"pointer",fontSize:12,fontWeight:500,color:"#1a1a2e",fontFamily:"inherit"}}>
+              {regEntry && <span style={{width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.04)",borderRadius:4,fontSize:11}}>{regEntry.icon}</span>}
+              <span>{shapeTag.inferredType}</span>
+              <span style={{fontSize:10,color:"rgba(26,26,46,0.4)"}}>▾</span>
+            </button>
+            <button onClick={closeTag} title="Dismiss" style={{...glass,borderRadius:8,width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(26,26,46,0.1)",cursor:"pointer",color:"rgba(26,26,46,0.5)"}}>
+              <X size={12}/>
+            </button>
+          </div>
+          {shapeTagDropdownOpen && <div style={{marginTop:6,width:200,maxHeight:260,overflow:"auto",...glass,borderRadius:12,padding:6,border:"1px solid rgba(26,26,46,0.08)"}}>
+            {PALETTE_CATEGORIES.map(cat=>{
+              const items = Object.entries(REGISTRY).filter(([k,v])=>v.cat===cat.key && k!=="__root" && k!=="__row");
+              if (items.length===0) return null;
+              return <div key={cat.key} style={{marginBottom:4}}>
+                <div style={{padding:"4px 8px 2px",fontSize:9,fontWeight:600,color:"rgba(26,26,46,0.35)",textTransform:"uppercase",letterSpacing:".04em"}}>{cat.label}</div>
+                {items.map(([tk,td])=>{
+                  const isActive = shapeTag.inferredType===tk;
+                  return <div key={tk} onClick={()=>{
+                    if (isActive) { setShapeTagDropdownOpen(false); return; }
+                    const firstVariant = Object.keys(REGISTRY[tk].variants)[0] ?? "";
+                    dispatch({type:"SWAP_TYPE",id:shapeTag.nodeId,newType:tk as ComponentType,newVariant:firstVariant});
+                    setShapeTag(t=>t?{...t,inferredType:tk,inferredVariant:firstVariant}:null);
+                    setShapeTagDropdownOpen(false);
+                  }} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:6,cursor:isActive?"default":"pointer",fontSize:12,color:"#1a1a2e",background:isActive?"rgba(26,26,46,0.06)":"transparent",border:isActive?"1.5px solid rgba(26,26,46,0.2)":"1px solid transparent",marginBottom:2}} onMouseEnter={e=>{if(!isActive)(e.currentTarget as HTMLElement).style.background="rgba(0,0,0,0.04)"}} onMouseLeave={e=>{if(!isActive)(e.currentTarget as HTMLElement).style.background="transparent"}}>
+                    <span style={{width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.04)",borderRadius:4,fontSize:11,flexShrink:0}}>{td.icon}</span>
+                    <span style={{fontWeight:isActive?600:500}}>{tk}</span>
+                  </div>;
+                })}
+              </div>;
+            })}
+          </div>}
+        </div>;
+      })()}
+
       {/* Chat (top-left glass) */}
       {state.showChat&&<div style={{position:"fixed",top:16,left:16,width:300,maxHeight:"70vh",zIndex:100,...glass,borderRadius:16,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <div style={{padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(0,0,0,0.05)"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Sparkles size={14} color="#1a1a2e"/><span style={{fontSize:14,fontWeight:600,color:"#1a1a2e"}}>AI Chat</span></div><button onClick={()=>dispatch({type:"TOGGLE_CHAT"})} style={{background:"rgba(0,0,0,0.05)",border:"none",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><X size={14} color="rgba(26,26,46,0.5)"/></button></div>
@@ -445,16 +654,7 @@ export function Editor() {
               </div>;
             })}
             {selectedNode.annotations.filter(a=>a.type==="ai"&&!a.applied).length>1&&<button onClick={applyAllAnnotations} style={{width:"100%",padding:"6px 0",borderRadius:8,border:"1px solid rgba(245,158,11,0.3)",background:"rgba(245,158,11,0.08)",color:"#92400e",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginTop:2}}>Apply All AI Annotations</button>}
-            <div style={{display:"flex",gap:4,marginTop:6,alignItems:"center"}}>
-              <select value={annType} onChange={e=>setAnnType(e.target.value as typeof annType)} style={{padding:"5px 4px",borderRadius:6,border:"1px solid rgba(0,0,0,0.08)",background:"rgba(255,255,255,0.5)",fontSize:10,fontFamily:"inherit",color:"rgba(26,26,46,0.6)",outline:"none",cursor:"pointer"}}>
-                <option value="ai">AI</option>
-                <option value="note">Note</option>
-                <option value="behavior">Behavior</option>
-                <option value="requirement">Requirement</option>
-              </select>
-              <input value={annInput} onChange={e=>setAnnInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addAnnotation()} placeholder="e.g. Make this bigger..." style={{flex:1,padding:"6px 8px",borderRadius:8,border:"1px solid rgba(0,0,0,0.08)",background:"rgba(255,255,255,0.5)",fontSize:12,outline:"none",fontFamily:"inherit"}}/>
-              <button onClick={addAnnotation} style={{padding:"6px 10px",borderRadius:8,background:"#f59e0b",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>+ Add</button>
-            </div></div>
+            </div>
             {activeScreen&&(activeScreen.breakpoints??[]).length>1&&<div style={{padding:"12px 16px",borderTop:"1px solid rgba(0,0,0,0.05)"}}>
               <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:".04em",color:"rgba(26,26,46,0.4)",marginBottom:6}}>Responsive Overrides</div>
               <div style={{display:"flex",gap:2,marginBottom:8}}>{(activeScreen.breakpoints??[]).map(bp=><button key={bp.label} onClick={()=>setResponsiveTab(responsiveTab===bp.label?null:bp.label)} style={{flex:1,padding:"4px 0",borderRadius:6,border:"none",background:responsiveTab===bp.label?"#1a1a2e":"rgba(0,0,0,0.04)",color:responsiveTab===bp.label?"#fff":"rgba(26,26,46,0.5)",fontSize:9,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{bp.label}</button>)}</div>
@@ -497,7 +697,34 @@ export function Editor() {
             <div style={{padding:"8px 16px 16px"}}><button onClick={()=>dispatch({type:"DELETE_NODE",id:selectedNode.id})} style={{width:"100%",padding:"8px 0",borderRadius:8,border:"1px solid rgba(220,38,38,0.2)",background:"rgba(220,38,38,0.05)",color:"#dc2626",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>Delete</button></div>
           </div>}
           {rightPanel==="props"&&!selectedNode&&<div style={{padding:24,textAlign:"center",color:"rgba(26,26,46,0.35)",fontSize:13}}>Click a component<br/>to edit properties</div>}
-          {rightPanel==="variants"&&selectedNode&&REGISTRY[selectedNode.type]&&<div style={{padding:12}}><div style={{fontSize:12,fontWeight:600,color:"#1a1a2e",marginBottom:10}}>Variants for {selectedNode.type}</div>{Object.entries(REGISTRY[selectedNode.type].variants).map(([vk,vv])=><div key={vk} onClick={()=>dispatch({type:"SWAP_VARIANT",id:selectedNode.id,variant:vk})} style={{padding:"10px 12px",borderRadius:10,marginBottom:4,cursor:"pointer",background:selectedNode.variant===vk?"rgba(26,26,46,0.06)":"transparent",border:selectedNode.variant===vk?"1.5px solid rgba(26,26,46,0.2)":"1px solid rgba(0,0,0,0.06)"}}><div style={{fontSize:13,fontWeight:selectedNode.variant===vk?600:500,color:"#1a1a2e"}}>{vv.label}</div>{vv.desc&&<div style={{fontSize:11,color:"rgba(26,26,46,0.4)",marginTop:2}}>{vv.desc}</div>}</div>)}</div>}
+          {rightPanel==="variants"&&selectedNode&&REGISTRY[selectedNode.type]&&<div style={{padding:12}}>
+            {/* Change Type — collapsible, collapsed by default */}
+            <div onClick={()=>setChangeTypeOpen(o=>!o)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",padding:"4px 0",marginBottom:changeTypeOpen?8:10,fontSize:10,textTransform:"uppercase",letterSpacing:".04em",color:"rgba(26,26,46,0.4)",fontWeight:600,userSelect:"none"}}>
+              <span>Change Type</span>
+              <ChevronRight size={12} style={{transform:changeTypeOpen?"rotate(90deg)":"rotate(0deg)",transition:"transform 0.15s"}}/>
+            </div>
+            {changeTypeOpen&&<div style={{marginBottom:14,paddingBottom:10,borderBottom:"1px solid rgba(0,0,0,0.06)"}}>
+              {PALETTE_CATEGORIES.map(cat=>{
+                const items=Object.entries(REGISTRY).filter(([k,v])=>v.cat===cat.key&&k!=="__root"&&k!=="__row");
+                if(items.length===0) return null;
+                return <div key={cat.key} style={{marginBottom:6}}>
+                  <div style={{padding:"4px 2px 2px",fontSize:9,fontWeight:600,color:"rgba(26,26,46,0.35)",textTransform:"uppercase",letterSpacing:".04em"}}>{cat.label}</div>
+                  {items.map(([tk,td])=>{
+                    const isActive=selectedNode.type===tk;
+                    return <div key={tk} onClick={()=>{
+                      if(isActive) return;
+                      const firstVariant=Object.keys(REGISTRY[tk].variants)[0]??"";
+                      dispatch({type:"SWAP_TYPE",id:selectedNode.id,newType:tk as typeof selectedNode.type,newVariant:firstVariant});
+                    }} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,cursor:isActive?"default":"pointer",fontSize:12,color:"#1a1a2e",background:isActive?"rgba(26,26,46,0.06)":"transparent",border:isActive?"1.5px solid rgba(26,26,46,0.2)":"1px solid transparent",marginBottom:2}} onMouseEnter={e=>{if(!isActive)(e.currentTarget as HTMLElement).style.background="rgba(0,0,0,0.04)"}} onMouseLeave={e=>{if(!isActive)(e.currentTarget as HTMLElement).style.background="transparent"}}>
+                      <span style={{width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.04)",borderRadius:4,fontSize:11,flexShrink:0}}>{td.icon}</span>
+                      <span style={{fontWeight:isActive?600:500}}>{tk}</span>
+                    </div>;
+                  })}
+                </div>;
+              })}
+            </div>}
+            <div style={{fontSize:12,fontWeight:600,color:"#1a1a2e",marginBottom:10}}>Variants for {selectedNode.type}</div>{Object.entries(REGISTRY[selectedNode.type].variants).map(([vk,vv])=><div key={vk} onClick={()=>dispatch({type:"SWAP_VARIANT",id:selectedNode.id,variant:vk})} style={{padding:"10px 12px",borderRadius:10,marginBottom:4,cursor:"pointer",background:selectedNode.variant===vk?"rgba(26,26,46,0.06)":"transparent",border:selectedNode.variant===vk?"1.5px solid rgba(26,26,46,0.2)":"1px solid rgba(0,0,0,0.06)"}}><div style={{fontSize:13,fontWeight:selectedNode.variant===vk?600:500,color:"#1a1a2e"}}>{vv.label}</div>{vv.desc&&<div style={{fontSize:11,color:"rgba(26,26,46,0.4)",marginTop:2}}>{vv.desc}</div>}</div>)}
+          </div>}
           {rightPanel==="variants"&&(!selectedNode||!REGISTRY[selectedNode.type])&&<div style={{padding:24,textAlign:"center",color:"rgba(26,26,46,0.35)",fontSize:13}}>Select a component<br/>to see variants</div>}
           {rightPanel==="code"&&<div><div style={{padding:"10px 14px",borderBottom:"1px solid rgba(0,0,0,0.05)",display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{fontSize:12,fontWeight:600,color:"#1a1a2e"}}>{activeScreen?.name??"Screen"}</span><button onClick={()=>navigator.clipboard?.writeText(codeOutput)} style={{padding:"3px 8px",borderRadius:6,border:"1px solid rgba(0,0,0,0.08)",background:"rgba(255,255,255,0.5)",fontSize:11,cursor:"pointer",fontFamily:"inherit",color:"rgba(26,26,46,0.5)",display:"flex",alignItems:"center",gap:3}}><Copy size={10}/>Copy</button></div><pre style={{padding:14,fontSize:11,lineHeight:1.6,fontFamily:"monospace",color:"#1a1a2e",margin:0,whiteSpace:"pre-wrap",wordBreak:"break-all",background:"rgba(0,0,0,0.02)",minHeight:200}}>{codeOutput}</pre><div style={{padding:"12px 14px",borderTop:"1px solid rgba(0,0,0,0.05)"}}><button style={{width:"100%",padding:"10px 0",borderRadius:10,border:"none",background:"#1a1a2e",color:"#E2E0E0",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Rocket size={14}/>Deploy to Vercel</button><button onClick={exportNextJS} disabled={exporting} style={{width:"100%",padding:"10px 0",borderRadius:10,border:"1px solid rgba(0,0,0,0.08)",background:"rgba(255,255,255,0.5)",color:"#1a1a2e",fontSize:13,fontWeight:600,cursor:exporting?"default":"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:6,opacity:exporting?0.5:1}}><Download size={14}/>{exporting?"Generating...":"Export Next.js Project"}</button>
             <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid rgba(0,0,0,0.05)"}}>
@@ -548,16 +775,26 @@ export function Editor() {
                 </div>
                 <button onClick={()=>{
                   if(!figmaUrl.trim()||figmaLoading) return;
-                  setFigmaLoading(true);setFigmaError("");
+                  setFigmaStatus("connecting");setFigmaError("");
+                  // Visual staging of the single response — lets the user see
+                  // progress while the server does the work in one shot
+                  const t1 = setTimeout(()=>setFigmaStatus("extracting"),800);
+                  const t2 = setTimeout(()=>setFigmaStatus("mapping"),1800);
                   fetch("/system/api/figma",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileUrl:figmaUrl,accessToken:figmaToken||undefined})})
-                    .then(async r=>{const d=await r.json();if(!r.ok) throw new Error(d.error||"Failed");setFigmaResult(d as FigmaImportResult);})
-                    .catch(e=>setFigmaError(e instanceof Error?e.message:"Failed"))
-                    .finally(()=>setFigmaLoading(false));
-                }} disabled={figmaLoading||!figmaUrl.trim()} style={{width:"100%",padding:"7px 0",borderRadius:6,background:figmaLoading?"rgba(26,26,46,0.5)":"#1a1a2e",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:figmaLoading?"default":"pointer",fontFamily:"inherit",marginBottom:6}}>{figmaLoading?"Connecting to Figma...":"Connect & Import"}</button>
+                    .then(async r=>{
+                      clearTimeout(t1);clearTimeout(t2);
+                      setFigmaStatus("mapping");
+                      const d=await r.json();
+                      if(!r.ok) throw new Error(d.error||"Failed");
+                      setFigmaResult(d as FigmaImportResult);
+                      setFigmaStatus("");
+                    })
+                    .catch(e=>{clearTimeout(t1);clearTimeout(t2);setFigmaError(e instanceof Error?e.message:"Failed");setFigmaStatus("error");});
+                }} disabled={figmaLoading||!figmaUrl.trim()} style={{width:"100%",padding:"7px 0",borderRadius:6,background:figmaLoading?"rgba(26,26,46,0.5)":"#1a1a2e",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:figmaLoading?"default":"pointer",fontFamily:"inherit",marginBottom:6}}>{figmaLoading?figmaStatusText:"Connect & Import"}</button>
                 {figmaError&&<div style={{padding:"6px 8px",borderRadius:6,background:"rgba(220,38,38,0.06)",border:"1px solid rgba(220,38,38,0.12)",color:"#dc2626",fontSize:10,lineHeight:1.4}}>{figmaError}</div>}
               </>}
               {figmaResult&&<>
-                <div style={{fontSize:10,color:"rgba(26,26,46,0.5)",marginBottom:8}}>Found {figmaResult.source.variableCount} variables and {figmaResult.source.styleCount} styles in <strong style={{color:"#1a1a2e"}}>{figmaResult.source.fileName}</strong></div>
+                <div style={{fontSize:10,color:"rgba(26,26,46,0.5)",marginBottom:8}}>Imported {figmaResult.source.variableCount} variables and {figmaResult.source.styleCount} styles from <strong style={{color:"#1a1a2e"}}>{figmaResult.source.fileName}</strong>, mapped <strong style={{color:"#1a1a2e"}}>{Object.keys(figmaResult.tokens).length}</strong> token{Object.keys(figmaResult.tokens).length===1?"":"s"}.</div>
                 {Object.keys(figmaResult.tokens).length>0&&<>
                   <div style={{fontSize:10,fontWeight:600,color:"rgba(26,26,46,0.4)",marginBottom:4}}>Matched Tokens ({Object.keys(figmaResult.tokens).length})</div>
                   <div style={{maxHeight:120,overflow:"auto",marginBottom:8}}>
@@ -610,7 +847,19 @@ export function Editor() {
                   const isBuiltIn = BUILT_IN_KEYS.has(k);
                   const isModified = isBuiltIn && state.tokens[k] !== DEFAULT_TOKENS[k];
                   return <div key={k} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
-                    {g.type==="color"?<input type="color" value={state.tokens[k]??"#000"} onChange={e=>dispatch({type:"UPDATE_TOKEN",key:k,value:e.target.value})} style={{width:22,height:22,borderRadius:6,border:"1px solid rgba(0,0,0,0.1)",cursor:"pointer",padding:0}}/>:<input value={state.tokens[k]??""} onChange={e=>dispatch({type:"UPDATE_TOKEN",key:k,value:e.target.value})} style={{width:48,padding:"3px 5px",borderRadius:6,border:"1px solid rgba(0,0,0,0.08)",fontSize:10,fontFamily:"monospace",textAlign:"right",background:"rgba(255,255,255,0.5)"}}/>}
+                    {g.type==="color"
+                      ? <input type="color" value={state.tokens[k]??"#000"} onChange={e=>dispatch({type:"UPDATE_TOKEN",key:k,value:e.target.value})} style={{width:22,height:22,borderRadius:6,border:"1px solid rgba(0,0,0,0.1)",cursor:"pointer",padding:0}}/>
+                      : g.type==="text" && k.startsWith("font.") && !k.startsWith("font.weight.")
+                        ? (() => {
+                            const cur = state.tokens[k] ?? "";
+                            const hasCustom = cur && !FONT_OPTIONS.includes(cur);
+                            return <select value={cur} onChange={e=>dispatch({type:"UPDATE_TOKEN",key:k,value:e.target.value})} style={{width:120,padding:"3px 4px",borderRadius:6,border:"1px solid rgba(0,0,0,0.08)",fontSize:10,fontFamily:"inherit",background:"rgba(255,255,255,0.5)",outline:"none",cursor:"pointer"}}>
+                              {hasCustom && <option value={cur}>{fontLabel(cur)} (custom)</option>}
+                              {FONT_OPTIONS.map(opt => <option key={opt} value={opt}>{fontLabel(opt)}</option>)}
+                            </select>;
+                          })()
+                        : <input value={state.tokens[k]??""} onChange={e=>dispatch({type:"UPDATE_TOKEN",key:k,value:e.target.value})} style={{width:48,padding:"3px 5px",borderRadius:6,border:"1px solid rgba(0,0,0,0.08)",fontSize:10,fontFamily:"monospace",textAlign:"right",background:"rgba(255,255,255,0.5)"}}/>
+                    }
                     <span style={{fontSize:10,color:"rgba(26,26,46,0.5)",fontFamily:"monospace",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{k}</span>
                     {isModified&&<span onClick={()=>dispatch({type:"UPDATE_TOKEN",key:k,value:DEFAULT_TOKENS[k]})} style={{fontSize:9,color:"rgba(37,99,235,0.6)",cursor:"pointer",flexShrink:0}}>reset</span>}
                     {isCustom&&<span onClick={()=>dispatch({type:"DELETE_CUSTOM_TOKEN",key:k})} style={{fontSize:12,color:"rgba(220,38,38,0.4)",cursor:"pointer",lineHeight:1,flexShrink:0}}>&times;</span>}
@@ -637,6 +886,18 @@ export function Editor() {
             </div>}
           </div>}
         </div>
+        {rightPanel==="props"&&selectedNode&&<div style={{flexShrink:0,borderTop:"1px solid rgba(0,0,0,0.06)",padding:"10px 16px"}}>
+          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+            <select value={annType} onChange={e=>setAnnType(e.target.value as typeof annType)} style={{padding:"5px 4px",borderRadius:6,border:"1px solid rgba(0,0,0,0.08)",background:"rgba(255,255,255,0.5)",fontSize:10,fontFamily:"inherit",color:"rgba(26,26,46,0.6)",outline:"none",cursor:"pointer"}}>
+              <option value="ai">AI</option>
+              <option value="note">Note</option>
+              <option value="behavior">Behavior</option>
+              <option value="requirement">Requirement</option>
+            </select>
+            <input value={annInput} onChange={e=>setAnnInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addAnnotation(annType==="ai")} placeholder={annType==="ai"?"e.g. Make this full width":"e.g. Needs user testing..."} style={{flex:1,padding:"6px 8px",borderRadius:8,border:"1px solid rgba(0,0,0,0.08)",background:"rgba(255,255,255,0.5)",fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+            <button onClick={()=>addAnnotation(annType==="ai")} style={{padding:"6px 10px",borderRadius:8,background:"#f59e0b",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>{annType==="ai"?"Send to AI":"+ Add"}</button>
+          </div>
+        </div>}
       </div>}
 
       {/* Bottom toolbar (dark floating pill) */}

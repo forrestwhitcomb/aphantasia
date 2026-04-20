@@ -6,7 +6,7 @@ import { REGISTRY, SCREEN_ARCHETYPES } from "../registry";
 import type { AIRequest } from "./service";
 import { serializeSpecTree } from "./service";
 
-export function buildSystemPrompt(context: AIRequest["context"]): string {
+export function buildSystemPrompt(context: AIRequest["context"], mode?: AIRequest["mode"]): string {
   const registryTypes = Object.keys(REGISTRY);
 
   const variantList = Object.entries(REGISTRY)
@@ -23,6 +23,35 @@ export function buildSystemPrompt(context: AIRequest["context"]): string {
 
   const selectedCtx = context.selectedNode
     ? `\n## Selected Node\n${JSON.stringify(serializeSpecTree(context.selectedNode), null, 2)}\n`
+    : "";
+
+  // Annotation mode: user pinned an instruction to a specific node. Give the
+  // model targeted guidance about what props are available and how common
+  // visual concepts map to prop changes so it produces actionable patches.
+  const annotationGuidance = (mode === "annotation" && context.selectedNode)
+    ? `\n## Annotation Mode — Targeted Change
+The user pinned this instruction to the node above.
+
+### Target Node Details
+- id: "${context.selectedNode.id}"
+- type: ${context.selectedNode.type}
+- variant: ${context.selectedNode.variant ?? "(none)"}
+- current props: ${JSON.stringify(context.selectedNode.props, null, 2)}
+
+### Visual Concept → Prop Mapping
+- "make it full width" / "stretch" → set props.fullWidth: true, or set props.width: "100%", or wrap in a Container with width:"100%". For Button specifically, set props.fullWidth: true.
+- "make it bigger" / "larger" → update the "size" prop ("sm" | "md" | "lg" | "xl") when present, or set an explicit width/height.
+- "change color" / "make it blue/red/green" → reference a token path in the relevant prop (e.g. props.bg: "brand.primary", props.color: "text.primary"). Never emit raw hex.
+- "add spacing" / "more padding" → update props.padding, props.paddingY, props.gap using token paths.
+- "center it" / "align center" → set props.align: "center" or wrap in a Container with display:"flex", justifyContent:"center".
+- "hide on mobile" → use responsiveOverrides rather than props (out of scope for annotation; advise via explanation if asked).
+
+### Rules for Annotation Patches
+1. Your patches MUST target the selected node (id: "${context.selectedNode.id}") or its direct parent — not arbitrary other nodes in the tree.
+2. Prefer an "update" patch that merges a small set of props over a full "replace". Only use "replace" if the component type or variant needs to change.
+3. Be SPECIFIC. Emit the exact prop key and the exact value. Don't hand-wave with vague prop names like "style" or "className".
+4. If the requested change truly isn't expressible as a prop change on the selected node, explain why in the "explanation" field and return "patches": [].
+`
     : "";
 
   return `You are the AI engine inside Aphantasia, a visual design-to-code editor.
@@ -44,7 +73,7 @@ ${tokens}
 
 ## Current Screen: "${context.activeScreen.name}" (${context.activeScreen.w}×${context.activeScreen.h}, ${context.activeScreen.viewport})
 ${screenTree}
-${selectedCtx}
+${selectedCtx}${annotationGuidance}
 ## Other Screens in Project
 ${JSON.stringify(context.projectScreenNames)}
 

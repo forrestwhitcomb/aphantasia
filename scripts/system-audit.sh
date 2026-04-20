@@ -16,8 +16,8 @@ NC='\033[0m' # No Color
 ERRORS=0
 WARNINGS=0
 
-error() { echo -e "${RED}ERROR:${NC} $1"; ((ERRORS++)); }
-warn()  { echo -e "${YELLOW}WARN:${NC}  $1"; ((WARNINGS++)); }
+error() { echo -e "${RED}ERROR:${NC} $1"; ERRORS=$((ERRORS+1)); }
+warn()  { echo -e "${YELLOW}WARN:${NC}  $1"; WARNINGS=$((WARNINGS+1)); }
 ok()    { echo -e "${GREEN}OK:${NC}    $1"; }
 info()  { echo -e "${BLUE}INFO:${NC}  $1"; }
 
@@ -109,36 +109,42 @@ while IFS= read -r f; do
   # Find all import lines
   while IFS= read -r line; do
     # Extract the import path
-    path=$(echo "$line" | grep -oP "from ['\"]([^'\"]+)['\"]" | sed "s/from ['\"]//;s/['\"]//")
+    path=$(echo "$line" | grep -oE "from ['\"][^'\"]+['\"]" 2>/dev/null | sed "s/from ['\"]//;s/['\"]$//" || true)
     if [ -z "$path" ]; then continue; fi
     
+    # @/system/* and @/app/system/* aliases resolve inside the allowed tree
+    if echo "$path" | grep -qE "^@/system/|^@/app/system/"; then
+      continue
+    fi
+
     # Relative imports within system are fine
     if echo "$path" | grep -qE "^\./|^\.\./" ; then
       # But check they don't escape src/system/
       if echo "$path" | grep -qE "^\.\./\.\./|^\.\./[^.]"; then
         # Might escape — check if it goes outside system
         dir=$(dirname "$f")
-        resolved=$(cd "$dir" 2>/dev/null && realpath -m "$path" 2>/dev/null || echo "UNRESOLVED")
-        if echo "$resolved" | grep -qv "src/system"; then
-          error "IMPORT ESCAPE in $f: imports '$path' which resolves outside src/system/"
+        # Portable path normalization (macOS realpath lacks -m)
+        resolved=$(python3 -c "import os,sys; print(os.path.normpath(os.path.join(sys.argv[1], sys.argv[2])))" "$dir" "$path" 2>/dev/null || echo "UNRESOLVED")
+        if ! echo "$resolved" | grep -q "src/system"; then
+          error "IMPORT ESCAPE in $f: imports '$path' which resolves to '$resolved' (outside src/system/)"
         fi
       fi
       continue
     fi
-    
+
     # Check against allowed external packages
     if echo "$path" | grep -qE "^($ALLOWED_IMPORTS)"; then
       continue
     fi
-    
+
     # Server-side files can import Node builtins
     if echo "$f" | grep -qE "api/" && echo "$path" | grep -qE "^(fs|path|crypto|stream|url)$"; then
       continue
     fi
-    
+
     error "UNAUTHORIZED IMPORT in $f: '$path' — only react, next, lucide-react, @anthropic-ai/sdk allowed"
-    
-  done < <(grep -n "^import\|from ['\"]" "$f" 2>/dev/null || true)
+
+  done < <(grep -nE "^[[:space:]]*import[[:space:]]" "$f" 2>/dev/null || true)
   
 done < <(find src/system/ src/app/system/ -name "*.ts" -o -name "*.tsx" 2>/dev/null)
 
@@ -152,7 +158,7 @@ for f in src/system/Editor.tsx src/system/Renderer.tsx; do
   
   # Look for className= that isn't inside a string template (code gen)
   # This is a heuristic — flag for review
-  count=$(grep -c "className=" "$f" 2>/dev/null || echo "0")
+  count=$(grep -c "className=" "$f" 2>/dev/null) || count=0
   if [ "$count" -gt 0 ]; then
     warn "$f has $count className= occurrences — verify these are only in generated code strings, not editor chrome"
   else
@@ -167,10 +173,10 @@ info "Checking EditorAction ↔ reducer sync..."
 
 if [ -f "src/system/types.ts" ] && [ -f "src/system/store.tsx" ]; then
   # Extract action type strings from types.ts
-  types_actions=$(grep -oP 'type:\s*"[A-Z_]+"' src/system/types.ts | grep -oP '"[A-Z_]+"' | tr -d '"' | sort -u)
+  types_actions=$(grep -oE 'type:[[:space:]]*"[A-Z_]+"' src/system/types.ts 2>/dev/null | grep -oE '"[A-Z_]+"' | tr -d '"' | sort -u || true)
   
   # Extract case strings from store.tsx reducer
-  reducer_cases=$(grep -oP 'case\s*"[A-Z_]+"' src/system/store.tsx | grep -oP '"[A-Z_]+"' | tr -d '"' | sort -u)
+  reducer_cases=$(grep -oE 'case[[:space:]]*"[A-Z_]+"' src/system/store.tsx 2>/dev/null | grep -oE '"[A-Z_]+"' | tr -d '"' | sort -u || true)
   
   # Find actions defined but not handled
   while IFS= read -r action; do
@@ -196,7 +202,7 @@ info "Checking for anti-patterns..."
 
 # console.log left in code
 for f in $(find src/system/ src/app/system/ -name "*.ts" -o -name "*.tsx" 2>/dev/null); do
-  count=$(grep -c "console\.log" "$f" 2>/dev/null || echo "0")
+  count=$(grep -c "console\.log" "$f" 2>/dev/null) || count=0
   if [ "$count" -gt 0 ]; then
     warn "$f has $count console.log statements — remove before commit"
   fi
@@ -204,7 +210,7 @@ done
 
 # 'any' type usage
 for f in $(find src/system/ src/app/system/ -name "*.ts" -o -name "*.tsx" 2>/dev/null); do
-  count=$(grep -cE ":\s*any[^A-Za-z]|as\s+any[^A-Za-z]|<any>" "$f" 2>/dev/null || echo "0")
+  count=$(grep -cE ":[[:space:]]*any[^A-Za-z]|as[[:space:]]+any[^A-Za-z]|<any>" "$f" 2>/dev/null) || count=0
   if [ "$count" -gt 0 ]; then
     warn "$f has $count 'any' type usages — use 'unknown' and narrow instead"
   fi
@@ -213,7 +219,7 @@ done
 # useState for things that should be in reducer
 for f in src/system/Editor.tsx; do
   if [ ! -f "$f" ]; then continue; fi
-  state_count=$(grep -c "useState" "$f" 2>/dev/null || echo "0")
+  state_count=$(grep -c "useState" "$f" 2>/dev/null) || state_count=0
   if [ "$state_count" -gt 15 ]; then
     warn "$f has $state_count useState calls — review if any should be EditorState/reducer actions instead"
   fi
@@ -228,11 +234,11 @@ for f in $(find src/system/ -name "*.ts" -o -name "*.tsx" 2>/dev/null); do
   # Very rough check: imported names not used elsewhere in file
   while IFS= read -r line; do
     # Extract imported names (simple heuristic)
-    names=$(echo "$line" | grep -oP "import\s*{([^}]+)}" | sed 's/import\s*{//;s/}//' | tr ',' '\n' | sed 's/^\s*//;s/\s*$//' | grep -v "type " | grep -v "^$")
+    names=$(echo "$line" | grep -oE "import[[:space:]]*\{[^}]+\}" 2>/dev/null | sed 's/import[[:space:]]*{//;s/}//' | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v "^type " | grep -v "^$" || true)
     for name in $names; do
       clean=$(echo "$name" | sed 's/ as .*//')
       # Count occurrences (excluding the import line itself)
-      uses=$(grep -c "$clean" "$f" 2>/dev/null || echo "0")
+      uses=$(grep -c "$clean" "$f" 2>/dev/null) || uses=0
       if [ "$uses" -le 1 ]; then
         warn "Potentially unused import '$clean' in $f"
       fi

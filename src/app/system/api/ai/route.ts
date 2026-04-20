@@ -11,7 +11,7 @@ const client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as AIRequest;
-    const systemPrompt = buildSystemPrompt(body.context);
+    const systemPrompt = buildSystemPrompt(body.context, body.mode);
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",

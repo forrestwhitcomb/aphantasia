@@ -134,6 +134,14 @@ function EditableText({ value, style, singleLine, onCommit }: EditableTextProps)
   );
 }
 
+// Parse a token value like "16px" or "400" or "1.25" to a number.
+// Used by the typography styleMap to convert token strings to numeric CSS values.
+const parseNum = (v: string | undefined, fallback: number): number => {
+  if (!v) return fallback;
+  const n = parseFloat(v);
+  return isNaN(n) ? fallback : n;
+};
+
 function NodeRenderer({ node, tokens, selectedId, onSelect, live, editingNodeId, editingProp, dispatch, activeBreakpoint, depth }: NodeProps) {
   const [hov, setHov] = useState(false);
   const [ddOpen, setDdOpen] = useState(false);
@@ -594,13 +602,48 @@ function NodeRenderer({ node, tokens, selectedId, onSelect, live, editingNodeId,
 
   // ── Text ──
   if (node.type === "Text") {
+    // Token-resolved type scale. Headings use font.heading (falling back to font.sans);
+    // body variants use font.sans. parseNum strips "px"/unit suffixes from the token values.
     const styleMap: Record<string, CSSProperties> = {
-      h1:      { fontSize: 40, fontWeight: 800, lineHeight: 1.05, letterSpacing: "-0.03em" },
-      h2:      { fontSize: 28, fontWeight: 700, lineHeight: 1.15, letterSpacing: "-0.02em" },
-      h3:      { fontSize: 20, fontWeight: 600, lineHeight: 1.25, letterSpacing: "-0.015em" },
-      p:       { fontSize: 15, fontWeight: 400, lineHeight: 1.6 },
-      caption: { fontSize: 13, fontWeight: 400, lineHeight: 1.4 },
-      label:   { fontSize: 14, fontWeight: 500, lineHeight: 1.3 },
+      h1: {
+        fontSize: parseNum(t("text.5xl"), 48),
+        fontWeight: parseNum(t("font.weight.extrabold"), 800),
+        lineHeight: parseNum(t("leading.tight"), 1.1),
+        letterSpacing: "-0.03em",
+        fontFamily: t("font.heading") ?? t("font.sans"),
+      },
+      h2: {
+        fontSize: parseNum(t("text.3xl"), 30),
+        fontWeight: parseNum(t("font.weight.bold"), 700),
+        lineHeight: parseNum(t("leading.snug"), 1.25),
+        letterSpacing: "-0.02em",
+        fontFamily: t("font.heading") ?? t("font.sans"),
+      },
+      h3: {
+        fontSize: parseNum(t("text.xl"), 20),
+        fontWeight: parseNum(t("font.weight.semibold"), 600),
+        lineHeight: parseNum(t("leading.snug"), 1.25),
+        letterSpacing: "-0.015em",
+        fontFamily: t("font.heading") ?? t("font.sans"),
+      },
+      p: {
+        fontSize: parseNum(t("text.base"), 16),
+        fontWeight: parseNum(t("font.weight.normal"), 400),
+        lineHeight: parseNum(t("leading.relaxed"), 1.65),
+        fontFamily: t("font.sans"),
+      },
+      caption: {
+        fontSize: parseNum(t("text.xs"), 12),
+        fontWeight: parseNum(t("font.weight.normal"), 400),
+        lineHeight: parseNum(t("leading.normal"), 1.5),
+        fontFamily: t("font.sans"),
+      },
+      label: {
+        fontSize: parseNum(t("text.sm"), 14),
+        fontWeight: parseNum(t("font.weight.medium"), 500),
+        lineHeight: parseNum(t("leading.snug"), 1.25),
+        fontFamily: t("font.sans"),
+      },
     };
     const sm = styleMap[node.variant ?? "p"] ?? styleMap.p;
     const isSecondary = node.variant === "caption" || node.variant === "label";
@@ -615,7 +658,7 @@ function NodeRenderer({ node, tokens, selectedId, onSelect, live, editingNodeId,
         style={{
           ...baseStyle,
           ...sm,
-          fontFamily: t("font.sans"),
+          // fontFamily is set per-variant in styleMap (headings use font.heading, body uses font.sans)
           color: p.color ? t(p.color as string) : t(isSecondary ? "text.secondary" : "text.primary"),
           whiteSpace: "pre-line",
           padding: p.paddingY ? `${p.paddingY} 0` : undefined,

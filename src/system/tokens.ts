@@ -55,8 +55,33 @@ export const DEFAULT_TOKENS: Record<string, string> = {
   "spacing.3xl": "64px",
 
   // ── Typography ──
-  "font.sans": "'Inter', system-ui, -apple-system, sans-serif",
-  "font.mono": "'JetBrains Mono', 'SF Mono', 'Cascadia Code', monospace",
+  "font.sans":    "'Inter', system-ui, -apple-system, sans-serif",
+  "font.heading": "'Inter', system-ui, -apple-system, sans-serif",
+  "font.mono":    "'JetBrains Mono', 'SF Mono', 'Cascadia Code', monospace",
+
+  // ── Type Scale ──
+  "text.xs":   "12px",
+  "text.sm":   "14px",
+  "text.base": "16px",
+  "text.lg":   "18px",
+  "text.xl":   "20px",
+  "text.2xl":  "24px",
+  "text.3xl":  "30px",
+  "text.4xl":  "36px",
+  "text.5xl":  "48px",
+
+  // ── Font Weights ──
+  "font.weight.normal":     "400",
+  "font.weight.medium":     "500",
+  "font.weight.semibold":   "600",
+  "font.weight.bold":       "700",
+  "font.weight.extrabold":  "800",
+
+  // ── Line Heights ──
+  "leading.tight":    "1.1",
+  "leading.snug":     "1.25",
+  "leading.normal":   "1.5",
+  "leading.relaxed":  "1.65",
 };
 
 // ── Theme presets ───────────────────────────────────────────
@@ -152,6 +177,16 @@ export const TOKEN_GROUPS = [
     title: "Border",
     keys: ["border.default", "border.strong", "border.focus"],
     type: "color" as const,
+  },
+  {
+    title: "Typography",
+    keys: ["font.sans", "font.heading", "font.mono"],
+    type: "text" as const,
+  },
+  {
+    title: "Type Scale",
+    keys: ["text.xs", "text.sm", "text.base", "text.lg", "text.xl", "text.2xl", "text.3xl", "text.4xl", "text.5xl"],
+    type: "text" as const,
   },
   {
     title: "Spacing",

@@ -3,8 +3,14 @@
 // ============================================================
 
 import type { EditorState, EditorAction, SpecNode } from "../types";
-import { REGISTRY } from "../registry";
+import { REGISTRY, uid } from "../registry";
 import type { SpecNodePatch } from "./service";
+
+// Replace AI-authored node ids (e.g. "ai_1", "ai_2") with fresh local uids so
+// multiple generations can't produce the same id twice in the same project.
+function remapIds(node: SpecNode): SpecNode {
+  return { ...node, id: uid(), children: node.children.map(remapIds) };
+}
 
 // ── Validation ──────────────────────────────────────────────
 
@@ -120,7 +126,7 @@ export function applyPatches(
         actions.push({
           type: "ADD_COMPONENT",
           screenId: state.activeScreenId,
-          node: patch.node,
+          node: remapIds(patch.node),
         });
         break;
 

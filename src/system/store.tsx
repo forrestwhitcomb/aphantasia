@@ -288,6 +288,25 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       };
     }
 
+    case "SWAP_TYPE": {
+      return {
+        ...state,
+        project: {
+          ...state.project,
+          screens: state.project.screens.map((s) => {
+            const found = findInTree(s.root, action.id);
+            if (!found) return s;
+            const replacement = makeSpec(action.newType, action.newVariant);
+            // Preserve id + annotations across the type change; everything
+            // else (props, children) comes from the new type's factory.
+            replacement.id = found.id;
+            replacement.annotations = found.annotations;
+            return { ...s, root: updateInTree(s.root, action.id, () => replacement) };
+          }),
+        },
+      };
+    }
+
     case "ADD_COMPONENT": {
       return {
         ...state,
@@ -300,6 +319,25 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
               root: { ...s.root, children: [...s.root.children, action.node] },
             };
           }),
+        },
+        selectedNodeId: action.node.id,
+        panelTab: "props",
+      };
+    }
+
+    case "ADD_CHILD_COMPONENT": {
+      // Append the new node as a child of the parentId, found anywhere in the tree.
+      return {
+        ...state,
+        project: {
+          ...state.project,
+          screens: state.project.screens.map((s) => ({
+            ...s,
+            root: updateInTree(s.root, action.parentId, (p) => ({
+              ...p,
+              children: [...p.children, action.node],
+            })),
+          })),
         },
         selectedNodeId: action.node.id,
         panelTab: "props",
@@ -476,6 +514,23 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       };
     }
 
+    case "MOVE_SCREEN": {
+      return {
+        ...state,
+        project: {
+          ...state.project,
+          screens: state.project.screens.map((s) =>
+            s.id === action.id ? { ...s, x: action.x, y: action.y } : s,
+          ),
+        },
+      };
+    }
+
+    case "MOVE_SCREEN_DONE":
+      // No state change; the history middleware snapshots on this action so
+      // the whole drag collapses into one undo entry.
+      return state;
+
     case "REORDER_NODE": {
       return {
         ...state,
@@ -610,6 +665,7 @@ const SKIP_HISTORY: EditorAction["type"][] = [
   "SET_PAN", "SET_ZOOM", "SET_TOOL", "SELECT_NODE",
   "TOGGLE_LIVE", "TOGGLE_CHAT", "TOGGLE_PALETTE", "SET_PANEL",
   "SET_ACTIVE_SCREEN", "START_EDITING", "STOP_EDITING", "RENAME_PROJECT", "SET_PREVIEW_BREAKPOINT",
+  "MOVE_SCREEN", "MOVE_SCREEN_DONE",
 ];
 
 function historyReducer(history: HistoryState, action: EditorAction): HistoryState {
@@ -636,6 +692,9 @@ function historyReducer(history: HistoryState, action: EditorAction): HistorySta
     };
   }
   if (action.type === "SNAPSHOT") {
+    // Pushes the CURRENT present onto past so the next mutation (run through
+    // SKIP_HISTORY) is undoable back to this point. Used to checkpoint before
+    // a batch of skip-history actions (e.g. the start of a screen drag).
     return {
       past: [...history.past.slice(-50), history.present],
       present: history.present,
